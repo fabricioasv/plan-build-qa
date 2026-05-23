@@ -7,6 +7,9 @@ description: Run, add, or troubleshoot Plan Build QA sensors and test validation
 
 Use this skill when the user asks to test, validate, run sensors, diagnose failing sensors, or close a package.
 
+> **Blocking rule**
+> **NEVER** treat missing, pending, or failed required sensor evidence as success.
+
 Canonical files:
 
 - `.plan-build-qa/sensors.json`
@@ -21,7 +24,7 @@ Workflow:
 2. Read required sensors from the package contract when a package is active.
 3. Prefer `pbq package close . --spec <spec> --package <N> --tiers <tiers>` for enforced execution and evaluation generation.
 4. For exploratory validation, use `.plan-build-qa/harness/scripts/run-fast.ps1`, `run-medium.ps1`, or `run-slow.ps1`.
-5. Record every required sensor in the evaluation table with status, command, exit code, and evidence.
+5. **REQUIRED**: record every required sensor in the evaluation table with status, command, exit code, and evidence.
 6. If a required sensor cannot run, mark it `pendente` and keep `Score: 0`.
 
-Never treat missing sensor evidence as success.
+**NEVER** treat missing sensor evidence as success.

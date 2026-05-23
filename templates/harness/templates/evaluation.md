@@ -2,6 +2,9 @@
 
 Score: 0
 
+> **Regra de bloqueio**
+> **NUNCA** marque `Score: 1` se algum sensor obrigatorio estiver `falhou`, `pendente` ou ausente desta evaluation.
+
 ## Resumo De Sensores
 
 | Sensor | Tier | Obrigatorio | Status | Comando | Exit Code | Evidencia |
@@ -17,9 +20,9 @@ Status permitidos:
 
 Regra:
 
-- Todo sensor obrigatorio do contrato deve aparecer nesta tabela.
-- `Score: 1` exige todos os sensores obrigatorios com status `passou`.
-- Se algum sensor obrigatorio estiver `falhou`, `pendente` ou ausente, o Score deve ser `0`.
+- **OBRIGATORIO**: todo sensor obrigatorio do contrato deve aparecer nesta tabela.
+- **OBRIGATORIO**: `Score: 1` exige todos os sensores obrigatorios com status `passou`.
+- **NUNCA** use `Score: 1` se algum sensor obrigatorio estiver `falhou`, `pendente` ou ausente.
 
 ## Log De Execucao Dos Sensores
 
@@ -35,5 +38,5 @@ Regra:
 
 Regra:
 
-- Score: 1 somente se todos os sensores obrigatorios passarem e nao houver violacao critica.
-- Score: 0 se houver falha, sensor pendente, regressao ou violacao critica.
+- **Score: 1** somente se todos os sensores obrigatorios passarem e nao houver violacao critica.
+- **Score: 0** se houver falha, sensor pendente, regressao ou violacao critica.

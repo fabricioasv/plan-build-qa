@@ -1304,6 +1304,9 @@ ${architectureSignalMd(project.architecture)}
 
 ## Principios
 
+> **Regra de arquitetura**
+> **NUNCA** trate a arquitetura atual como autoridade absoluta. Use-a como evidencia e aplique boas praticas de engenharia.
+
 - Use a estrutura atual como evidencia, nao como autoridade absoluta.
 - Prefira boas praticas de engenharia: coesao alta, acoplamento baixo, separacao de responsabilidades, nomes claros, testes objetivos e fronteiras explicitas.
 - Prefira mudancas pequenas, reversiveis e testaveis.
@@ -1345,6 +1348,9 @@ function constitutionTesting(project) {
   return `# Constitution: Testing
 
 ## Estrategia
+
+> **Regra de bloqueio**
+> **NUNCA** declare uma mudanca concluida sem evidencia dos sensores obrigatorios.
 
 - Sensores computacionais valem mais que julgamento subjetivo do agente.
 - Todo package deve listar sensores obrigatorios antes da implementacao.
@@ -1390,6 +1396,9 @@ function constitutionOperations(project) {
   return `# Constitution: Operations
 
 ## Seguranca Operacional
+
+> **Regra de seguranca**
+> **PARE** antes de executar comando destrutivo, deploy, publish, migration, seed ou alteracao de ambiente sem aprovacao humana explicita.
 
 - Nao execute comandos destrutivos, deploy, publish, migration, seed ou alteracao de ambiente sem aprovacao humana explicita.
 - Nao leia, imprima ou copie segredos de arquivos \`.env\`, cofres, variaveis sensiveis ou logs privados.

@@ -93,11 +93,12 @@ try {
   assert.match(codexImplementSkill, /pbq package close/);
 
   const claudeTestSkill = await readFile(path.join(root, ".claude/skills/test/SKILL.md"), "utf8");
-  assert.match(claudeTestSkill, /Never treat missing sensor evidence as success/);
+  assert.match(claudeTestSkill, /NEVER.*missing sensor evidence as success/);
 
   const architecture = await readFile(path.join(root, ".plan-build-qa/constitution/architecture.md"), "utf8");
   assert.match(architecture, /Varredura Arquitetural Inicial/);
   assert.match(architecture, /Use a estrutura atual como evidencia/);
+  assert.match(architecture, /NUNCA.*arquitetura atual/);
 
   const evaluationTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/evaluation.md"), "utf8");
   assert.match(evaluationTemplate, /Resumo De Sensores/);
