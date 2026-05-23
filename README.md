@@ -4,7 +4,7 @@
 
 O objetivo e transformar um prompt de bootstrap em um comando deterministico, idempotente e auditavel para Claude, Claude Code, Codex, Cursor Agents, Windsurf e OpenAI Agents.
 
-## Uso local
+## Uso Local
 
 ```powershell
 npm install
@@ -18,38 +18,50 @@ Sem `npm link`:
 node .\bin\pbq.mjs init C:\caminho\do\repo
 ```
 
-Opcoes:
+Comandos:
 
 ```text
 pbq init [path] [--force] [--dry-run] [--no-agent-integration]
+pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
+pbq sensor list [path]
 ```
 
 - `--force`: permite sobrescrever arquivos do harness gerados anteriormente.
 - `--dry-run`: mostra o que seria criado ou alterado, sem escrever.
-- `--no-agent-integration`: nao adiciona a secao "Harness Engineering" em `AGENTS.md`, `CLAUDE.md`, `.cursorrules` ou regras similares.
+- `--no-agent-integration`: nao adiciona a secao "Harness Engineering" em arquivos de instrucao.
 
-Por padrao, o init cria `AGENTS.md` e `CLAUDE.md` quando eles nao existem, com uma ponte curta para `.constitution/` e `.harness/`. Se esses arquivos ja existirem, ele apenas anexa uma secao marcada e preserva o restante.
+Por padrao, o init cria `AGENTS.md` e `CLAUDE.md` quando eles nao existem, com uma ponte curta para `.plan-build-qa/`. Se esses arquivos ja existirem, ele apenas anexa uma secao marcada e preserva o restante.
 
-## O que o init cria
+Para Claude Code, o init tambem cria adaptadores em `.claude/skills/spec/SKILL.md` e `.claude/skills/sensor/SKILL.md`, porque o Claude so descobre slash commands de projeto dentro de `.claude/commands/` ou `.claude/skills/`. O conteudo canonico continua em `.plan-build-qa/`.
+
+## O Que O Init Cria
 
 ```text
-.constitution/
-.harness/
-.harness/prompts/
-.harness/scripts/
-.harness/templates/
-.harness/evaluations/
-.specs/
+.plan-build-qa/
+  constitution/
+  harness/
+    prompts/
+    scripts/
+    templates/
+    evaluations/
+  specs/
+  sensors.json
+.claude/
+  skills/
+    spec/
+    sensor/
 ```
 
 Os templates fonte ficam versionados em `templates/`:
 
 ```text
 templates/
-├── harness/
-│   ├── prompts/
-│   └── templates/
-└── specs/
+  adapters/
+    claude/
+  harness/
+    prompts/
+    templates/
+  specs/
 ```
 
 Isso permite evoluir `spec.md`, `contract.md`, `progress.md`, `evaluation.md` e prompts operacionais sem mexer na logica do CLI.
@@ -57,19 +69,31 @@ Isso permite evoluir `spec.md`, `contract.md`, `progress.md`, `evaluation.md` e 
 Os scripts gerados rodam a partir da raiz do repositorio alvo:
 
 ```powershell
-.\.harness\scripts\check-harness-structure.ps1
-.\.harness\scripts\run-fast.ps1
-.\.harness\scripts\run-medium.ps1
-.\.harness\scripts\run-slow.ps1
+.\.plan-build-qa\harness\scripts\check-harness-structure.ps1
+.\.plan-build-qa\harness\scripts\run-fast.ps1
+.\.plan-build-qa\harness\scripts\run-medium.ps1
+.\.plan-build-qa\harness\scripts\run-slow.ps1
 ```
 
 Tambem sao criados equivalentes `.sh` para ambientes Unix quando possivel.
 
+## Sensores
+
+Sensores ficam registrados em `.plan-build-qa/sensors.json`. Para adicionar um E2E manualmente:
+
+```powershell
+pbq sensor add C:\caminho\do\repo --name e2e --tier slow --command ".\scripts\run-e2e.ps1" --reason "Valida fluxo E2E principal"
+```
+
+O comando atualiza `sensors.json` e regenera os runners `run-fast`, `run-medium` e `run-slow`.
+
+No Claude Code, use `/sensor` para orientar o agente a cadastrar ou revisar sensores.
+
 ## Principios
 
-- Guias permanentes ficam em `.constitution/`.
-- Sensores computacionais ficam em `.harness/scripts/`.
-- Iniciativas medias ou grandes ficam em `.specs/spec-XXX-nome/`.
+- Guias permanentes ficam em `.plan-build-qa/constitution/`.
+- Sensores computacionais ficam em `.plan-build-qa/harness/scripts/`.
+- Iniciativas medias ou grandes ficam em `.plan-build-qa/specs/spec-XXX-nome/`.
 - Cada package deve ser pequeno, reversivel e validavel.
 - O agente nao deve declarar conclusao apenas por julgamento subjetivo.
 

@@ -2,8 +2,8 @@
 
 Voce esta implementando um package dentro do Harness Engineering System.
 
-1. Carregue as regras relevantes em `.constitution/`.
-2. Carregue a spec ativa em `.specs/spec-XXX-nome/spec.md`.
+1. Carregue as regras relevantes em `.plan-build-qa/constitution/`.
+2. Carregue a spec ativa em `.plan-build-qa/specs/spec-XXX-nome/spec.md`.
 3. Carregue `progress.md`.
 4. Carregue o contrato do package em `contracts/package-N.md`.
 5. Implemente somente o escopo aprovado.

@@ -6,29 +6,31 @@ import { fileURLToPath } from "node:url";
 
 const MARKER_START = "<!-- PBQ-HARNESS-START -->";
 const MARKER_END = "<!-- PBQ-HARNESS-END -->";
+const HARNESS_DIR = ".plan-build-qa";
 
 const REQUIRED_FILES = [
-  ".constitution/architecture.md",
-  ".constitution/testing.md",
-  ".constitution/operations.md",
-  ".constitution/repository-rules.md",
-  ".harness/README.md",
-  ".harness/prompts/implement-package.md",
-  ".harness/prompts/validate-contract.md",
-  ".harness/prompts/run-evaluation.md",
-  ".harness/scripts/run-fast.ps1",
-  ".harness/scripts/run-medium.ps1",
-  ".harness/scripts/run-slow.ps1",
-  ".harness/scripts/check-harness-structure.ps1",
-  ".harness/scripts/run-fast.sh",
-  ".harness/scripts/run-medium.sh",
-  ".harness/scripts/run-slow.sh",
-  ".harness/scripts/check-harness-structure.sh",
-  ".harness/templates/spec.md",
-  ".harness/templates/contract.md",
-  ".harness/templates/progress.md",
-  ".harness/templates/evaluation.md",
-  ".specs/README.md"
+  `${HARNESS_DIR}/constitution/architecture.md`,
+  `${HARNESS_DIR}/constitution/testing.md`,
+  `${HARNESS_DIR}/constitution/operations.md`,
+  `${HARNESS_DIR}/constitution/repository-rules.md`,
+  `${HARNESS_DIR}/harness/README.md`,
+  `${HARNESS_DIR}/harness/prompts/implement-package.md`,
+  `${HARNESS_DIR}/harness/prompts/validate-contract.md`,
+  `${HARNESS_DIR}/harness/prompts/run-evaluation.md`,
+  `${HARNESS_DIR}/harness/scripts/run-fast.ps1`,
+  `${HARNESS_DIR}/harness/scripts/run-medium.ps1`,
+  `${HARNESS_DIR}/harness/scripts/run-slow.ps1`,
+  `${HARNESS_DIR}/harness/scripts/check-harness-structure.ps1`,
+  `${HARNESS_DIR}/harness/scripts/run-fast.sh`,
+  `${HARNESS_DIR}/harness/scripts/run-medium.sh`,
+  `${HARNESS_DIR}/harness/scripts/run-slow.sh`,
+  `${HARNESS_DIR}/harness/scripts/check-harness-structure.sh`,
+  `${HARNESS_DIR}/harness/templates/spec.md`,
+  `${HARNESS_DIR}/harness/templates/contract.md`,
+  `${HARNESS_DIR}/harness/templates/progress.md`,
+  `${HARNESS_DIR}/harness/templates/evaluation.md`,
+  `${HARNESS_DIR}/specs/README.md`,
+  `${HARNESS_DIR}/sensors.json`
 ];
 
 main().catch((error) => {
@@ -45,6 +47,11 @@ async function main() {
     return;
   }
 
+  if (command === "sensor") {
+    await runSensorCommand(args);
+    return;
+  }
+
   if (command !== "init") {
     throw new Error(`Comando desconhecido: ${command}`);
   }
@@ -55,13 +62,17 @@ async function main() {
 
   const project = await inspectProject(targetRoot);
   const generated = await generateFiles(project);
+  if (!options.integrateAgents) {
+    delete generated[".claude/skills/spec/SKILL.md"];
+    delete generated[".claude/skills/sensor/SKILL.md"];
+  }
   const events = [];
 
   for (const [relativePath, content] of Object.entries(generated)) {
     await writeManagedFile(targetRoot, relativePath, content, options, events);
   }
 
-  await ensureDirectory(path.join(targetRoot, ".harness", "evaluations"), options, events);
+  await ensureDirectory(path.join(targetRoot, HARNESS_DIR, "harness", "evaluations"), options, events);
 
   if (options.integrateAgents) {
     await integrateAgentInstructions(targetRoot, project.agentInstructionFiles, options, events);
@@ -95,8 +106,125 @@ function parseInitArgs(args) {
   return options;
 }
 
+async function runSensorCommand(args) {
+  const action = args.shift();
+  if (action === "add") {
+    const options = parseSensorAddArgs(args);
+    const targetRoot = path.resolve(options.targetPath);
+    await ensureDirectory(targetRoot);
+    const sensors = await readSensors(targetRoot);
+    const nextSensor = {
+      name: options.name,
+      tier: options.tier,
+      command: options.command,
+      reason: options.reason || "Sensor adicionado manualmente",
+      source: "manual",
+      enabled: true
+    };
+    const index = sensors.findIndex((sensor) => sensor.name === nextSensor.name);
+    if (index >= 0) sensors[index] = nextSensor;
+    else sensors.push(nextSensor);
+
+    await writeSensors(targetRoot, sensors);
+    await regenerateSensorScripts(targetRoot, sensors);
+    console.log(`[pbq] Sensor ${index >= 0 ? "updated" : "added"}: ${nextSensor.name} (${nextSensor.tier})`);
+    return;
+  }
+
+  if (action === "list") {
+    const targetRoot = path.resolve(args[0] || ".");
+    const sensors = await readSensors(targetRoot);
+    if (sensors.length === 0) {
+      console.log("[pbq] Nenhum sensor cadastrado.");
+      return;
+    }
+    for (const sensor of sensors) {
+      console.log(`${sensor.enabled === false ? "disabled" : "enabled"}\t${sensor.tier}\t${sensor.name}\t${sensor.command}`);
+    }
+    return;
+  }
+
+  throw new Error("Uso: pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]");
+}
+
+function parseSensorAddArgs(args) {
+  const options = {
+    targetPath: ".",
+    name: "",
+    tier: "",
+    command: "",
+    reason: ""
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--name") options.name = readOptionValue(args, ++index, "--name");
+    else if (arg === "--tier") options.tier = readOptionValue(args, ++index, "--tier");
+    else if (arg === "--command") options.command = readOptionValue(args, ++index, "--command");
+    else if (arg === "--reason") options.reason = readOptionValue(args, ++index, "--reason");
+    else if (arg.startsWith("--")) throw new Error(`Opcao desconhecida: ${arg}`);
+    else options.targetPath = arg;
+  }
+
+  if (!options.name) throw new Error("Informe --name.");
+  if (!["fast", "medium", "slow"].includes(options.tier)) throw new Error("Informe --tier fast, medium ou slow.");
+  if (!options.command) throw new Error("Informe --command.");
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(options.name)) {
+    throw new Error("--name deve conter apenas letras, numeros, ponto, underscore ou hifen.");
+  }
+
+  return options;
+}
+
+function readOptionValue(args, index, optionName) {
+  const value = args[index];
+  if (!value || value.startsWith("--")) throw new Error(`Informe valor para ${optionName}.`);
+  return value;
+}
+
+async function readSensors(root) {
+  const sensorsPath = path.join(root, HARNESS_DIR, "sensors.json");
+  if (!existsSync(sensorsPath)) {
+    throw new Error(`Arquivo de sensores nao encontrado: ${path.join(HARNESS_DIR, "sensors.json")}. Rode pbq init primeiro.`);
+  }
+  const parsed = JSON.parse(await readFile(sensorsPath, "utf8"));
+  return Array.isArray(parsed.sensors) ? parsed.sensors : [];
+}
+
+async function writeSensors(root, sensors) {
+  const sensorsPath = path.join(root, HARNESS_DIR, "sensors.json");
+  await writeFile(sensorsPath, JSON.stringify({ version: 1, sensors }, null, 2) + "\n", "utf8");
+}
+
+async function regenerateSensorScripts(root, sensors) {
+  const placeholders = sensorPlaceholders(sensors);
+  const files = {
+    [`${HARNESS_DIR}/harness/scripts/run-fast.ps1`]: psRunScript("fast", sensors, placeholders),
+    [`${HARNESS_DIR}/harness/scripts/run-medium.ps1`]: psRunScript("medium", sensors, placeholders),
+    [`${HARNESS_DIR}/harness/scripts/run-slow.ps1`]: psRunScript("slow", sensors, placeholders),
+    [`${HARNESS_DIR}/harness/scripts/run-fast.sh`]: shRunScript("fast", sensors, placeholders),
+    [`${HARNESS_DIR}/harness/scripts/run-medium.sh`]: shRunScript("medium", sensors, placeholders),
+    [`${HARNESS_DIR}/harness/scripts/run-slow.sh`]: shRunScript("slow", sensors, placeholders)
+  };
+
+  for (const [relativePath, content] of Object.entries(files)) {
+    await writeFile(path.join(root, relativePath), content, "utf8");
+  }
+}
+
+function sensorPlaceholders(sensors) {
+  return ["fast", "medium", "slow"]
+    .filter((tier) => !sensors.some((sensor) => sensor.tier === tier && sensor.enabled !== false))
+    .map((tier) => ({
+      bucket: tier,
+      text: `Nenhum sensor ${tier} cadastrado. Use 'pbq sensor add --tier ${tier}' para adicionar.`
+    }));
+}
+
 function printHelp() {
   console.log(`pbq init [path] [--force] [--dry-run] [--no-agent-integration]
+pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
+pbq sensor list [path]
 
 Cria um Harness Engineering System deterministico no repositorio alvo.
 `);
@@ -107,6 +235,8 @@ async function inspectProject(root) {
     maxFiles: 2000,
     ignoredDirectories: new Set([
       ".git",
+      HARNESS_DIR,
+      ".claude",
       "node_modules",
       "dist",
       "build",
@@ -318,6 +448,9 @@ function detectCommands(fileSet, packageJson) {
   if ([...fileSet].some((file) => /\.(sln|csproj)$/i.test(file))) {
     add("medium", "dotnet build", "Projeto .NET detectado");
     add("medium", "dotnet test", "Projeto .NET detectado");
+    for (const projectFile of [...fileSet].filter((file) => /\.csproj$/i.test(file) && /(e2e|endtoend|end-to-end|playwright|selenium)/i.test(file))) {
+      add("slow", `dotnet test "${projectFile}"`, `Projeto .NET E2E detectado: ${projectFile}`);
+    }
   }
 
   if (hasAny(fileSet, ["gradlew", "gradlew.bat", "build.gradle", "build.gradle.kts"])) {
@@ -346,13 +479,13 @@ function detectCommands(fileSet, packageJson) {
   if (commands.fast.length === 0) {
     commands.placeholders.push({
       bucket: "fast",
-      text: "Nenhum lint/typecheck/teste unitario rapido foi detectado. Adicione comandos reais em .harness/scripts/run-fast.ps1 quando existirem."
+      text: `Nenhum lint/typecheck/teste unitario rapido foi detectado. Use 'pbq sensor add' ou edite ${HARNESS_DIR}/sensors.json quando existir.`
     });
   }
   if (commands.medium.length === 0) {
     commands.placeholders.push({
       bucket: "medium",
-      text: "Nenhum build/teste completo foi detectado. Adicione comandos reais em .harness/scripts/run-medium.ps1 quando existirem."
+      text: `Nenhum build/teste completo foi detectado. Use 'pbq sensor add' ou edite ${HARNESS_DIR}/sensors.json quando existir.`
     });
   }
   if (commands.slow.length === 0) {
@@ -377,29 +510,58 @@ function hasAny(fileSet, files) {
 }
 
 async function generateFiles(project) {
+  const sensors = buildSensors(project.commands);
   return Object.fromEntries([
-    [".constitution/architecture.md", constitutionArchitecture(project)],
-    [".constitution/testing.md", constitutionTesting(project)],
-    [".constitution/operations.md", constitutionOperations(project)],
-    [".constitution/repository-rules.md", constitutionRepositoryRules(project)],
-    [".harness/README.md", harnessReadme(project)],
-    [".harness/prompts/implement-package.md", await loadTemplate("harness/prompts/implement-package.md")],
-    [".harness/prompts/validate-contract.md", await loadTemplate("harness/prompts/validate-contract.md")],
-    [".harness/prompts/run-evaluation.md", await loadTemplate("harness/prompts/run-evaluation.md")],
-    [".harness/scripts/check-harness-structure.ps1", psCheckHarnessStructure()],
-    [".harness/scripts/run-fast.ps1", psRunScript("fast", project.commands.fast, project.commands.placeholders)],
-    [".harness/scripts/run-medium.ps1", psRunScript("medium", project.commands.medium, project.commands.placeholders)],
-    [".harness/scripts/run-slow.ps1", psRunScript("slow", project.commands.slow, project.commands.placeholders)],
-    [".harness/scripts/check-harness-structure.sh", shCheckHarnessStructure()],
-    [".harness/scripts/run-fast.sh", shRunScript("fast", project.commands.fast, project.commands.placeholders)],
-    [".harness/scripts/run-medium.sh", shRunScript("medium", project.commands.medium, project.commands.placeholders)],
-    [".harness/scripts/run-slow.sh", shRunScript("slow", project.commands.slow, project.commands.placeholders)],
-    [".harness/templates/spec.md", await loadTemplate("harness/templates/spec.md")],
-    [".harness/templates/contract.md", await loadTemplate("harness/templates/contract.md")],
-    [".harness/templates/progress.md", await loadTemplate("harness/templates/progress.md")],
-    [".harness/templates/evaluation.md", await loadTemplate("harness/templates/evaluation.md")],
-    [".specs/README.md", await loadTemplate("specs/README.md")]
+    [`${HARNESS_DIR}/constitution/architecture.md`, constitutionArchitecture(project)],
+    [`${HARNESS_DIR}/constitution/testing.md`, constitutionTesting(project)],
+    [`${HARNESS_DIR}/constitution/operations.md`, constitutionOperations(project)],
+    [`${HARNESS_DIR}/constitution/repository-rules.md`, constitutionRepositoryRules(project)],
+    [`${HARNESS_DIR}/harness/README.md`, harnessReadme(project)],
+    [`${HARNESS_DIR}/harness/prompts/implement-package.md`, await loadTemplate("harness/prompts/implement-package.md")],
+    [`${HARNESS_DIR}/harness/prompts/validate-contract.md`, await loadTemplate("harness/prompts/validate-contract.md")],
+    [`${HARNESS_DIR}/harness/prompts/run-evaluation.md`, await loadTemplate("harness/prompts/run-evaluation.md")],
+    [`${HARNESS_DIR}/harness/scripts/check-harness-structure.ps1`, psCheckHarnessStructure()],
+    [`${HARNESS_DIR}/harness/scripts/run-fast.ps1`, psRunScript("fast", sensors, project.commands.placeholders)],
+    [`${HARNESS_DIR}/harness/scripts/run-medium.ps1`, psRunScript("medium", sensors, project.commands.placeholders)],
+    [`${HARNESS_DIR}/harness/scripts/run-slow.ps1`, psRunScript("slow", sensors, project.commands.placeholders)],
+    [`${HARNESS_DIR}/harness/scripts/check-harness-structure.sh`, shCheckHarnessStructure()],
+    [`${HARNESS_DIR}/harness/scripts/run-fast.sh`, shRunScript("fast", sensors, project.commands.placeholders)],
+    [`${HARNESS_DIR}/harness/scripts/run-medium.sh`, shRunScript("medium", sensors, project.commands.placeholders)],
+    [`${HARNESS_DIR}/harness/scripts/run-slow.sh`, shRunScript("slow", sensors, project.commands.placeholders)],
+    [`${HARNESS_DIR}/harness/templates/spec.md`, await loadTemplate("harness/templates/spec.md")],
+    [`${HARNESS_DIR}/harness/templates/contract.md`, await loadTemplate("harness/templates/contract.md")],
+    [`${HARNESS_DIR}/harness/templates/progress.md`, await loadTemplate("harness/templates/progress.md")],
+    [`${HARNESS_DIR}/harness/templates/evaluation.md`, await loadTemplate("harness/templates/evaluation.md")],
+    [`${HARNESS_DIR}/specs/README.md`, await loadTemplate("specs/README.md")],
+    [`${HARNESS_DIR}/sensors.json`, JSON.stringify({ version: 1, sensors }, null, 2) + "\n"],
+    [".claude/skills/spec/SKILL.md", await loadTemplate("adapters/claude/skills/spec/SKILL.md")],
+    [".claude/skills/sensor/SKILL.md", await loadTemplate("adapters/claude/skills/sensor/SKILL.md")]
   ]);
+}
+
+function buildSensors(commands) {
+  const sensors = [];
+  for (const tier of ["fast", "medium", "slow"]) {
+    for (const item of commands[tier]) {
+      sensors.push({
+        name: sensorName(item.command),
+        tier,
+        command: item.command,
+        reason: item.reason,
+        source: "detected",
+        enabled: true
+      });
+    }
+  }
+  return sensors;
+}
+
+function sensorName(command) {
+  return command
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
 }
 
 async function loadTemplate(relativePath) {
@@ -445,15 +607,15 @@ async function integrateAgentInstructions(root, files, options, events) {
   const section = `${MARKER_START}
 ## Harness Engineering
 
-Este repositorio possui um harness em \`.harness/\` e regras permanentes em \`.constitution/\`.
+Este repositorio possui um harness em \`${HARNESS_DIR}/\`.
 
 Para mudancas medias ou grandes:
-1. criar ou localizar uma spec em \`.specs/\`
+1. criar ou localizar uma spec em \`${HARNESS_DIR}/specs/\`
 2. trabalhar contra um contrato em \`contracts/package-N.md\`
 3. rodar sensores obrigatorios
 4. registrar resultado em \`progress.md\` e \`evaluations/package-N.md\`
 
-Mudancas pequenas podem usar contrato inline, desde que respeitem \`.constitution/\` e os sensores aplicaveis.
+Mudancas pequenas podem usar contrato inline, desde que respeitem \`${HARNESS_DIR}/constitution/\` e os sensores aplicaveis.
 ${MARKER_END}
 `;
 
@@ -603,6 +765,7 @@ function constitutionTesting(project) {
 - Sensores computacionais valem mais que julgamento subjetivo do agente.
 - Todo package deve listar sensores obrigatorios antes da implementacao.
 - Se um sensor nao puder rodar, registre motivo, evidencia e risco residual em \`progress.md\` e na evaluation.
+- Sensores cadastrados ficam em \`${HARNESS_DIR}/sensors.json\`.
 
 ## Sensores Detectados
 
@@ -620,8 +783,8 @@ ${commandMd(project.commands.slow, "- Placeholder: nenhum comando lento detectad
 
 ## Quando Rodar
 
-- Mudanca pequena: \`.harness/scripts/run-fast.ps1\` ou \`.harness/scripts/run-fast.sh\`.
-- Mudanca media: fast + \`.harness/scripts/run-medium.ps1\` ou \`.harness/scripts/run-medium.sh\`.
+- Mudanca pequena: \`${HARNESS_DIR}/harness/scripts/run-fast.ps1\` ou \`${HARNESS_DIR}/harness/scripts/run-fast.sh\`.
+- Mudanca media: fast + \`${HARNESS_DIR}/harness/scripts/run-medium.ps1\` ou \`${HARNESS_DIR}/harness/scripts/run-medium.sh\`.
 - Mudanca grande: fast + medium + slow quando houver sensor real aplicavel.
 
 ## Criterio Minimo de Validacao
@@ -712,7 +875,7 @@ Referencias:
 ## Quando Usar Spec
 
 - Mudanca pequena: contrato inline e sensores fast podem ser suficientes.
-- Mudanca media: crie uma spec em \`.specs/spec-XXX-nome/\` e um contrato em \`contracts/package-N.md\`.
+- Mudanca media: crie uma spec em \`${HARNESS_DIR}/specs/spec-XXX-nome/\` e um contrato em \`contracts/package-N.md\`.
 - Mudanca grande: divida em varios packages pequenos, reversiveis e validaveis.
 
 ## Quando Usar Contrato Formal
@@ -723,7 +886,7 @@ Use contrato formal quando houver alteracao de fluxo, fronteira publica, persist
 
 Fast:
 
-${commandMd(project.commands.fast, "- Apenas \`check-harness-structure\` foi configurado; adicione lint/typecheck/teste rapido quando existir.")}
+${commandMd(project.commands.fast, "- Apenas \`check-harness-structure\` foi configurado; adicione lint/typecheck/teste rapido com \`pbq sensor add\` quando existir.")}
 
 Medium:
 
@@ -736,17 +899,17 @@ ${commandMd(project.commands.slow, "- Placeholder: nenhum E2E/integracao pesada 
 Comandos:
 
 \`\`\`powershell
-.\\.harness\\scripts\\run-fast.ps1
-.\\.harness\\scripts\\run-medium.ps1
-.\\.harness\\scripts\\run-slow.ps1
+.\\${HARNESS_DIR}\\harness\\scripts\\run-fast.ps1
+.\\${HARNESS_DIR}\\harness\\scripts\\run-medium.ps1
+.\\${HARNESS_DIR}\\harness\\scripts\\run-slow.ps1
 \`\`\`
 
 Em Unix:
 
 \`\`\`sh
-sh ./.harness/scripts/run-fast.sh
-sh ./.harness/scripts/run-medium.sh
-sh ./.harness/scripts/run-slow.sh
+sh ./${HARNESS_DIR}/harness/scripts/run-fast.sh
+sh ./${HARNESS_DIR}/harness/scripts/run-medium.sh
+sh ./${HARNESS_DIR}/harness/scripts/run-slow.sh
 \`\`\`
 
 ## Progresso
@@ -755,9 +918,9 @@ Cada spec deve manter \`progress.md\` com estado atual, decisoes, sensores execu
 
 ## Nova Spec
 
-1. Copie \`.harness/templates/spec.md\` para \`.specs/spec-XXX-nome/spec.md\`.
-2. Copie \`.harness/templates/progress.md\` para \`.specs/spec-XXX-nome/progress.md\`.
-3. Crie \`contracts/package-N.md\` a partir de \`.harness/templates/contract.md\`.
+1. Copie \`${HARNESS_DIR}/harness/templates/spec.md\` para \`${HARNESS_DIR}/specs/spec-XXX-nome/spec.md\`.
+2. Copie \`${HARNESS_DIR}/harness/templates/progress.md\` para \`${HARNESS_DIR}/specs/spec-XXX-nome/progress.md\`.
+3. Crie \`contracts/package-N.md\` a partir de \`${HARNESS_DIR}/harness/templates/contract.md\`.
 4. Liste sensores obrigatorios antes da implementacao.
 
 ## Concluir Package
@@ -772,8 +935,8 @@ Cada spec deve manter \`progress.md\` com estado atual, decisoes, sensores execu
 
 1. instrucoes superiores da plataforma/ferramenta
 2. regras ja existentes do repositorio
-3. \`.constitution/\`
-4. \`.harness/\`
+3. \`${HARNESS_DIR}/constitution/\`
+4. \`${HARNESS_DIR}/harness/\`
 5. \`spec.md\`
 6. \`contracts/\`
 7. prompts locais
@@ -784,7 +947,7 @@ Cada spec deve manter \`progress.md\` com estado atual, decisoes, sensores execu
 function psCheckHarnessStructure() {
   return `$ErrorActionPreference = "Stop"
 
-$Root = Resolve-Path (Join-Path $PSScriptRoot "..\\..")
+$Root = Resolve-Path (Join-Path $PSScriptRoot "..\\..\\..")
 $Required = @(
 ${REQUIRED_FILES.map((file) => `  "${file.replace(/\//g, "\\")}"`).join(",\n")}
 )
@@ -808,11 +971,12 @@ exit 0
 `;
 }
 
-function psRunScript(kind, commands, placeholders) {
+function psRunScript(kind, sensors, placeholders) {
   const scopedPlaceholders = placeholders.filter((item) => item.bucket === kind);
+  const commands = sensors.filter((sensor) => sensor.tier === kind && sensor.enabled);
   return `$ErrorActionPreference = "Stop"
 
-$Root = Resolve-Path (Join-Path $PSScriptRoot "..\\..")
+$Root = Resolve-Path (Join-Path $PSScriptRoot "..\\..\\..")
 Set-Location $Root
 
 function Invoke-HarnessCommand {
@@ -825,7 +989,7 @@ function Invoke-HarnessCommand {
   }
 }
 
-Invoke-HarnessCommand ".\\.harness\\scripts\\check-harness-structure.ps1"
+Invoke-HarnessCommand ".\\${HARNESS_DIR}\\harness\\scripts\\check-harness-structure.ps1"
 
 $Commands = @(
 ${commands.map((item) => `  "${escapePowerShellString(item.command)}"`).join(",\n")}
@@ -846,7 +1010,7 @@ function shCheckHarnessStructure() {
   return `#!/usr/bin/env sh
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)"
 missing=""
 
 for item in \\
@@ -866,12 +1030,13 @@ printf '[harness] Structure OK\\n'
 `;
 }
 
-function shRunScript(kind, commands, placeholders) {
+function shRunScript(kind, sensors, placeholders) {
   const scopedPlaceholders = placeholders.filter((item) => item.bucket === kind);
+  const commands = sensors.filter((sensor) => sensor.tier === kind && sensor.enabled);
   return `#!/usr/bin/env sh
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)"
 cd "$ROOT"
 
 run_cmd() {
@@ -879,7 +1044,7 @@ run_cmd() {
   sh -c "$1"
 }
 
-run_cmd "sh ./.harness/scripts/check-harness-structure.sh"
+run_cmd "sh ./${HARNESS_DIR}/harness/scripts/check-harness-structure.sh"
 
 ${commands.map((item) => `run_cmd "${escapeShellString(item.command)}"`).join("\n")}
 
