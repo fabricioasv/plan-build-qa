@@ -1,11 +1,11 @@
 ---
 name: spec
-description: Create or update a Plan Build QA spec, package contract, progress file, and evaluation scaffold.
+description: Create, update, inspect, or continue a Plan Build QA spec and package contract.
 ---
 
-# /spec
+# Spec
 
-Use this skill when the user asks to create, update, inspect, or continue a Plan Build QA spec.
+Use this skill when the user asks to create, update, inspect, continue, split, or finalize a Plan Build QA spec.
 
 Canonical harness files live under `.plan-build-qa/`.
 

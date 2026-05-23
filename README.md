@@ -37,6 +37,8 @@ Por padrao, o init cria `AGENTS.md` e `CLAUDE.md` quando eles nao existem, com u
 
 Para Claude Code, o init tambem cria adaptadores em `.claude/skills/spec/SKILL.md` e `.claude/skills/sensor/SKILL.md`, porque o Claude so descobre slash commands de projeto dentro de `.claude/commands/` ou `.claude/skills/`. O conteudo canonico continua em `.plan-build-qa/`.
 
+Para Codex, o init cria as mesmas skills repo-scoped em `.agents/skills/`. A documentacao atual do Codex indica que `AGENTS.md` e o arquivo de regras do repo, enquanto `.agents/skills` e o local de discovery das skills do Codex.
+
 ## O Que O Init Cria
 
 ```text
@@ -52,8 +54,20 @@ Para Claude Code, o init tambem cria adaptadores em `.claude/skills/spec/SKILL.m
   sensors.json
 .claude/
   skills/
-    spec/
+    constitution/
+    implement/
+    roadmap/
     sensor/
+    spec/
+    test/
+.agents/
+  skills/
+    constitution/
+    implement/
+    roadmap/
+    sensor/
+    spec/
+    test/
 ```
 
 Os templates fonte ficam versionados em `templates/`:
@@ -103,6 +117,15 @@ pbq sensor add C:\caminho\do\repo --name e2e --tier slow --command ".\scripts\ru
 O comando atualiza `sensors.json` e regenera os runners `run-fast`, `run-medium` e `run-slow`.
 
 No Claude Code, use `/sensor` para orientar o agente a cadastrar ou revisar sensores.
+
+Skills instaladas para Claude e Codex:
+
+- `constitution`: ler ou atualizar regras permanentes do projeto
+- `roadmap`: manter status consolidado das specs
+- `spec`: criar ou revisar specs e contratos
+- `implement`: implementar package contra contrato
+- `test`: rodar sensores, fechar package e preencher evaluation
+- `sensor`: cadastrar ou revisar sensores
 
 ## Painel De Execucao
 

@@ -56,7 +56,17 @@ try {
     ".plan-build-qa/specs/README.md",
     ".plan-build-qa/sensors.json",
     ".claude/skills/spec/SKILL.md",
-    ".claude/skills/sensor/SKILL.md"
+    ".claude/skills/sensor/SKILL.md",
+    ".claude/skills/roadmap/SKILL.md",
+    ".claude/skills/constitution/SKILL.md",
+    ".claude/skills/implement/SKILL.md",
+    ".claude/skills/test/SKILL.md",
+    ".agents/skills/spec/SKILL.md",
+    ".agents/skills/sensor/SKILL.md",
+    ".agents/skills/roadmap/SKILL.md",
+    ".agents/skills/constitution/SKILL.md",
+    ".agents/skills/implement/SKILL.md",
+    ".agents/skills/test/SKILL.md"
   ];
 
   for (const file of required) {
@@ -76,6 +86,12 @@ try {
 
   const specSkill = await readFile(path.join(root, ".claude/skills/spec/SKILL.md"), "utf8");
   assert.match(specSkill, /roadmap\.md/);
+
+  const codexImplementSkill = await readFile(path.join(root, ".agents/skills/implement/SKILL.md"), "utf8");
+  assert.match(codexImplementSkill, /pbq package close/);
+
+  const claudeTestSkill = await readFile(path.join(root, ".claude/skills/test/SKILL.md"), "utf8");
+  assert.match(claudeTestSkill, /Never treat missing sensor evidence as success/);
 
   const evaluationTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/evaluation.md"), "utf8");
   assert.match(evaluationTemplate, /Resumo De Sensores/);

@@ -3,7 +3,7 @@ name: sensor
 description: Add, list, or refine Plan Build QA computational sensors.
 ---
 
-# /sensor
+# Sensor
 
 Use this skill when the user wants to add, list, or refine sensors.
 

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const MARKER_START = "<!-- PBQ-HARNESS-START -->";
 const MARKER_END = "<!-- PBQ-HARNESS-END -->";
 const HARNESS_DIR = ".plan-build-qa";
+const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement", "test"];
 
 const REQUIRED_FILES = [
   `${HARNESS_DIR}/constitution/architecture.md`,
@@ -75,8 +76,7 @@ async function main() {
   const project = await inspectProject(targetRoot);
   const generated = await generateFiles(project);
   if (!options.integrateAgents) {
-    delete generated[".claude/skills/spec/SKILL.md"];
-    delete generated[".claude/skills/sensor/SKILL.md"];
+    for (const path of adapterSkillPaths()) delete generated[path];
   }
   const events = [];
 
@@ -896,8 +896,24 @@ async function generateFiles(project) {
     [`${HARNESS_DIR}/roadmap.md`, await loadTemplate("roadmap.md")],
     [`${HARNESS_DIR}/specs/README.md`, await loadTemplate("specs/README.md")],
     [`${HARNESS_DIR}/sensors.json`, JSON.stringify({ version: 1, sensors }, null, 2) + "\n"],
-    [".claude/skills/spec/SKILL.md", await loadTemplate("adapters/claude/skills/spec/SKILL.md")],
-    [".claude/skills/sensor/SKILL.md", await loadTemplate("adapters/claude/skills/sensor/SKILL.md")]
+    ...(await adapterSkillEntries())
+  ]);
+}
+
+async function adapterSkillEntries() {
+  const entries = [];
+  for (const skill of ADAPTER_SKILLS) {
+    const content = await loadTemplate(`adapters/skills/${skill}/SKILL.md`);
+    entries.push([`.claude/skills/${skill}/SKILL.md`, content]);
+    entries.push([`.agents/skills/${skill}/SKILL.md`, content]);
+  }
+  return entries;
+}
+
+function adapterSkillPaths() {
+  return ADAPTER_SKILLS.flatMap((skill) => [
+    `.claude/skills/${skill}/SKILL.md`,
+    `.agents/skills/${skill}/SKILL.md`
   ]);
 }
 
