@@ -48,8 +48,8 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args.shift();
 
-  if (!command || command === "--help" || command === "-h") {
-    printHelp();
+  if (!command || command === "--help" || command === "-h" || command === "help") {
+    printHelp(args[0]);
     return;
   }
 
@@ -239,17 +239,107 @@ function sensorPlaceholders(sensors) {
     }));
 }
 
-function printHelp() {
-  console.log(`pbq init [path] [--force] [--dry-run] [--no-agent-integration]
-pbq update [path] [--dry-run] [--force]
-pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
-pbq sensor list [path]
-pbq status [path]
-pbq run [path] [--resume]
-pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
+function printHelp(topic = "") {
+  const normalized = topic.toLowerCase();
+  const helpByTopic = {
+    init: `pbq init [path] [--force] [--dry-run] [--no-agent-integration]
 
-Cria um Harness Engineering System deterministico no repositorio alvo.
-`);
+Cria a estrutura inicial em .plan-build-qa/ e adapters para Claude/Codex.
+
+Opcoes:
+  --force                 sobrescreve arquivos existentes gerados pelo harness
+  --dry-run               mostra o que seria criado/alterado
+  --no-agent-integration  nao cria/atualiza AGENTS.md, CLAUDE.md, .claude/skills ou .agents/skills
+
+Exemplos:
+  pbq init .
+  pbq init C:\\repo\\app --dry-run`,
+
+    update: `pbq update [path] [--dry-run] [--force]
+
+Atualiza templates/skills de uma instalacao existente usando .plan-build-qa/manifest.json.
+
+Comportamento:
+  arquivo ausente                 cria
+  arquivo igual ao template antigo atualiza automaticamente
+  arquivo customizado             preserva e grava .pbq-new
+  sensors.json                    nunca sobrescreve
+
+Exemplos:
+  pbq update .
+  pbq update C:\\repo\\app --dry-run
+  pbq update . --force`,
+
+    sensor: `pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
+pbq sensor list [path]
+
+Gerencia sensores computacionais em .plan-build-qa/sensors.json e regenera runners.
+
+Exemplos:
+  pbq sensor list .
+  pbq sensor add . --name e2e --tier slow --command "npm run test:e2e" --reason "Valida fluxo principal"`,
+
+    package: `pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
+
+Executa sensores cadastrados, gera evaluation em .plan-build-qa/specs/<spec>/evaluations/package-N.md e falha se sensor obrigatorio falhar.
+
+Exemplos:
+  pbq package close . --spec spec-001-login --package 1 --tiers fast,medium
+  pbq package close C:\\repo\\app --spec spec-002-checkout --package 3`,
+
+    run: `pbq run [path] [--resume]
+pbq status [path]
+
+Mostra painel textual com specs, contrato, build, QA e score.
+
+Exemplos:
+  pbq status .
+  pbq run C:\\repo\\app --resume`,
+
+    status: `pbq status [path]
+
+Alias de painel para inspecionar estado atual do harness.
+
+Exemplo:
+  pbq status .`
+  };
+
+  if (normalized && helpByTopic[normalized]) {
+    console.log(helpByTopic[normalized]);
+    return;
+  }
+
+  if (normalized) {
+    console.log(`[pbq] Topico desconhecido: ${topic}\n`);
+  }
+
+  console.log(`pbq - Plan Build QA harness
+
+Uso:
+  pbq <command> [args]
+
+Comandos:
+  init       cria a configuracao inicial do harness
+  update     atualiza templates/skills sem sobrescrever customizacoes
+  sensor     adiciona ou lista sensores computacionais
+  package    fecha package executando sensores e gerando evaluation
+  run        mostra painel de execucao
+  status     mostra painel de status
+  help       mostra ajuda geral ou de um comando
+
+Ajuda por comando:
+  pbq help init
+  pbq help update
+  pbq help sensor
+  pbq help package
+  pbq help run
+
+Exemplos:
+  pbq init .
+  pbq update . --dry-run
+  pbq sensor list .
+  pbq package close . --spec spec-001-exemplo --package 1 --tiers fast,medium
+  pbq run . --resume`);
 }
 
 async function runUpdateCommand(args) {

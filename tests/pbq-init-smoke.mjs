@@ -28,6 +28,19 @@ try {
   await writeFile(path.join(root, "AGENTS.md"), "# Agent rules\n\nPreserve me.\n");
 
   const cli = path.resolve("bin", "pbq.mjs");
+  const help = spawnSync(process.execPath, [cli, "help"], {
+    encoding: "utf8"
+  });
+  assert.equal(help.status, 0, help.stderr || help.stdout);
+  assert.match(help.stdout, /Comandos:/);
+  assert.match(help.stdout, /pbq help init/);
+
+  const sensorHelp = spawnSync(process.execPath, [cli, "help", "sensor"], {
+    encoding: "utf8"
+  });
+  assert.equal(sensorHelp.status, 0, sensorHelp.stderr || sensorHelp.stdout);
+  assert.match(sensorHelp.stdout, /pbq sensor add/);
+
   const result = spawnSync(process.execPath, [cli, "init", root], {
     encoding: "utf8"
   });

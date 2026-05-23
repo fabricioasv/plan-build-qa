@@ -30,6 +30,17 @@ pbq run [path] [--resume]
 pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
 ```
 
+Ajuda:
+
+```powershell
+pbq help
+pbq help init
+pbq help update
+pbq help sensor
+pbq help package
+pbq help run
+```
+
 - `--force`: permite sobrescrever arquivos do harness gerados anteriormente.
 - `--dry-run`: mostra o que seria criado ou alterado, sem escrever.
 - `--no-agent-integration`: nao adiciona a secao "Harness Engineering" em arquivos de instrucao.
