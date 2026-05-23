@@ -29,6 +29,7 @@ const REQUIRED_FILES = [
   `${HARNESS_DIR}/harness/templates/contract.md`,
   `${HARNESS_DIR}/harness/templates/progress.md`,
   `${HARNESS_DIR}/harness/templates/evaluation.md`,
+  `${HARNESS_DIR}/roadmap.md`,
   `${HARNESS_DIR}/specs/README.md`,
   `${HARNESS_DIR}/sensors.json`
 ];
@@ -532,6 +533,7 @@ async function generateFiles(project) {
     [`${HARNESS_DIR}/harness/templates/contract.md`, await loadTemplate("harness/templates/contract.md")],
     [`${HARNESS_DIR}/harness/templates/progress.md`, await loadTemplate("harness/templates/progress.md")],
     [`${HARNESS_DIR}/harness/templates/evaluation.md`, await loadTemplate("harness/templates/evaluation.md")],
+    [`${HARNESS_DIR}/roadmap.md`, await loadTemplate("roadmap.md")],
     [`${HARNESS_DIR}/specs/README.md`, await loadTemplate("specs/README.md")],
     [`${HARNESS_DIR}/sensors.json`, JSON.stringify({ version: 1, sensors }, null, 2) + "\n"],
     [".claude/skills/spec/SKILL.md", await loadTemplate("adapters/claude/skills/spec/SKILL.md")],
@@ -915,6 +917,12 @@ sh ./${HARNESS_DIR}/harness/scripts/run-slow.sh
 ## Progresso
 
 Cada spec deve manter \`progress.md\` com estado atual, decisoes, sensores executados, falhas anteriores e contexto para retomada.
+
+O roadmap em \`${HARNESS_DIR}/roadmap.md\` e o indice consolidado das specs:
+
+- Ao criar uma spec, registre status \`em andamento\`.
+- Ao concluir uma spec, registre status \`concluido\`, data e evidencia.
+- Nao marque \`concluido\` se houver package obrigatorio sem evaluation Score 1, salvo excecao documentada.
 
 ## Nova Spec
 

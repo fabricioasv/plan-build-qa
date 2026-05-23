@@ -44,6 +44,7 @@ Para Claude Code, o init tambem cria adaptadores em `.claude/skills/spec/SKILL.m
     scripts/
     templates/
     evaluations/
+  roadmap.md
   specs/
   sensors.json
 .claude/
@@ -76,6 +77,17 @@ Os scripts gerados rodam a partir da raiz do repositorio alvo:
 ```
 
 Tambem sao criados equivalentes `.sh` para ambientes Unix quando possivel.
+
+## Roadmap
+
+O arquivo `.plan-build-qa/roadmap.md` fica no mesmo nivel de `constitution/`, `harness/` e `specs/`.
+
+Ele e o indice consolidado das specs:
+
+- quando uma spec e criada, ela deve entrar como `em andamento`
+- quando a spec e finalizada, ela deve ser marcada como `concluido`
+- a conclusao deve apontar para evidencia, normalmente evaluations com Score 1
+- o roadmap nao substitui `progress.md`; ele resume o estado entre specs
 
 ## Sensores
 

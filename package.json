@@ -1,6 +1,6 @@
 {
   "name": "pbq-harness",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Bootstrap deterministico de Harness Engineering para agentes de IA em repositorios de software.",
   "type": "module",
   "bin": {

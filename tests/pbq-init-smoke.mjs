@@ -49,6 +49,7 @@ try {
     ".plan-build-qa/harness/templates/contract.md",
     ".plan-build-qa/harness/templates/progress.md",
     ".plan-build-qa/harness/templates/evaluation.md",
+    ".plan-build-qa/roadmap.md",
     ".plan-build-qa/harness/prompts/implement-package.md",
     ".plan-build-qa/harness/prompts/validate-contract.md",
     ".plan-build-qa/harness/prompts/run-evaluation.md",
@@ -68,6 +69,13 @@ try {
 
   const claude = await readFile(path.join(root, "CLAUDE.md"), "utf8");
   assert.match(claude, /Harness Engineering/);
+
+  const roadmap = await readFile(path.join(root, ".plan-build-qa/roadmap.md"), "utf8");
+  assert.match(roadmap, /em andamento/);
+  assert.match(roadmap, /concluido/);
+
+  const specSkill = await readFile(path.join(root, ".claude/skills/spec/SKILL.md"), "utf8");
+  assert.match(specSkill, /roadmap\.md/);
 
   const fast = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-fast.ps1"), "utf8");
   assert.match(fast, /npm run lint/);
