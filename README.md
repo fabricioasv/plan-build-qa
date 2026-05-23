@@ -22,6 +22,7 @@ Comandos:
 
 ```text
 pbq init [path] [--force] [--dry-run] [--no-agent-integration]
+pbq update [path] [--dry-run] [--force]
 pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
 pbq sensor list [path]
 pbq status [path]
@@ -48,9 +49,10 @@ Para Codex, o init cria as mesmas skills repo-scoped em `.agents/skills/`. A doc
     prompts/
     scripts/
     templates/
-    evaluations/
   roadmap.md
   specs/
+    spec-XXX-nome/
+      evaluations/
   sensors.json
 .claude/
   skills/
@@ -75,7 +77,7 @@ Os templates fonte ficam versionados em `templates/`:
 ```text
 templates/
   adapters/
-    claude/
+    skills/
   harness/
     prompts/
     templates/
@@ -83,6 +85,23 @@ templates/
 ```
 
 Isso permite evoluir `spec.md`, `contract.md`, `progress.md`, `evaluation.md` e prompts operacionais sem mexer na logica do CLI.
+
+## Update Seguro
+
+`pbq init` nao sobrescreve arquivos existentes. Para atualizar templates e skills de uma instalacao ja existente, use:
+
+```powershell
+pbq update C:\caminho\do\repo
+```
+
+O update usa `.plan-build-qa/manifest.json` para distinguir arquivos ainda iguais ao template de arquivos customizados:
+
+- arquivo ausente: cria
+- arquivo igual ao template anterior: atualiza automaticamente
+- arquivo customizado: preserva o original e grava um `.pbq-new` ao lado
+- `--force`: sobrescreve mesmo arquivos customizados
+
+`sensors.json` nao e sobrescrito pelo update, porque sensores sao configuracao local do projeto.
 
 Os scripts gerados rodam a partir da raiz do repositorio alvo:
 
@@ -160,6 +179,14 @@ pbq package close C:\caminho\do\repo --spec spec-001-exemplo --package 1 --tiers
 ```
 
 Esse comando executa os sensores cadastrados nos tiers informados, gera `.plan-build-qa/specs/<spec>/evaluations/package-N.md`, preenche a tabela de sensores e retorna exit code diferente de zero se algum sensor falhar ou estiver pendente.
+
+As evaluations pertencem sempre a uma spec:
+
+```text
+.plan-build-qa/specs/spec-XXX-nome/evaluations/package-N.md
+```
+
+Nao existe evaluation global em `.plan-build-qa/harness/`.
 
 ## Principios
 

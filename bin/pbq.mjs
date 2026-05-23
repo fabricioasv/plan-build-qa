@@ -2,6 +2,7 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +10,7 @@ const MARKER_START = "<!-- PBQ-HARNESS-START -->";
 const MARKER_END = "<!-- PBQ-HARNESS-END -->";
 const HARNESS_DIR = ".plan-build-qa";
 const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement", "test"];
+const PBQ_TEMPLATE_VERSION = 2;
 
 const REQUIRED_FILES = [
   `${HARNESS_DIR}/constitution/architecture.md`,
@@ -33,7 +35,8 @@ const REQUIRED_FILES = [
   `${HARNESS_DIR}/harness/templates/evaluation.md`,
   `${HARNESS_DIR}/roadmap.md`,
   `${HARNESS_DIR}/specs/README.md`,
-  `${HARNESS_DIR}/sensors.json`
+  `${HARNESS_DIR}/sensors.json`,
+  `${HARNESS_DIR}/manifest.json`
 ];
 
 main().catch((error) => {
@@ -65,6 +68,11 @@ async function main() {
     return;
   }
 
+  if (command === "update") {
+    await runUpdateCommand(args);
+    return;
+  }
+
   if (command !== "init") {
     throw new Error(`Comando desconhecido: ${command}`);
   }
@@ -74,7 +82,7 @@ async function main() {
   await ensureDirectory(targetRoot);
 
   const project = await inspectProject(targetRoot);
-  const generated = await generateFiles(project);
+  const generated = withManifest(await generateFiles(project));
   if (!options.integrateAgents) {
     for (const path of adapterSkillPaths()) delete generated[path];
   }
@@ -83,8 +91,6 @@ async function main() {
   for (const [relativePath, content] of Object.entries(generated)) {
     await writeManagedFile(targetRoot, relativePath, content, options, events);
   }
-
-  await ensureDirectory(path.join(targetRoot, HARNESS_DIR, "harness", "evaluations"), options, events);
 
   if (options.integrateAgents) {
     await integrateAgentInstructions(targetRoot, project.agentInstructionFiles, options, events);
@@ -235,6 +241,7 @@ function sensorPlaceholders(sensors) {
 
 function printHelp() {
   console.log(`pbq init [path] [--force] [--dry-run] [--no-agent-integration]
+pbq update [path] [--dry-run] [--force]
 pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
 pbq sensor list [path]
 pbq status [path]
@@ -243,6 +250,105 @@ pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,s
 
 Cria um Harness Engineering System deterministico no repositorio alvo.
 `);
+}
+
+async function runUpdateCommand(args) {
+  const options = parseUpdateArgs(args);
+  const targetRoot = path.resolve(options.targetPath);
+  await ensureDirectory(targetRoot);
+  const harnessRoot = path.join(targetRoot, HARNESS_DIR);
+  if (!existsSync(harnessRoot)) {
+    throw new Error(`Harness nao encontrado em ${HARNESS_DIR}. Rode pbq init primeiro.`);
+  }
+
+  const project = await inspectProject(targetRoot);
+  const generated = withManifest(await generateFiles(project));
+  const previousManifest = await readManifest(targetRoot);
+  const events = [];
+
+  for (const [relativePath, latest] of Object.entries(generated)) {
+    if (relativePath === `${HARNESS_DIR}/sensors.json`) continue;
+    await updateManagedFile(targetRoot, relativePath, latest, previousManifest, options, events);
+  }
+
+  printUpdateSummary(targetRoot, events, options);
+}
+
+function parseUpdateArgs(args) {
+  const options = {
+    targetPath: ".",
+    dryRun: false,
+    force: false
+  };
+
+  for (const arg of args) {
+    if (arg === "--dry-run") options.dryRun = true;
+    else if (arg === "--force") options.force = true;
+    else if (arg.startsWith("--")) throw new Error(`Opcao desconhecida: ${arg}`);
+    else options.targetPath = arg;
+  }
+
+  return options;
+}
+
+async function readManifest(root) {
+  const manifestPath = path.join(root, HARNESS_DIR, "manifest.json");
+  if (!existsSync(manifestPath)) return null;
+  try {
+    return JSON.parse(await readFile(manifestPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function updateManagedFile(root, relativePath, latest, previousManifest, options, events) {
+  const absolutePath = path.join(root, relativePath);
+  if (!existsSync(absolutePath)) {
+    if (!options.dryRun) {
+      await mkdir(path.dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, latest, "utf8");
+    }
+    events.push({ type: "create", path: relativePath });
+    return;
+  }
+
+  const current = await readFile(absolutePath, "utf8");
+  if (current === latest) {
+    events.push({ type: "ok", path: relativePath });
+    return;
+  }
+
+  const currentHash = sha256(current);
+  const previousHash = previousManifest?.files?.[relativePath]?.sha256;
+  const canAutoUpdate = options.force || (previousHash && currentHash === previousHash);
+
+  if (canAutoUpdate) {
+    if (!options.dryRun) await writeFile(absolutePath, latest, "utf8");
+    events.push({ type: options.force ? "force-update" : "auto-update", path: relativePath });
+    return;
+  }
+
+  const candidatePath = `${relativePath}.pbq-new`;
+  if (!options.dryRun) {
+    const absoluteCandidatePath = path.join(root, candidatePath);
+    await mkdir(path.dirname(absoluteCandidatePath), { recursive: true });
+    await writeFile(absoluteCandidatePath, latest, "utf8");
+  }
+  events.push({ type: "candidate", path: candidatePath });
+}
+
+function printUpdateSummary(targetRoot, events, options) {
+  const grouped = groupBy(events, "type");
+  console.log(`[pbq] Update target: ${targetRoot}`);
+  if (options.dryRun) console.log("[pbq] Dry run: nenhum arquivo foi alterado.");
+  console.log(`[pbq] Created missing: ${(grouped.create || []).length}`);
+  console.log(`[pbq] Auto updated: ${(grouped["auto-update"] || []).length}`);
+  console.log(`[pbq] Force updated: ${(grouped["force-update"] || []).length}`);
+  console.log(`[pbq] Candidates written: ${(grouped.candidate || []).length}`);
+  console.log(`[pbq] Already current: ${(grouped.ok || []).length}`);
+  if ((grouped.candidate || []).length > 0) {
+    console.log("[pbq] Review .pbq-new files and merge manually; existing custom files were preserved.");
+  }
 }
 
 async function runPackageCommand(args) {
@@ -619,6 +725,7 @@ async function inspectProject(root) {
   const commands = detectCommands(fileSet, packageJson);
   const languages = detectLanguages(fileSet, packageJson);
   const risks = detectRisks(fileSet, packageJson);
+  const architecture = inspectArchitecture(fileSet);
 
   return {
     root,
@@ -629,7 +736,8 @@ async function inspectProject(root) {
     docs,
     commands,
     languages,
-    risks
+    risks,
+    architecture
   };
 }
 
@@ -775,6 +883,71 @@ function detectRisks(fileSet, packageJson) {
   return [...new Set(risks)];
 }
 
+function inspectArchitecture(fileSet) {
+  const files = [...fileSet];
+  const directories = [...new Set(files.map((file) => file.split("/").slice(0, -1).join("/")).filter(Boolean))].sort();
+  const topLevel = [...new Set(files.map((file) => file.split("/")[0]))].filter(Boolean).sort();
+
+  const signals = [
+    ["Presentation/UI", /(controllers?|views?|pages?|components?|screens?|ui|frontend|web|api)$/i],
+    ["Application/Use cases", /(application|usecases?|handlers?|commands?|queries?)$/i],
+    ["Domain/Model", /(domain|entities|models|valueobjects?|core)$/i],
+    ["Infrastructure", /(infra|infrastructure|adapters?|persistence|repositories?|data|db|database)$/i],
+    ["Tests", /(tests?|specs?|e2e|integrationtests?|unittests?)$/i],
+    ["Configuration", /(\.github|config|configs|settings|deploy|k8s|helm)$/i]
+  ].map(([name, pattern]) => ({
+    name,
+    matches: directories.filter((directory) => directory.split("/").some((part) => pattern.test(part))).slice(0, 12)
+  })).filter((signal) => signal.matches.length > 0);
+
+  const connectors = [];
+  const addConnector = (name, pattern) => {
+    const matches = files.filter((file) => pattern.test(file)).slice(0, 12);
+    if (matches.length > 0) connectors.push({ name, matches });
+  };
+
+  addConnector("HTTP/API", /(controllers?|routes?|endpoints?|openapi|swagger|\.http$)/i);
+  addConnector("Persistence/Database", /(dbcontext|migrations?|repositories?|\.sql$|entityframework|dapper|sequelize|prisma|typeorm)/i);
+  addConnector("Messaging/Async", /(queue|queues|consumer|consumers|producer|producers|kafka|rabbit|servicebus|sqs|pubsub|eventbus)/i);
+  addConnector("External services", /(clients?|gateways?|integrations?|providers?|httpclient|refit|grpc|\.proto$)/i);
+  addConnector("Deployment/Runtime", /(dockerfile|docker-compose|kubernetes|deployment|helm|terraform|bicep|appsettings|\.env\.example$)/i);
+  addConnector("Authentication/Security", /(auth|authentication|authorization|identity|jwt|oauth|security|permissions?)/i);
+
+  return {
+    topLevel: topLevel.slice(0, 30),
+    signals,
+    connectors
+  };
+}
+
+function architectureSignalMd(architecture) {
+  const sections = [];
+  sections.push("Top-level detectado:");
+  sections.push("");
+  sections.push(mdList(architecture.topLevel, "- Nenhum diretorio/arquivo de topo detectado."));
+  sections.push("");
+  sections.push("Sinais de camadas/modulos:");
+  sections.push("");
+  if (architecture.signals.length === 0) {
+    sections.push("- Nenhum sinal estrutural forte detectado automaticamente.");
+  } else {
+    for (const signal of architecture.signals) {
+      sections.push(`- ${signal.name}: ${signal.matches.join(", ")}`);
+    }
+  }
+  sections.push("");
+  sections.push("Conectores e fronteiras tecnicas:");
+  sections.push("");
+  if (architecture.connectors.length === 0) {
+    sections.push("- Nenhum conector tecnico forte detectado automaticamente.");
+  } else {
+    for (const connector of architecture.connectors) {
+      sections.push(`- ${connector.name}: ${connector.matches.join(", ")}`);
+    }
+  }
+  return sections.join("\n");
+}
+
 function detectCommands(fileSet, packageJson) {
   const commands = {
     fast: [],
@@ -898,6 +1071,31 @@ async function generateFiles(project) {
     [`${HARNESS_DIR}/sensors.json`, JSON.stringify({ version: 1, sensors }, null, 2) + "\n"],
     ...(await adapterSkillEntries())
   ]);
+}
+
+function withManifest(generated) {
+  const files = {};
+  for (const [relativePath, content] of Object.entries(generated)) {
+    if (relativePath === `${HARNESS_DIR}/manifest.json`) continue;
+    files[relativePath] = {
+      sha256: sha256(content)
+    };
+  }
+  return {
+    ...generated,
+    [`${HARNESS_DIR}/manifest.json`]: JSON.stringify(
+      {
+        version: PBQ_TEMPLATE_VERSION,
+        files
+      },
+      null,
+      2
+    ) + "\n"
+  };
+}
+
+function sha256(content) {
+  return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
 async function adapterSkillEntries() {
@@ -1098,17 +1296,25 @@ Arquivos de instrucao existentes:
 
 ${mdList(project.agentInstructionFiles)}
 
+## Varredura Arquitetural Inicial
+
+Esta secao e informativa. Ela descreve sinais encontrados no repositorio para orientar investigacao, mas nao transforma a arquitetura atual em regra permanente.
+
+${architectureSignalMd(project.architecture)}
+
 ## Principios
 
-- Preserve a arquitetura existente antes de introduzir novos padroes.
+- Use a estrutura atual como evidencia, nao como autoridade absoluta.
+- Prefira boas praticas de engenharia: coesao alta, acoplamento baixo, separacao de responsabilidades, nomes claros, testes objetivos e fronteiras explicitas.
 - Prefira mudancas pequenas, reversiveis e testaveis.
 - Nao misture refactor estrutural com mudanca funcional no mesmo package sem contrato explicito.
 - Nao crie dependencias globais, estado compartilhado ou atalhos transversais sem justificativa registrada na spec.
-- Modulos de baixo nivel nao devem conhecer detalhes de UI, transporte, banco ou infraestrutura sem uma fronteira ja existente no projeto.
+- Modulos de baixo nivel nao devem conhecer detalhes de UI, transporte, banco ou infraestrutura sem uma fronteira clara e justificada.
 
 ## Limites Entre Camadas e Modulos
 
 - Extraia os limites reais do codigo antes de alterar chamadas entre diretorios ou camadas.
+- Se o limite atual contrariar boas praticas, registre o risco e proponha migracao incremental em spec propria.
 - Ao tocar uma fronteira publica, registre consumidores afetados e sensores que cobrem a mudanca.
 - Alteracoes em contratos publicos exigem criterio de aceite objetivo e, quando aplicavel, migracao documentada.
 

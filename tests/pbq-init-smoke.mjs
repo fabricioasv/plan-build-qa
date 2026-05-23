@@ -50,6 +50,7 @@ try {
     ".plan-build-qa/harness/templates/progress.md",
     ".plan-build-qa/harness/templates/evaluation.md",
     ".plan-build-qa/roadmap.md",
+    ".plan-build-qa/manifest.json",
     ".plan-build-qa/harness/prompts/implement-package.md",
     ".plan-build-qa/harness/prompts/validate-contract.md",
     ".plan-build-qa/harness/prompts/run-evaluation.md",
@@ -72,6 +73,7 @@ try {
   for (const file of required) {
     assert.ok(existsSync(path.join(root, file)), `missing ${file}`);
   }
+  assert.equal(existsSync(path.join(root, ".plan-build-qa/harness/evaluations")), false);
 
   const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
   assert.match(agents, /Preserve me/);
@@ -92,6 +94,10 @@ try {
 
   const claudeTestSkill = await readFile(path.join(root, ".claude/skills/test/SKILL.md"), "utf8");
   assert.match(claudeTestSkill, /Never treat missing sensor evidence as success/);
+
+  const architecture = await readFile(path.join(root, ".plan-build-qa/constitution/architecture.md"), "utf8");
+  assert.match(architecture, /Varredura Arquitetural Inicial/);
+  assert.match(architecture, /Use a estrutura atual como evidencia/);
 
   const evaluationTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/evaluation.md"), "utf8");
   assert.match(evaluationTemplate, /Resumo De Sensores/);
@@ -142,6 +148,17 @@ try {
   const evaluation = await readFile(path.join(root, ".plan-build-qa/specs/spec-001-smoke/evaluations/package-1.md"), "utf8");
   assert.match(evaluation, /Score: 1/);
   assert.match(evaluation, /\| npm-run-lint \| fast \| sim \| passou \|/);
+
+  await writeFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "custom constitution skill\n");
+  await rm(path.join(root, ".agents/skills/roadmap/SKILL.md"), { force: true });
+  const update = spawnSync(process.execPath, [cli, "update", root], {
+    encoding: "utf8"
+  });
+  assert.equal(update.status, 0, update.stderr || update.stdout);
+  assert.match(update.stdout, /Candidates written/);
+  assert.equal(await readFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "utf8"), "custom constitution skill\n");
+  assert.ok(existsSync(path.join(root, ".claude/skills/constitution/SKILL.md.pbq-new")));
+  assert.ok(existsSync(path.join(root, ".agents/skills/roadmap/SKILL.md")));
 
   const second = spawnSync(process.execPath, [cli, "init", root], {
     encoding: "utf8"
