@@ -16,21 +16,25 @@ Use estes valores:
 
 | Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
 | --- | --- | --- | --- | --- | --- |
-| spec-001-analyze | planejado | - | 2026-05-23 | Sugestao inspirada em Spec Kit `/speckit.analyze` | Criar `pbq analyze` para validar consistencia entre roadmap, specs, contracts, progress, evaluations e sensores |
+| spec-001-analyze | em andamento | 1 | 2026-05-23 | Spec criada em `.plan-build-qa/specs/spec-001-analyze/` a partir da sugestao inspirada em Spec Kit `/speckit.analyze` | Implementar `contracts/package-1.md` para entregar a primeira versao util de `pbq analyze` |
 | spec-002-plan-tasks | planejado | - | 2026-05-23 | Sugestao inspirada nas fases `specify`, `plan`, `tasks`, `implement` do Spec Kit | Adicionar artefatos `plan.md` e `tasks.md` e skills `/plan` e `/tasks` |
 | spec-003-checklist | planejado | - | 2026-05-23 | Sugestao inspirada em checklists de qualidade do Spec Kit | Criar `pbq checklist` para gerar checks objetivos por spec/package |
 | spec-004-audit-lock | planejado | - | 2026-05-23 | Sugestao inspirada em hashing, lockfile e audit trail do agent-skills | Adicionar `.plan-build-qa/lock.json`, `.plan-build-qa/audit.log`, `pbq audit` e registro de operacoes |
 | spec-005-overrides | planejado | - | 2026-05-23 | Sugestao inspirada em overrides/presets do Spec Kit | Criar suporte a `.plan-build-qa/overrides/templates` e `.plan-build-qa/overrides/skills` |
 | spec-006-doctor | planejado | - | 2026-05-23 | Necessidade operacional do harness | Criar `pbq doctor` para diagnosticar estrutura, skills, manifest, sensores, specs e `.pbq-new` pendentes |
+| spec-007-agent-instructions-pin | planejado | - | 2026-05-23 | Ajuste operacional do harness | Forcar a referencia explicita a `./.plan-build-qa/` em `AGENTS.md` e `CLAUDE.md` durante `init` e `update`, evitando a inclusao solta no final do arquivo |
+| spec-008-token-cost-model | planejado | - | 2026-05-23 | Ajuste operacional do harness | Criar um exemplo de spec para estimar consumo de tokens e custo por execucao, com calculo explicito por modelo/plano |
 
 ## Sequenciamento Sugerido
 
 1. `spec-001-analyze`
 2. `spec-006-doctor`
-3. `spec-003-checklist`
-4. `spec-002-plan-tasks`
-5. `spec-004-audit-lock`
-6. `spec-005-overrides`
+3. `spec-007-agent-instructions-pin`
+4. `spec-003-checklist`
+5. `spec-002-plan-tasks`
+6. `spec-004-audit-lock`
+7. `spec-005-overrides`
+8. `spec-008-token-cost-model`
 
 ## Decisoes De Roadmap
 

@@ -63,6 +63,11 @@ async function main() {
     return;
   }
 
+  if (command === "analyze") {
+    await runAnalyzeCommand(args);
+    return;
+  }
+
   if (command === "package") {
     await runPackageCommand(args);
     return;
@@ -279,6 +284,18 @@ Exemplos:
   pbq sensor list .
   pbq sensor add . --name e2e --tier slow --command "npm run test:e2e" --reason "Valida fluxo principal"`,
 
+    analyze: `pbq analyze [path]
+
+Valida, em modo somente leitura, a coerencia minima entre roadmap, specs, progress, contracts e evaluations quando houver package fechado.
+
+Status de saida:
+  0  nenhuma violacao critica encontrada
+  1  uma ou mais violacoes criticas encontradas
+
+Exemplos:
+  pbq analyze .
+  pbq analyze C:\\repo\\app`,
+
     package: `pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
 
 Executa sensores cadastrados, gera evaluation em .plan-build-qa/specs/<spec>/evaluations/package-N.md e falha se sensor obrigatorio falhar.
@@ -322,6 +339,7 @@ Comandos:
   init       cria a configuracao inicial do harness
   update     atualiza templates/skills sem sobrescrever customizacoes
   sensor     adiciona ou lista sensores computacionais
+  analyze    valida coerencia minima entre artefatos do harness
   package    fecha package executando sensores e gerando evaluation
   run        mostra painel de execucao
   status     mostra painel de status
@@ -331,6 +349,7 @@ Ajuda por comando:
   pbq help init
   pbq help update
   pbq help sensor
+  pbq help analyze
   pbq help package
   pbq help run
 
@@ -338,8 +357,141 @@ Exemplos:
   pbq init .
   pbq update . --dry-run
   pbq sensor list .
+  pbq analyze .
   pbq package close . --spec spec-001-exemplo --package 1 --tiers fast,medium
   pbq run . --resume`);
+}
+
+async function runAnalyzeCommand(args) {
+  const targetRoot = path.resolve(args[0] || ".");
+  const report = await analyzeHarness(targetRoot);
+
+  console.log(`[pbq] Analyze target: ${targetRoot}`);
+  console.log(`[pbq] Specs no roadmap: ${report.specCount}`);
+
+  if (report.violations.length > 0) {
+    console.log("[pbq] Violations:");
+    for (const violation of report.violations) {
+      console.log(` - ${violation}`);
+    }
+  } else {
+    console.log("[pbq] Violations: nenhuma");
+  }
+
+  if (report.warnings.length > 0) {
+    console.log("[pbq] Warnings:");
+    for (const warning of report.warnings) {
+      console.log(` - ${warning}`);
+    }
+  } else {
+    console.log("[pbq] Warnings: nenhum");
+  }
+
+  console.log(`[pbq] Resultado: ${report.violations.length === 0 ? "OK" : "FALHOU"}`);
+
+  if (report.violations.length > 0) {
+    process.exitCode = 1;
+  }
+}
+
+async function analyzeHarness(root) {
+  const violations = [];
+  const warnings = [];
+  const roadmapPath = path.join(root, HARNESS_DIR, "roadmap.md");
+
+  if (!existsSync(roadmapPath)) {
+    return {
+      specCount: 0,
+      violations: [`Arquivo obrigatorio ausente: ${path.join(HARNESS_DIR, "roadmap.md")}`],
+      warnings
+    };
+  }
+
+  const roadmap = await readFile(roadmapPath, "utf8");
+  const specRows = parseRoadmapSpecRows(roadmap);
+
+  if (specRows.length === 0) {
+    violations.push("Nenhuma spec encontrada na tabela do roadmap.");
+  }
+
+  for (const spec of specRows) {
+    const specRoot = path.join(root, HARNESS_DIR, "specs", spec.name);
+    const progressPath = path.join(specRoot, "progress.md");
+    const contractsDir = path.join(specRoot, "contracts");
+
+    if (!existsSync(specRoot)) {
+      violations.push(`${spec.name}: pasta da spec ausente em ${path.join(HARNESS_DIR, "specs", spec.name)}`);
+      continue;
+    }
+
+    if (!existsSync(progressPath)) {
+      violations.push(`${spec.name}: progress.md ausente`);
+    }
+
+    if (!existsSync(contractsDir)) {
+      violations.push(`${spec.name}: diretorio contracts ausente`);
+    }
+
+    if (spec.currentPackage && existsSync(contractsDir)) {
+      const contractPath = path.join(contractsDir, `package-${spec.currentPackage}.md`);
+      if (!existsSync(contractPath)) {
+        violations.push(`${spec.name}: contrato ausente para package atual ${spec.currentPackage}`);
+      }
+    }
+
+    if (!existsSync(progressPath)) {
+      continue;
+    }
+
+    const progress = await readFile(progressPath, "utf8");
+    const closedPackages = parseClosedPackages(progress);
+    for (const packageNumber of closedPackages) {
+      const evaluationPath = path.join(specRoot, "evaluations", `package-${packageNumber}.md`);
+      if (!existsSync(evaluationPath)) {
+        violations.push(`${spec.name}: evaluation ausente para package concluido ${packageNumber}`);
+      }
+    }
+
+    if (spec.status === "concluido" && closedPackages.length === 0) {
+      warnings.push(`${spec.name}: roadmap marca a spec como concluida, mas progress.md nao lista packages concluidos`);
+    }
+  }
+
+  return {
+    specCount: specRows.length,
+    violations,
+    warnings
+  };
+}
+
+function parseRoadmapSpecRows(roadmap) {
+  return roadmap
+    .split(/\r?\n/)
+    .filter((line) => /^\|\s*spec-\d+/i.test(line))
+    .map((line) => line.split("|").map((cell) => cell.trim()))
+    .map((cells) => ({
+      name: cells[1] || "",
+      status: (cells[2] || "").toLowerCase(),
+      currentPackage: parsePackageNumber(cells[3] || "")
+    }))
+    .filter((row) => row.name);
+}
+
+function parsePackageNumber(value) {
+  const match = value.match(/\d+/);
+  return match ? match[0] : "";
+}
+
+function parseClosedPackages(progress) {
+  const sectionMatch = progress.match(/## Packages Concluidos([\s\S]*?)(?:\n## |\s*$)/);
+  if (!sectionMatch) return [];
+
+  const packages = new Set();
+  for (const match of sectionMatch[1].matchAll(/package\s+(\d+)|\b(\d+)\b/gi)) {
+    const value = match[1] || match[2];
+    if (value) packages.add(value);
+  }
+  return [...packages];
 }
 
 async function runUpdateCommand(args) {

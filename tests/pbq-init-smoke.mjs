@@ -41,6 +41,13 @@ try {
   assert.equal(sensorHelp.status, 0, sensorHelp.stderr || sensorHelp.stdout);
   assert.match(sensorHelp.stdout, /pbq sensor add/);
 
+  const analyzeHelp = spawnSync(process.execPath, [cli, "help", "analyze"], {
+    encoding: "utf8"
+  });
+  assert.equal(analyzeHelp.status, 0, analyzeHelp.stderr || analyzeHelp.stdout);
+  assert.match(analyzeHelp.stdout, /pbq analyze/);
+  assert.match(analyzeHelp.stdout, /Status de saida/);
+
   const result = spawnSync(process.execPath, [cli, "init", root], {
     encoding: "utf8"
   });
@@ -99,6 +106,13 @@ try {
   assert.match(roadmap, /em andamento/);
   assert.match(roadmap, /concluido/);
 
+  const analyzeInvalid = spawnSync(process.execPath, [cli, "analyze", root], {
+    encoding: "utf8"
+  });
+  assert.equal(analyzeInvalid.status, 1, analyzeInvalid.stderr || analyzeInvalid.stdout);
+  assert.match(analyzeInvalid.stdout, /Violations:/);
+  assert.match(analyzeInvalid.stdout, /Nenhuma spec encontrada na tabela do roadmap/);
+
   const specSkill = await readFile(path.join(root, ".claude/skills/spec/SKILL.md"), "utf8");
   assert.match(specSkill, /roadmap\.md/);
 
@@ -151,6 +165,48 @@ try {
   assert.match(status.stdout, /Autonomous Development Pipeline/);
   assert.match(status.stdout, /Sprints/);
   assert.match(status.stdout, /Activity/);
+
+  const analyzeRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-"));
+  try {
+    await mkdir(path.join(analyzeRoot, ".plan-build-qa", "specs", "spec-001-demo", "contracts"), { recursive: true });
+    await writeFile(
+      path.join(analyzeRoot, ".plan-build-qa", "roadmap.md"),
+      `# Roadmap
+
+## Specs
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-001-demo | em andamento | 1 | 2026-05-23 | - | Implementar package 1 |
+`
+    );
+    await writeFile(
+      path.join(analyzeRoot, ".plan-build-qa", "specs", "spec-001-demo", "progress.md"),
+      `# Progress
+
+## Estado Atual
+
+\`em andamento\`
+
+## Packages Concluidos
+
+Nenhum.
+`
+    );
+    await writeFile(
+      path.join(analyzeRoot, ".plan-build-qa", "specs", "spec-001-demo", "contracts", "package-1.md"),
+      "# Contract: Package 1\n"
+    );
+
+    const analyzeValid = spawnSync(process.execPath, [cli, "analyze", analyzeRoot], {
+      encoding: "utf8"
+    });
+    assert.equal(analyzeValid.status, 0, analyzeValid.stderr || analyzeValid.stdout);
+    assert.match(analyzeValid.stdout, /Resultado: OK/);
+    assert.match(analyzeValid.stdout, /Violations: nenhuma/);
+  } finally {
+    await rm(analyzeRoot, { recursive: true, force: true });
+  }
 
   const closePackage = spawnSync(
     process.execPath,

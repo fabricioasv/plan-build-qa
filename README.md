@@ -25,6 +25,7 @@ pbq init [path] [--force] [--dry-run] [--no-agent-integration]
 pbq update [path] [--dry-run] [--force]
 pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
 pbq sensor list [path]
+pbq analyze [path]
 pbq status [path]
 pbq run [path] [--resume]
 pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
@@ -37,6 +38,7 @@ pbq help
 pbq help init
 pbq help update
 pbq help sensor
+pbq help analyze
 pbq help package
 pbq help run
 ```
@@ -172,6 +174,16 @@ pbq status
 ```
 
 O painel le `.plan-build-qa/specs/`, contratos, evaluations e `.plan-build-qa/sensors.json`. Ele nao substitui a execucao dos sensores; ele mostra quando algo ainda esta pendente ou sem evidencia.
+
+## Analyze
+
+Use `pbq analyze` para validar, em modo somente leitura, a coerencia minima entre `roadmap.md`, a pasta da spec, `progress.md`, `contracts/` e `evaluations/` quando houver package concluido.
+
+```powershell
+pbq analyze .
+```
+
+O comando retorna exit code `0` quando nao encontra violacoes criticas e `1` quando encontra inconsistencias obrigatorias no harness.
 
 ## Garantia Dos Sensores
 
