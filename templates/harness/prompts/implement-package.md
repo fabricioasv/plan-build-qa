@@ -10,9 +10,9 @@ Voce esta implementando um package dentro do Harness Engineering System.
 6. Garanta que a spec esteja marcada como `em andamento` no roadmap.
 7. Implemente somente o escopo aprovado.
 8. Crie ou ajuste testes necessarios.
-9. Rode os sensores obrigatorios do contrato.
+9. Rode os sensores obrigatorios do contrato, preferencialmente via `pbq package close`.
 10. Atualize `progress.md`.
-11. Gere ou atualize `evaluations/package-N.md`.
+11. Gere ou atualize `evaluations/package-N.md`; se usar `pbq package close`, confira o arquivo gerado.
 12. Se a spec foi concluida, marque `concluido` no roadmap com evidencia.
 
 Nao amplie escopo por conveniencia. Se o contrato estiver ambiguo, pare e registre a duvida antes de implementar.

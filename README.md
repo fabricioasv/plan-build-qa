@@ -24,6 +24,9 @@ Comandos:
 pbq init [path] [--force] [--dry-run] [--no-agent-integration]
 pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
 pbq sensor list [path]
+pbq status [path]
+pbq run [path] [--resume]
+pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
 ```
 
 - `--force`: permite sobrescrever arquivos do harness gerados anteriormente.
@@ -100,6 +103,40 @@ pbq sensor add C:\caminho\do\repo --name e2e --tier slow --command ".\scripts\ru
 O comando atualiza `sensors.json` e regenera os runners `run-fast`, `run-medium` e `run-slow`.
 
 No Claude Code, use `/sensor` para orientar o agente a cadastrar ou revisar sensores.
+
+## Painel De Execucao
+
+Use o painel para enxergar rapidamente contrato, build, QA e score das specs:
+
+```powershell
+pbq run C:\caminho\do\repo --resume
+```
+
+ou, dentro do projeto:
+
+```powershell
+pbq status
+```
+
+O painel le `.plan-build-qa/specs/`, contratos, evaluations e `.plan-build-qa/sensors.json`. Ele nao substitui a execucao dos sensores; ele mostra quando algo ainda esta pendente ou sem evidencia.
+
+## Garantia Dos Sensores
+
+O template de `evaluation.md` contem um quadro obrigatorio de sensores:
+
+```text
+| Sensor | Tier | Obrigatorio | Status | Comando | Exit Code | Evidencia |
+```
+
+Se um sensor obrigatorio estiver ausente, `pendente` ou `falhou`, o `Score` deve ser `0`. Para garantia tecnica, use o comando de fechamento que executa os sensores e gera a evaluation automaticamente.
+
+Para fechamento com execucao real dos sensores:
+
+```powershell
+pbq package close C:\caminho\do\repo --spec spec-001-exemplo --package 1 --tiers fast,medium
+```
+
+Esse comando executa os sensores cadastrados nos tiers informados, gera `.plan-build-qa/specs/<spec>/evaluations/package-N.md`, preenche a tabela de sensores e retorna exit code diferente de zero se algum sensor falhar ou estiver pendente.
 
 ## Principios
 

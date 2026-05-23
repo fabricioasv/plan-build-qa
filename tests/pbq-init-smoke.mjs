@@ -77,6 +77,10 @@ try {
   const specSkill = await readFile(path.join(root, ".claude/skills/spec/SKILL.md"), "utf8");
   assert.match(specSkill, /roadmap\.md/);
 
+  const evaluationTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/evaluation.md"), "utf8");
+  assert.match(evaluationTemplate, /Resumo De Sensores/);
+  assert.match(evaluationTemplate, /\| Sensor \| Tier \| Obrigatorio \| Status \| Comando \| Exit Code \| Evidencia \|/);
+
   const fast = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-fast.ps1"), "utf8");
   assert.match(fast, /npm run lint/);
 
@@ -103,6 +107,25 @@ try {
   const slow = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-slow.ps1"), "utf8");
   assert.match(slow, /npm run test:e2e/);
   assert.match(slow, /dotnet test .*Tests\/App\.E2E\/App\.E2E\.csproj/);
+
+  const status = spawnSync(process.execPath, [cli, "run", root, "--resume"], {
+    encoding: "utf8"
+  });
+  assert.equal(status.status, 0, status.stderr || status.stdout);
+  assert.match(status.stdout, /Autonomous Development Pipeline/);
+  assert.match(status.stdout, /Sprints/);
+  assert.match(status.stdout, /Activity/);
+
+  const closePackage = spawnSync(
+    process.execPath,
+    [cli, "package", "close", root, "--spec", "spec-001-smoke", "--package", "1", "--tiers", "fast"],
+    { encoding: "utf8" }
+  );
+  assert.equal(closePackage.status, 0, closePackage.stderr || closePackage.stdout);
+
+  const evaluation = await readFile(path.join(root, ".plan-build-qa/specs/spec-001-smoke/evaluations/package-1.md"), "utf8");
+  assert.match(evaluation, /Score: 1/);
+  assert.match(evaluation, /\| npm-run-lint \| fast \| sim \| passou \|/);
 
   const second = spawnSync(process.execPath, [cli, "init", root], {
     encoding: "utf8"

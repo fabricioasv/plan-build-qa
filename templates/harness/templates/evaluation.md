@@ -2,7 +2,26 @@
 
 Score: 0
 
-## Sensores Executados
+## Resumo De Sensores
+
+| Sensor | Tier | Obrigatorio | Status | Comando | Exit Code | Evidencia |
+| --- | --- | --- | --- | --- | --- | --- |
+| <nome> | fast/medium/slow | sim/nao | pendente | `<comando>` | - | - |
+
+Status permitidos:
+
+- `passou`
+- `falhou`
+- `pendente`
+- `nao-aplicavel`
+
+Regra:
+
+- Todo sensor obrigatorio do contrato deve aparecer nesta tabela.
+- `Score: 1` exige todos os sensores obrigatorios com status `passou`.
+- Se algum sensor obrigatorio estiver `falhou`, `pendente` ou ausente, o Score deve ser `0`.
+
+## Log De Execucao Dos Sensores
 
 ## Resultado
 

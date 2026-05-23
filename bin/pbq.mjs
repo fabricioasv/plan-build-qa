@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -50,6 +51,16 @@ async function main() {
 
   if (command === "sensor") {
     await runSensorCommand(args);
+    return;
+  }
+
+  if (command === "run" || command === "status") {
+    await runDashboardCommand(args);
+    return;
+  }
+
+  if (command === "package") {
+    await runPackageCommand(args);
     return;
   }
 
@@ -226,9 +237,358 @@ function printHelp() {
   console.log(`pbq init [path] [--force] [--dry-run] [--no-agent-integration]
 pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
 pbq sensor list [path]
+pbq status [path]
+pbq run [path] [--resume]
+pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
 
 Cria um Harness Engineering System deterministico no repositorio alvo.
 `);
+}
+
+async function runPackageCommand(args) {
+  const action = args.shift();
+  if (action !== "close") {
+    throw new Error("Uso: pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]");
+  }
+
+  const options = parsePackageCloseArgs(args);
+  const targetRoot = path.resolve(options.targetPath);
+  const sensors = (await readSensors(targetRoot)).filter((sensor) => sensor.enabled !== false && options.tiers.includes(sensor.tier));
+  const result = executePackageSensors(targetRoot, sensors);
+  await writePackageEvaluation(targetRoot, options, result);
+
+  console.log(`[pbq] Package ${options.packageNumber} evaluation Score: ${result.score}`);
+  if (result.score !== 1) {
+    process.exitCode = 1;
+  }
+}
+
+function parsePackageCloseArgs(args) {
+  const options = {
+    targetPath: ".",
+    spec: "",
+    packageNumber: "",
+    tiers: ["fast", "medium", "slow"]
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--spec") options.spec = readOptionValue(args, ++index, "--spec");
+    else if (arg === "--package") options.packageNumber = readOptionValue(args, ++index, "--package");
+    else if (arg === "--tiers") options.tiers = readOptionValue(args, ++index, "--tiers").split(",").map((tier) => tier.trim());
+    else if (arg.startsWith("--")) throw new Error(`Opcao desconhecida: ${arg}`);
+    else options.targetPath = arg;
+  }
+
+  if (!options.spec) throw new Error("Informe --spec.");
+  if (!options.packageNumber) throw new Error("Informe --package.");
+  if (options.tiers.some((tier) => !["fast", "medium", "slow"].includes(tier))) {
+    throw new Error("--tiers deve conter apenas fast, medium ou slow.");
+  }
+
+  return options;
+}
+
+function executePackageSensors(root, sensors) {
+  if (sensors.length === 0) {
+    return {
+      score: 0,
+      executedAt: new Date().toISOString(),
+      rows: [
+        {
+          sensor: "nenhum",
+          tier: "-",
+          required: "sim",
+          status: "pendente",
+          command: "-",
+          exitCode: "-",
+          evidence: "Nenhum sensor cadastrado para os tiers solicitados."
+        }
+      ]
+    };
+  }
+
+  const rows = sensors.map((sensor) => {
+    const startedAt = new Date().toISOString();
+    const result = spawnSync(sensor.command, {
+      cwd: root,
+      encoding: "utf8",
+      shell: true,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    const exitCode = typeof result.status === "number" ? result.status : 1;
+    return {
+      sensor: sensor.name,
+      tier: sensor.tier,
+      required: "sim",
+      status: exitCode === 0 ? "passou" : "falhou",
+      command: sensor.command,
+      exitCode,
+      evidence: `Executado em ${startedAt}`
+    };
+  });
+
+  return {
+    score: rows.every((row) => row.status === "passou") ? 1 : 0,
+    executedAt: new Date().toISOString(),
+    rows
+  };
+}
+
+async function writePackageEvaluation(root, options, result) {
+  const evaluationDir = path.join(root, HARNESS_DIR, "specs", options.spec, "evaluations");
+  await mkdir(evaluationDir, { recursive: true });
+  const evaluationPath = path.join(evaluationDir, `package-${options.packageNumber}.md`);
+  await writeFile(evaluationPath, packageEvaluationContent(options, result), "utf8");
+}
+
+function packageEvaluationContent(options, result) {
+  return `# Evaluation: Package ${options.packageNumber}
+
+Score: ${result.score}
+
+## Resumo De Sensores
+
+| Sensor | Tier | Obrigatorio | Status | Comando | Exit Code | Evidencia |
+| --- | --- | --- | --- | --- | --- | --- |
+${result.rows.map((row) => `| ${escapeMarkdownCell(row.sensor)} | ${row.tier} | ${row.required} | ${row.status} | \`${escapeMarkdownCell(row.command)}\` | ${row.exitCode} | ${escapeMarkdownCell(row.evidence)} |`).join("\n")}
+
+Status permitidos:
+
+- \`passou\`
+- \`falhou\`
+- \`pendente\`
+- \`nao-aplicavel\`
+
+Regra:
+
+- Todo sensor obrigatorio do contrato deve aparecer nesta tabela.
+- \`Score: 1\` exige todos os sensores obrigatorios com status \`passou\`.
+- Se algum sensor obrigatorio estiver \`falhou\`, \`pendente\` ou ausente, o Score deve ser \`0\`.
+
+## Log De Execucao Dos Sensores
+
+- Executado em: ${result.executedAt}
+- Tiers: ${options.tiers.join(", ")}
+
+## Resultado
+
+${result.score === 1 ? "Todos os sensores executados passaram." : "Um ou mais sensores falharam ou ficaram pendentes."}
+
+## Evidencias
+
+Ver tabela de sensores.
+
+## Violacoes Encontradas
+
+${result.score === 1 ? "Nenhuma violacao critica encontrada pelos sensores executados." : "Ha falha ou pendencia em sensor obrigatorio."}
+
+## Riscos Residuais
+
+Registrar manualmente riscos que os sensores nao cobrem.
+
+## Proxima Acao Recomendada
+
+${result.score === 1 ? "Atualizar progress.md e roadmap.md se a spec foi concluida." : "Corrigir falhas e executar novamente pbq package close."}
+`;
+}
+
+function escapeMarkdownCell(value) {
+  return String(value).replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+}
+
+async function runDashboardCommand(args) {
+  const options = parseDashboardArgs(args);
+  const targetRoot = path.resolve(options.targetPath);
+  const dashboard = await collectDashboardState(targetRoot);
+  renderDashboard(dashboard, options);
+}
+
+function parseDashboardArgs(args) {
+  const options = {
+    targetPath: ".",
+    resume: false
+  };
+
+  for (const arg of args) {
+    if (arg === "--resume") {
+      options.resume = true;
+    } else if (arg.startsWith("--")) {
+      throw new Error(`Opcao desconhecida: ${arg}`);
+    } else {
+      options.targetPath = arg;
+    }
+  }
+
+  return options;
+}
+
+async function collectDashboardState(root) {
+  const harnessRoot = path.join(root, HARNESS_DIR);
+  if (!existsSync(harnessRoot)) {
+    throw new Error(`Harness nao encontrado em ${HARNESS_DIR}. Rode pbq init primeiro.`);
+  }
+
+  const sensors = await readSensors(root).catch(() => []);
+  const specsRoot = path.join(harnessRoot, "specs");
+  const specs = await listSpecDirectories(specsRoot);
+  const rows = [];
+
+  for (const spec of specs) {
+    rows.push(await buildSpecDashboardRow(spec, sensors));
+  }
+
+  if (rows.length === 0) {
+    rows.push({
+      number: 1,
+      goal: "--",
+      contract: "--",
+      build: sensorBucketStatus(sensors, ["fast", "medium"], null),
+      qa: sensorBucketStatus(sensors, ["slow"], null),
+      score: "--"
+    });
+  }
+
+  return {
+    root,
+    sensors,
+    rows,
+    activity: dashboardActivity(rows, sensors)
+  };
+}
+
+async function listSpecDirectories(specsRoot) {
+  const entries = await readdir(specsRoot, { withFileTypes: true }).catch(() => []);
+  return entries
+    .filter((entry) => entry.isDirectory() && /^spec-/i.test(entry.name))
+    .map((entry) => ({
+      name: entry.name,
+      path: path.join(specsRoot, entry.name)
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function buildSpecDashboardRow(spec, sensors) {
+  const contracts = await listMarkdownFiles(path.join(spec.path, "contracts"));
+  const evaluations = await listMarkdownFiles(path.join(spec.path, "evaluations"));
+  const latestEvaluation = evaluations.at(-1);
+  const evaluation = latestEvaluation ? parseEvaluation(await readFile(latestEvaluation, "utf8")) : null;
+
+  return {
+    number: Number((spec.name.match(/^spec-(\d+)/i) || [])[1]) || 1,
+    goal: spec.name,
+    contract: contracts.length > 0 ? "AGREED" : "PENDING",
+    build: sensorBucketStatus(sensors, ["fast", "medium"], evaluation),
+    qa: sensorBucketStatus(sensors, ["slow"], evaluation),
+    score: evaluation?.score ?? "--"
+  };
+}
+
+async function listMarkdownFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
+  return entries
+    .filter((entry) => entry.isFile() && /\.md$/i.test(entry.name))
+    .map((entry) => path.join(directory, entry.name))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function parseEvaluation(content) {
+  const score = (content.match(/^Score:\s*([01])/m) || [])[1] || "--";
+  const sensorRows = [];
+  const lines = content.split(/\r?\n/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|") || /^(\|\s*-+\s*)+\|$/.test(trimmed)) continue;
+    const cells = trimmed
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim().toLowerCase());
+    if (cells.length < 4 || cells[0] === "sensor") continue;
+    sensorRows.push({
+      sensor: cells[0],
+      tier: cells[1],
+      required: cells[2],
+      status: cells[3]
+    });
+  }
+
+  return { score, sensorRows };
+}
+
+function sensorBucketStatus(sensors, tiers, evaluation) {
+  const expected = sensors.filter((sensor) => tiers.includes(sensor.tier) && sensor.enabled !== false);
+  if (expected.length === 0) return "--";
+  if (!evaluation || evaluation.sensorRows.length === 0) return "PENDING";
+
+  const relevant = evaluation.sensorRows.filter((row) => tiers.includes(row.tier) && row.required !== "nao");
+  if (relevant.length === 0) return "PENDING";
+  if (relevant.some((row) => row.status === "falhou")) return "FAILED";
+  if (relevant.some((row) => row.status === "pendente")) return "PENDING";
+  if (relevant.every((row) => row.status === "passou" || row.status === "nao-aplicavel")) return "PASS";
+  return "PENDING";
+}
+
+function dashboardActivity(rows, sensors) {
+  if (rows.some((row) => row.contract === "PENDING")) return "Waiting for contract agreement...";
+  if (rows.some((row) => row.build === "PENDING")) return "Waiting for build sensors...";
+  if (rows.some((row) => row.qa === "PENDING")) return "Waiting for QA sensors...";
+  if (rows.some((row) => row.score === "0" || row.score === "--")) return "Waiting for package evaluation...";
+  if (sensors.length === 0) return "No sensors registered yet.";
+  return "All visible stages are complete.";
+}
+
+function renderDashboard(dashboard, options) {
+  const width = 92;
+  console.log(boxLine(width));
+  console.log(boxText("pbq - Autonomous Development Pipeline", width));
+  console.log(boxLine(width));
+  console.log("");
+  console.log(sectionBox("Sprints", renderSprintRows(dashboard.rows), width));
+  console.log("");
+  console.log(sectionBox("Activity", [dashboard.activity], width));
+  console.log("");
+  const status = options.resume ? "resume" : "status";
+  console.log(sectionBox("Run", [`mode ${status}   specs ${dashboard.rows.length}   sensors ${dashboard.sensors.length}`], width));
+}
+
+function renderSprintRows(rows) {
+  const output = [];
+  output.push(padColumns(["#", "Goal", "Contract", "Build", "QA", "Score"], [5, 34, 14, 12, 12, 8]));
+  output.push(padColumns(["-", "----", "--------", "-----", "--", "-----"], [5, 34, 14, 12, 12, 8]));
+  for (const row of rows) {
+    output.push(
+      padColumns(
+        [String(row.number), row.goal, row.contract, row.build, row.qa, String(row.score)],
+        [5, 34, 14, 12, 12, 8]
+      )
+    );
+  }
+  return output;
+}
+
+function sectionBox(title, lines, width) {
+  const content = [title, "", ...lines];
+  return [boxLine(width), ...content.map((line) => boxText(line, width)), boxLine(width)].join("\n");
+}
+
+function boxLine(width) {
+  return `+${"-".repeat(width - 2)}+`;
+}
+
+function boxText(text, width) {
+  const clean = text.length > width - 4 ? text.slice(0, width - 7) + "..." : text;
+  return `| ${clean.padEnd(width - 4, " ")} |`;
+}
+
+function padColumns(values, widths) {
+  return values
+    .map((value, index) => {
+      const text = String(value);
+      const width = widths[index];
+      return (text.length > width - 1 ? text.slice(0, width - 4) + "..." : text).padEnd(width, " ");
+    })
+    .join("");
 }
 
 async function inspectProject(root) {
