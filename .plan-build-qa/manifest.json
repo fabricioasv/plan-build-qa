@@ -1,0 +1,110 @@
+{
+  "version": 2,
+  "files": {
+    ".plan-build-qa/constitution/architecture.md": {
+      "sha256": "a945608d24f11171ffcbf704fa50c543e385dfbcf610b868dd3a6211ab1f9e22"
+    },
+    ".plan-build-qa/constitution/testing.md": {
+      "sha256": "7026a749561af59f0058beac2bfcb2f0ba646ff4030e1b1b2e86572e677a8b9e"
+    },
+    ".plan-build-qa/constitution/operations.md": {
+      "sha256": "b523dc0399af6b50c585a16bc315e6eff2451a00c2417fbb9d6414dc4a917fec"
+    },
+    ".plan-build-qa/constitution/repository-rules.md": {
+      "sha256": "c89d7f3b423bfdceb0769dbc6956a41bae80ea5ff00135859c914a0108dd4169"
+    },
+    ".plan-build-qa/harness/README.md": {
+      "sha256": "7dae3a2446e21c99fdb44c2d8080c437daa357223a337eb731860f824e8c4b74"
+    },
+    ".plan-build-qa/harness/prompts/implement-package.md": {
+      "sha256": "8559b4cfe74fe428624116a751b2bb12a7a1de6960b17dfe721ede7b91cb08c5"
+    },
+    ".plan-build-qa/harness/prompts/validate-contract.md": {
+      "sha256": "7b29f2997fb89208ce26dc95f51c906311b95e666dd66bf9c35f14bc6f57e296"
+    },
+    ".plan-build-qa/harness/prompts/run-evaluation.md": {
+      "sha256": "8ba4f6c56e9d89593cd27ca6c427009ce39806031a7725bdabad08abbe1356dd"
+    },
+    ".plan-build-qa/harness/scripts/check-harness-structure.ps1": {
+      "sha256": "c73d1ae86189940654e5b419b31b4e16179c8f047c9482e357279816eaf741f1"
+    },
+    ".plan-build-qa/harness/scripts/run-fast.ps1": {
+      "sha256": "12c1d4ab8870ca4b0ac48a3dee19dd1a6e9971f290983fe9629a01f53e09c1d9"
+    },
+    ".plan-build-qa/harness/scripts/run-medium.ps1": {
+      "sha256": "e66414e54e0baeeb6951f96aeb8af3bc7e7f094eb9466ba1de3c4897f9a76e50"
+    },
+    ".plan-build-qa/harness/scripts/run-slow.ps1": {
+      "sha256": "347a5d41c5c39b5f43fed20b81bb730a4ef664d0c91d99395ba8d51f2133d11e"
+    },
+    ".plan-build-qa/harness/scripts/check-harness-structure.sh": {
+      "sha256": "1cb6b02d6683cfbaee62bc1d1e4c3ccb84a0e37b777a5abd5b2b9f018a5faf6a"
+    },
+    ".plan-build-qa/harness/scripts/run-fast.sh": {
+      "sha256": "ce1f112991f9bc644c2f12489c3e2a7c20787bf66417d47aebcda99ffb0e4f2e"
+    },
+    ".plan-build-qa/harness/scripts/run-medium.sh": {
+      "sha256": "ad6782606d7d93b0beb55510889aaf67a866e22f82f1abc33cac66186ddbac30"
+    },
+    ".plan-build-qa/harness/scripts/run-slow.sh": {
+      "sha256": "dd515a59d2a38f5ad5ed2c8d0b2fc774556225d8fafb13fc572bdcf11290f415"
+    },
+    ".plan-build-qa/harness/templates/spec.md": {
+      "sha256": "bacd304892a19d99a3a500bfad87b89b4c6148c6376742b70e7c63fd2f52b3c2"
+    },
+    ".plan-build-qa/harness/templates/contract.md": {
+      "sha256": "97f782b914d2b0353d4802e9584a7bf2ee3f6f92602c7a3235dd1cdf81ab6b64"
+    },
+    ".plan-build-qa/harness/templates/progress.md": {
+      "sha256": "3beb7d951d5efe64b0d9df511e7a11625663c2b4ff047c5ba0a3e6992a76037e"
+    },
+    ".plan-build-qa/harness/templates/evaluation.md": {
+      "sha256": "8cefb5923bdaa78e1d76ff6e406f495e75af29bbb56907225638f67c456fd4f4"
+    },
+    ".plan-build-qa/roadmap.md": {
+      "sha256": "785f9f5d49639b78cd4d6c07c1d14b5feae0d1c64ea0a3981a6ba8c4f81da1bb"
+    },
+    ".plan-build-qa/specs/README.md": {
+      "sha256": "d0fea1ee4c38c716313262807b1ec6268a0ebd0df7952ad5963accf531169182"
+    },
+    ".plan-build-qa/sensors.json": {
+      "sha256": "098a868f31b28beb4abeef60bd24e1df3743864548497975aad4ab9d92979d7a"
+    },
+    ".claude/skills/spec/SKILL.md": {
+      "sha256": "a1344dcb80f465a1a922749a8bfbc9888132da67d620174d9a9494d4e31223f6"
+    },
+    ".agents/skills/spec/SKILL.md": {
+      "sha256": "a1344dcb80f465a1a922749a8bfbc9888132da67d620174d9a9494d4e31223f6"
+    },
+    ".claude/skills/sensor/SKILL.md": {
+      "sha256": "3e340b52a794a2c65f99f6b8af5ccd70bdb8b6b59bfc71abfee05970d4e90c83"
+    },
+    ".agents/skills/sensor/SKILL.md": {
+      "sha256": "3e340b52a794a2c65f99f6b8af5ccd70bdb8b6b59bfc71abfee05970d4e90c83"
+    },
+    ".claude/skills/roadmap/SKILL.md": {
+      "sha256": "b0cfa223d4d576f791abf4ff9dbd32277b90cfaddec4bcffbfee4e01a165f2a2"
+    },
+    ".agents/skills/roadmap/SKILL.md": {
+      "sha256": "b0cfa223d4d576f791abf4ff9dbd32277b90cfaddec4bcffbfee4e01a165f2a2"
+    },
+    ".claude/skills/constitution/SKILL.md": {
+      "sha256": "4a36a9dda4332f9ed638eef8e1491bc515afbdc14051e47a0c1a1bbbf246d722"
+    },
+    ".agents/skills/constitution/SKILL.md": {
+      "sha256": "4a36a9dda4332f9ed638eef8e1491bc515afbdc14051e47a0c1a1bbbf246d722"
+    },
+    ".claude/skills/implement/SKILL.md": {
+      "sha256": "4aa192ed699e5c62c742d4c1f3a7325c1bc8c10609db3da9e18f5b8b9cfb07a0"
+    },
+    ".agents/skills/implement/SKILL.md": {
+      "sha256": "4aa192ed699e5c62c742d4c1f3a7325c1bc8c10609db3da9e18f5b8b9cfb07a0"
+    },
+    ".claude/skills/test/SKILL.md": {
+      "sha256": "7306d3e9b7697496649afe10211e011d3829985dae1c0cfe07cafcfef2c5d654"
+    },
+    ".agents/skills/test/SKILL.md": {
+      "sha256": "7306d3e9b7697496649afe10211e011d3829985dae1c0cfe07cafcfef2c5d654"
+    }
+  }
+}

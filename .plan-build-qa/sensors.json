@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "sensors": [
+    {
+      "name": "npm-run-test",
+      "tier": "medium",
+      "command": "npm run test",
+      "reason": "package.json script 'test'",
+      "source": "detected",
+      "enabled": true
+    }
+  ]
+}
