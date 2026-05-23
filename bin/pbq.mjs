@@ -1322,7 +1322,11 @@ ${MARKER_END}
 function printSummary(targetRoot, project, events, options) {
   const grouped = groupBy(events, "type");
   console.log(`[pbq] Harness target: ${targetRoot}`);
-  if (options.dryRun) console.log("[pbq] Dry run: nenhum arquivo foi alterado.");
+  if (options.dryRun) {
+    console.log("[pbq] Dry run: nenhum arquivo foi alterado.");
+    console.log(`[pbq] Would create: ${((grouped["would-create"] || []).length + (grouped["would-create-dir"] || []).length)}`);
+    console.log(`[pbq] Would update: ${((grouped["would-overwrite"] || []).length + (grouped["would-append"] || []).length)}`);
+  }
   console.log(`[pbq] Languages: ${project.languages.join(", ") || "nao detectadas"}`);
   console.log(`[pbq] Agent instruction files: ${project.agentInstructionFiles.join(", ") || "nenhum"}`);
   console.log(`[pbq] Created: ${(grouped.create || []).length}`);

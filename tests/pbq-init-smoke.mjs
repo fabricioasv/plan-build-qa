@@ -179,6 +179,18 @@ try {
   });
   assert.equal(second.status, 0, second.stderr || second.stdout);
   assert.match(second.stdout, /Skipped existing/);
+
+  const freshRoot = await mkdtemp(path.join(tmpdir(), "pbq-dry-run-"));
+  try {
+    const dryRun = spawnSync(process.execPath, [cli, "init", freshRoot, "--dry-run"], {
+      encoding: "utf8"
+    });
+    assert.equal(dryRun.status, 0, dryRun.stderr || dryRun.stdout);
+    assert.match(dryRun.stdout, /Would create:/);
+    assert.match(dryRun.stdout, /Would update:/);
+  } finally {
+    await rm(freshRoot, { recursive: true, force: true });
+  }
 } finally {
   await rm(root, { recursive: true, force: true });
 }
