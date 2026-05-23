@@ -1,0 +1,1079 @@
+#!/usr/bin/env node
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const MARKER_START = "<!-- PBQ-HARNESS-START -->";
+const MARKER_END = "<!-- PBQ-HARNESS-END -->";
+
+const REQUIRED_FILES = [
+  ".constitution/architecture.md",
+  ".constitution/testing.md",
+  ".constitution/operations.md",
+  ".constitution/repository-rules.md",
+  ".harness/README.md",
+  ".harness/prompts/implement-package.md",
+  ".harness/prompts/validate-contract.md",
+  ".harness/prompts/run-evaluation.md",
+  ".harness/scripts/run-fast.ps1",
+  ".harness/scripts/run-medium.ps1",
+  ".harness/scripts/run-slow.ps1",
+  ".harness/scripts/check-harness-structure.ps1",
+  ".harness/scripts/run-fast.sh",
+  ".harness/scripts/run-medium.sh",
+  ".harness/scripts/run-slow.sh",
+  ".harness/scripts/check-harness-structure.sh",
+  ".harness/templates/spec.md",
+  ".harness/templates/contract.md",
+  ".harness/templates/progress.md",
+  ".harness/templates/evaluation.md",
+  ".specs/README.md"
+];
+
+main().catch((error) => {
+  console.error(`[pbq] ${error.message}`);
+  process.exitCode = 1;
+});
+
+async function main() {
+  const args = process.argv.slice(2);
+  const command = args.shift();
+
+  if (!command || command === "--help" || command === "-h") {
+    printHelp();
+    return;
+  }
+
+  if (command !== "init") {
+    throw new Error(`Comando desconhecido: ${command}`);
+  }
+
+  const options = parseInitArgs(args);
+  const targetRoot = path.resolve(options.targetPath);
+  await ensureDirectory(targetRoot);
+
+  const project = await inspectProject(targetRoot);
+  const generated = generateFiles(project);
+  const events = [];
+
+  for (const [relativePath, content] of Object.entries(generated)) {
+    await writeManagedFile(targetRoot, relativePath, content, options, events);
+  }
+
+  await ensureDirectory(path.join(targetRoot, ".harness", "evaluations"), options, events);
+
+  if (options.integrateAgents) {
+    await integrateAgentInstructions(targetRoot, project.agentInstructionFiles, options, events);
+  }
+
+  printSummary(targetRoot, project, events, options);
+}
+
+function parseInitArgs(args) {
+  const options = {
+    targetPath: ".",
+    force: false,
+    dryRun: false,
+    integrateAgents: true
+  };
+
+  for (const arg of args) {
+    if (arg === "--force") {
+      options.force = true;
+    } else if (arg === "--dry-run") {
+      options.dryRun = true;
+    } else if (arg === "--no-agent-integration") {
+      options.integrateAgents = false;
+    } else if (arg.startsWith("--")) {
+      throw new Error(`Opcao desconhecida: ${arg}`);
+    } else {
+      options.targetPath = arg;
+    }
+  }
+
+  return options;
+}
+
+function printHelp() {
+  console.log(`pbq init [path] [--force] [--dry-run] [--no-agent-integration]
+
+Cria um Harness Engineering System deterministico no repositorio alvo.
+`);
+}
+
+async function inspectProject(root) {
+  const files = await listFiles(root, {
+    maxFiles: 2000,
+    ignoredDirectories: new Set([
+      ".git",
+      "node_modules",
+      "dist",
+      "build",
+      "out",
+      "bin",
+      "obj",
+      ".next",
+      ".nuxt",
+      ".venv",
+      "venv",
+      "__pycache__"
+    ])
+  });
+
+  const fileSet = new Set(files.map((file) => toPosix(file)));
+  const packageJson = await readJsonIfExists(path.join(root, "package.json"));
+  const agentInstructionFiles = findAgentInstructionFiles(files);
+  const docs = await collectRepositoryDocs(root, files);
+  const commands = detectCommands(fileSet, packageJson);
+  const languages = detectLanguages(fileSet, packageJson);
+  const risks = detectRisks(fileSet, packageJson);
+
+  return {
+    root,
+    files: [...fileSet].sort(),
+    fileSet,
+    packageJson,
+    agentInstructionFiles,
+    docs,
+    commands,
+    languages,
+    risks
+  };
+}
+
+async function listFiles(root, options, relative = "") {
+  const current = path.join(root, relative);
+  const entries = await readdir(current, { withFileTypes: true }).catch(() => []);
+  const files = [];
+
+  for (const entry of entries) {
+    const nextRelative = path.join(relative, entry.name);
+    if (entry.isDirectory()) {
+      if (options.ignoredDirectories.has(entry.name)) continue;
+      files.push(...(await listFiles(root, options, nextRelative)));
+    } else if (entry.isFile()) {
+      files.push(nextRelative);
+      if (files.length >= options.maxFiles) break;
+    }
+  }
+
+  return files.slice(0, options.maxFiles);
+}
+
+async function readJsonIfExists(file) {
+  if (!existsSync(file)) return null;
+  try {
+    return JSON.parse(await readFile(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function findAgentInstructionFiles(files) {
+  const normalized = files.map((file) => toPosix(file));
+  const exact = new Set([
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".cursorrules",
+    ".windsurfrules",
+    "GEMINI.md"
+  ]);
+
+  return normalized
+    .filter((file) => {
+      if (exact.has(file)) return true;
+      if (file.startsWith(".cursor/rules/") && /\.(md|mdc|txt)$/i.test(file)) return true;
+      if (file.startsWith(".windsurf/rules/") && /\.(md|txt)$/i.test(file)) return true;
+      return false;
+    })
+    .sort();
+}
+
+async function collectRepositoryDocs(root, files) {
+  const candidates = files
+    .map((file) => toPosix(file))
+    .filter((file) => {
+      const base = path.posix.basename(file).toLowerCase();
+      return (
+        base === "readme.md" ||
+        base === "agents.md" ||
+        base === "claude.md" ||
+        base === ".cursorrules" ||
+        base === ".windsurfrules" ||
+        file.toLowerCase().startsWith("docs/") ||
+        file.toLowerCase().startsWith(".github/")
+      );
+    })
+    .slice(0, 40);
+
+  const docs = [];
+  for (const relativePath of candidates) {
+    const absolutePath = path.join(root, relativePath);
+    let content = "";
+    try {
+      content = await readFile(absolutePath, "utf8");
+    } catch {
+      continue;
+    }
+    docs.push({
+      path: relativePath,
+      snippets: extractOperationalSnippets(content)
+    });
+  }
+  return docs;
+}
+
+function extractOperationalSnippets(content) {
+  const lines = content.split(/\r?\n/);
+  const snippets = [];
+  const patterns = [
+    /\b(npm|pnpm|yarn|bun|dotnet|mvn|gradle|pytest|ruff|cargo|go test|make)\b/i,
+    /\b(test|build|lint|format|deploy|rollback|architecture|arquitetura|regra|rule|must|deve|nao deve|não deve)\b/i
+  ];
+
+  for (const line of lines) {
+    const clean = line.trim();
+    if (!clean || clean.length > 220) continue;
+    if (patterns.some((pattern) => pattern.test(clean))) {
+      snippets.push(clean);
+    }
+    if (snippets.length >= 12) break;
+  }
+
+  return snippets;
+}
+
+function detectLanguages(fileSet, packageJson) {
+  const languages = [];
+  const add = (name) => {
+    if (!languages.includes(name)) languages.push(name);
+  };
+
+  if (packageJson || hasAny(fileSet, ["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb"])) {
+    add("JavaScript/TypeScript");
+  }
+  if ([...fileSet].some((file) => /\.(cs|csproj|sln)$/i.test(file))) add(".NET");
+  if ([...fileSet].some((file) => /\.(java|kt|kts)$/i.test(file)) || hasAny(fileSet, ["pom.xml", "build.gradle", "build.gradle.kts"])) {
+    add("Java/JVM");
+  }
+  if ([...fileSet].some((file) => /\.py$/i.test(file)) || hasAny(fileSet, ["pyproject.toml", "requirements.txt", "pytest.ini"])) {
+    add("Python");
+  }
+  if ([...fileSet].some((file) => /\.go$/i.test(file)) || hasAny(fileSet, ["go.mod"])) add("Go");
+  if ([...fileSet].some((file) => /\.rs$/i.test(file)) || hasAny(fileSet, ["Cargo.toml"])) add("Rust");
+
+  return languages;
+}
+
+function detectRisks(fileSet, packageJson) {
+  const risks = [];
+  if (hasAny(fileSet, [".env", ".env.local", ".env.production"])) {
+    risks.push("Arquivos .env detectados: evitar leitura ou exposicao de segredos.");
+  }
+  if (hasAny(fileSet, ["docker-compose.yml", "docker-compose.yaml", "Dockerfile"])) {
+    risks.push("Projeto usa Docker: sensores slow podem acionar servicos externos ou estado persistente.");
+  }
+  if (packageJson?.scripts) {
+    for (const [name, value] of Object.entries(packageJson.scripts)) {
+      if (/deploy|publish|release|migration|migrate|seed|db/i.test(`${name} ${value}`)) {
+        risks.push(`Script sensivel detectado em package.json: ${name}. Exigir aprovacao humana antes de executar.`);
+      }
+    }
+  }
+  return [...new Set(risks)];
+}
+
+function detectCommands(fileSet, packageJson) {
+  const commands = {
+    fast: [],
+    medium: [],
+    slow: [],
+    placeholders: []
+  };
+
+  const add = (bucket, command, reason) => {
+    if (!commands[bucket].some((item) => item.command === command)) {
+      commands[bucket].push({ command, reason });
+    }
+  };
+
+  if (packageJson?.scripts) {
+    const manager = detectNodePackageManager(fileSet);
+    const scripts = packageJson.scripts;
+    for (const name of ["lint", "typecheck", "check", "test:unit"]) {
+      if (scripts[name]) add("fast", `${manager} run ${name}`, `package.json script '${name}'`);
+    }
+    if (scripts.test && !commands.fast.some((item) => item.command.includes("test:unit"))) {
+      add("medium", `${manager} run test`, "package.json script 'test'");
+    }
+    for (const name of ["build", "test:integration", "integration"]) {
+      if (scripts[name]) add("medium", `${manager} run ${name}`, `package.json script '${name}'`);
+    }
+    for (const name of ["test:e2e", "e2e", "test:slow", "playwright", "cypress"]) {
+      if (scripts[name]) add("slow", `${manager} run ${name}`, `package.json script '${name}'`);
+    }
+  }
+
+  if ([...fileSet].some((file) => /\.(sln|csproj)$/i.test(file))) {
+    add("medium", "dotnet build", "Projeto .NET detectado");
+    add("medium", "dotnet test", "Projeto .NET detectado");
+  }
+
+  if (hasAny(fileSet, ["gradlew", "gradlew.bat", "build.gradle", "build.gradle.kts"])) {
+    const gradle = hasAny(fileSet, ["gradlew.bat"]) ? ".\\gradlew.bat" : "./gradlew";
+    add("medium", `${gradle} build`, "Projeto Gradle detectado");
+    add("medium", `${gradle} test`, "Projeto Gradle detectado");
+  }
+
+  if (hasAny(fileSet, ["pom.xml"])) {
+    add("medium", "mvn test", "Projeto Maven detectado");
+    add("medium", "mvn package -DskipTests", "Projeto Maven detectado");
+  }
+
+  if (hasAny(fileSet, ["pyproject.toml", "pytest.ini", "requirements.txt"]) || [...fileSet].some((file) => /\.py$/i.test(file))) {
+    add("medium", "python -m pytest", "Projeto Python detectado");
+  }
+
+  if (hasAny(fileSet, ["go.mod"])) {
+    add("medium", "go test ./...", "Projeto Go detectado");
+  }
+
+  if (hasAny(fileSet, ["Cargo.toml"])) {
+    add("medium", "cargo test", "Projeto Rust detectado");
+  }
+
+  if (commands.fast.length === 0) {
+    commands.placeholders.push({
+      bucket: "fast",
+      text: "Nenhum lint/typecheck/teste unitario rapido foi detectado. Adicione comandos reais em .harness/scripts/run-fast.ps1 quando existirem."
+    });
+  }
+  if (commands.medium.length === 0) {
+    commands.placeholders.push({
+      bucket: "medium",
+      text: "Nenhum build/teste completo foi detectado. Adicione comandos reais em .harness/scripts/run-medium.ps1 quando existirem."
+    });
+  }
+  if (commands.slow.length === 0) {
+    commands.placeholders.push({
+      bucket: "slow",
+      text: "Nenhum E2E/integracao pesada foi detectado. Mantenha run-slow como placeholder ate haver sensor real."
+    });
+  }
+
+  return commands;
+}
+
+function detectNodePackageManager(fileSet) {
+  if (fileSet.has("pnpm-lock.yaml")) return "pnpm";
+  if (fileSet.has("yarn.lock")) return "yarn";
+  if (fileSet.has("bun.lockb")) return "bun";
+  return "npm";
+}
+
+function hasAny(fileSet, files) {
+  return files.some((file) => fileSet.has(file));
+}
+
+function generateFiles(project) {
+  return Object.fromEntries([
+    [".constitution/architecture.md", constitutionArchitecture(project)],
+    [".constitution/testing.md", constitutionTesting(project)],
+    [".constitution/operations.md", constitutionOperations(project)],
+    [".constitution/repository-rules.md", constitutionRepositoryRules(project)],
+    [".harness/README.md", harnessReadme(project)],
+    [".harness/prompts/implement-package.md", promptImplementPackage()],
+    [".harness/prompts/validate-contract.md", promptValidateContract()],
+    [".harness/prompts/run-evaluation.md", promptRunEvaluation()],
+    [".harness/scripts/check-harness-structure.ps1", psCheckHarnessStructure()],
+    [".harness/scripts/run-fast.ps1", psRunScript("fast", project.commands.fast, project.commands.placeholders)],
+    [".harness/scripts/run-medium.ps1", psRunScript("medium", project.commands.medium, project.commands.placeholders)],
+    [".harness/scripts/run-slow.ps1", psRunScript("slow", project.commands.slow, project.commands.placeholders)],
+    [".harness/scripts/check-harness-structure.sh", shCheckHarnessStructure()],
+    [".harness/scripts/run-fast.sh", shRunScript("fast", project.commands.fast, project.commands.placeholders)],
+    [".harness/scripts/run-medium.sh", shRunScript("medium", project.commands.medium, project.commands.placeholders)],
+    [".harness/scripts/run-slow.sh", shRunScript("slow", project.commands.slow, project.commands.placeholders)],
+    [".harness/templates/spec.md", templateSpec()],
+    [".harness/templates/contract.md", templateContract()],
+    [".harness/templates/progress.md", templateProgress()],
+    [".harness/templates/evaluation.md", templateEvaluation()],
+    [".specs/README.md", specsReadme()]
+  ]);
+}
+
+async function writeManagedFile(root, relativePath, content, options, events) {
+  const absolutePath = path.join(root, relativePath);
+  const exists = existsSync(absolutePath);
+
+  if (exists && !options.force) {
+    events.push({ type: "skip", path: relativePath, reason: "exists" });
+    return;
+  }
+
+  if (options.dryRun) {
+    events.push({ type: exists ? "would-overwrite" : "would-create", path: relativePath });
+    return;
+  }
+
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, content, "utf8");
+  events.push({ type: exists ? "overwrite" : "create", path: relativePath });
+}
+
+async function ensureDirectory(absolutePath, options = { dryRun: false }, events = []) {
+  if (existsSync(absolutePath)) {
+    const item = await stat(absolutePath);
+    if (!item.isDirectory()) throw new Error(`Nao e diretorio: ${absolutePath}`);
+    return;
+  }
+
+  if (options.dryRun) {
+    events.push({ type: "would-create-dir", path: path.basename(absolutePath) });
+    return;
+  }
+
+  await mkdir(absolutePath, { recursive: true });
+}
+
+async function integrateAgentInstructions(root, files, options, events) {
+  const section = `${MARKER_START}
+## Harness Engineering
+
+Este repositorio possui um harness em \`.harness/\` e regras permanentes em \`.constitution/\`.
+
+Para mudancas medias ou grandes:
+1. criar ou localizar uma spec em \`.specs/\`
+2. trabalhar contra um contrato em \`contracts/package-N.md\`
+3. rodar sensores obrigatorios
+4. registrar resultado em \`progress.md\` e \`evaluations/package-N.md\`
+
+Mudancas pequenas podem usar contrato inline, desde que respeitem \`.constitution/\` e os sensores aplicaveis.
+${MARKER_END}
+`;
+
+  const targets = new Set(files);
+  targets.add("AGENTS.md");
+  targets.add("CLAUDE.md");
+
+  for (const relativePath of [...targets].sort()) {
+    const absolutePath = path.join(root, relativePath);
+    if (!existsSync(absolutePath)) {
+      if (options.dryRun) {
+        events.push({ type: "would-create", path: relativePath });
+        continue;
+      }
+      await writeFile(absolutePath, `# Agent Instructions\n\n${section}`, "utf8");
+      events.push({ type: "create", path: relativePath });
+      continue;
+    }
+
+    const current = await readFile(absolutePath, "utf8").catch(() => null);
+    if (current === null) continue;
+    if (current.includes(MARKER_START)) {
+      events.push({ type: "skip", path: relativePath, reason: "marker exists" });
+      continue;
+    }
+
+    if (options.dryRun) {
+      events.push({ type: "would-append", path: relativePath });
+      continue;
+    }
+
+    const next = current.endsWith("\n") ? `${current}\n${section}` : `${current}\n\n${section}`;
+    await writeFile(absolutePath, next, "utf8");
+    events.push({ type: "append", path: relativePath });
+  }
+}
+
+function printSummary(targetRoot, project, events, options) {
+  const grouped = groupBy(events, "type");
+  console.log(`[pbq] Harness target: ${targetRoot}`);
+  if (options.dryRun) console.log("[pbq] Dry run: nenhum arquivo foi alterado.");
+  console.log(`[pbq] Languages: ${project.languages.join(", ") || "nao detectadas"}`);
+  console.log(`[pbq] Agent instruction files: ${project.agentInstructionFiles.join(", ") || "nenhum"}`);
+  console.log(`[pbq] Created: ${(grouped.create || []).length}`);
+  console.log(`[pbq] Updated: ${((grouped.append || []).length + (grouped.overwrite || []).length)}`);
+  console.log(`[pbq] Skipped existing: ${(grouped.skip || []).length}`);
+  console.log("[pbq] Fast sensors:");
+  printCommandList(project.commands.fast);
+  console.log("[pbq] Medium sensors:");
+  printCommandList(project.commands.medium);
+  console.log("[pbq] Slow sensors:");
+  printCommandList(project.commands.slow);
+  if (project.commands.placeholders.length > 0) {
+    console.log("[pbq] Placeholders:");
+    for (const placeholder of project.commands.placeholders) console.log(`  - ${placeholder.bucket}: ${placeholder.text}`);
+  }
+}
+
+function printCommandList(commands) {
+  if (commands.length === 0) {
+    console.log("  - nenhum comando real detectado");
+    return;
+  }
+  for (const item of commands) console.log(`  - ${item.command} (${item.reason})`);
+}
+
+function groupBy(items, property) {
+  return items.reduce((acc, item) => {
+    const key = item[property];
+    acc[key] ||= [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+}
+
+function toPosix(file) {
+  return file.split(path.sep).join("/");
+}
+
+function mdList(items, fallback = "- Nao detectado no bootstrap.") {
+  if (!items || items.length === 0) return fallback;
+  return items.map((item) => `- ${item}`).join("\n");
+}
+
+function commandMd(commands, fallback) {
+  if (!commands || commands.length === 0) return fallback;
+  return commands.map((item) => `- \`${item.command}\` - ${item.reason}`).join("\n");
+}
+
+function constitutionArchitecture(project) {
+  return `# Constitution: Architecture
+
+Este arquivo contem regras permanentes de arquitetura para agentes e humanos. Ele deve evoluir quando o time encontrar desvios recorrentes.
+
+## Contexto Detectado
+
+Linguagens/frameworks detectados:
+
+${mdList(project.languages)}
+
+Arquivos de instrucao existentes:
+
+${mdList(project.agentInstructionFiles)}
+
+## Principios
+
+- Preserve a arquitetura existente antes de introduzir novos padroes.
+- Prefira mudancas pequenas, reversiveis e testaveis.
+- Nao misture refactor estrutural com mudanca funcional no mesmo package sem contrato explicito.
+- Nao crie dependencias globais, estado compartilhado ou atalhos transversais sem justificativa registrada na spec.
+- Modulos de baixo nivel nao devem conhecer detalhes de UI, transporte, banco ou infraestrutura sem uma fronteira ja existente no projeto.
+
+## Limites Entre Camadas e Modulos
+
+- Extraia os limites reais do codigo antes de alterar chamadas entre diretorios ou camadas.
+- Ao tocar uma fronteira publica, registre consumidores afetados e sensores que cobrem a mudanca.
+- Alteracoes em contratos publicos exigem criterio de aceite objetivo e, quando aplicavel, migracao documentada.
+
+## Dependencias Permitidas e Proibidas
+
+- Permitido: dependencias que ja fazem parte do padrao local ou que estejam justificadas na spec.
+- Proibido: dependencia nova para conveniencia local sem avaliacao de impacto.
+- Proibido: chamadas diretas que contornem camadas de dominio, aplicacao ou infraestrutura ja existentes.
+
+## Refactors
+
+- Refactor deve preservar comportamento observavel.
+- Refactor amplo exige package proprio e sensores antes/depois.
+- Nao renomeie ou mova arquivos em massa sem contrato que delimite o escopo.
+
+## Mudancas Estruturais
+
+Mudancas estruturais exigem spec + contrato quando:
+
+- alteram diretorios compartilhados ou interfaces publicas
+- mudam fluxo de dados entre camadas
+- introduzem infraestrutura, fila, cache, banco, autenticacao ou observabilidade
+- afetam mais de um modulo funcional
+`;
+}
+
+function constitutionTesting(project) {
+  return `# Constitution: Testing
+
+## Estrategia
+
+- Sensores computacionais valem mais que julgamento subjetivo do agente.
+- Todo package deve listar sensores obrigatorios antes da implementacao.
+- Se um sensor nao puder rodar, registre motivo, evidencia e risco residual em \`progress.md\` e na evaluation.
+
+## Sensores Detectados
+
+Fast:
+
+${commandMd(project.commands.fast, "- Placeholder: nenhum comando rapido detectado.")}
+
+Medium:
+
+${commandMd(project.commands.medium, "- Placeholder: nenhum comando medio detectado.")}
+
+Slow:
+
+${commandMd(project.commands.slow, "- Placeholder: nenhum comando lento detectado.")}
+
+## Quando Rodar
+
+- Mudanca pequena: \`.harness/scripts/run-fast.ps1\` ou \`.harness/scripts/run-fast.sh\`.
+- Mudanca media: fast + \`.harness/scripts/run-medium.ps1\` ou \`.harness/scripts/run-medium.sh\`.
+- Mudanca grande: fast + medium + slow quando houver sensor real aplicavel.
+
+## Criterio Minimo de Validacao
+
+- Todos os sensores obrigatorios do contrato passaram.
+- Falhas conhecidas foram registradas com evidencia.
+- Nenhum teste foi removido, ignorado ou relaxado sem justificativa no contrato.
+- A evaluation do package recebeu Score 1 apenas se nao houver violacao critica e nenhum sensor obrigatorio pendente.
+
+## Testes Pendentes ou Impossiveis
+
+- Nao declare sucesso pleno com sensor pendente.
+- Marque Score 0 quando um sensor obrigatorio nao executou.
+- Transforme pendencias recorrentes em sensores computacionais ou regras do harness.
+`;
+}
+
+function constitutionOperations(project) {
+  return `# Constitution: Operations
+
+## Seguranca Operacional
+
+- Nao execute comandos destrutivos, deploy, publish, migration, seed ou alteracao de ambiente sem aprovacao humana explicita.
+- Nao leia, imprima ou copie segredos de arquivos \`.env\`, cofres, variaveis sensiveis ou logs privados.
+- Nao altere configuracoes de CI/CD, seguranca, lint ou testes para fazer sensores passarem sem contrato explicito.
+
+## Riscos Detectados
+
+${mdList(project.risks, "- Nenhum risco operacional especifico foi detectado automaticamente.")}
+
+## Rollback
+
+- Cada contrato deve indicar como desfazer a mudanca.
+- Mudancas pequenas devem ser isoladas para revert simples.
+- Mudancas com dados, migracoes ou efeitos externos exigem plano de rollback validado por humano.
+
+## Observabilidade
+
+- Mudancas em comportamento de runtime devem considerar logs, metricas ou rastros ja usados pelo projeto.
+- Nao introduza logs ruidosos nem exponha dados sensiveis.
+- Quando nao houver observabilidade aplicavel, registre isso no contrato.
+
+## Ambientes
+
+- Sensores fast e medium devem evitar dependencia de servicos externos sempre que possivel.
+- Sensores slow podem exigir ambiente especifico, mas devem falhar de forma explicita quando pre-condicoes estiverem ausentes.
+`;
+}
+
+function constitutionRepositoryRules(project) {
+  const docs = project.docs
+    .map((doc) => {
+      const snippets = doc.snippets.length > 0 ? doc.snippets.map((line) => `  - ${line}`).join("\n") : "  - Nenhum trecho operacional objetivo extraido automaticamente.";
+      return `### ${doc.path}\n\n${snippets}`;
+    })
+    .join("\n\n");
+
+  return `# Constitution: Repository Rules
+
+Este arquivo consolida regras existentes detectadas no repositorio durante o bootstrap. Ele nao substitui os arquivos originais.
+
+## Fontes Lidas
+
+${mdList(project.docs.map((doc) => doc.path), "- Nenhuma fonte documental detectada.")}
+
+## Trechos Operacionais Extraidos
+
+${docs || "Nenhum trecho operacional foi extraido automaticamente."}
+
+## Regras de Preservacao
+
+- Regras existentes do repositorio tem prioridade sobre este harness.
+- Se este arquivo divergir de \`AGENTS.md\`, \`CLAUDE.md\`, README, CI ou documentacao local, siga a regra mais especifica e atualize esta consolidacao.
+- Nao invente convencoes: derive regras de codigo, testes, scripts e documentos existentes.
+`;
+}
+
+function harnessReadme(project) {
+  return `# Harness Engineering
+
+Este harness e a camada externa de controle para agentes de IA neste repositorio. Ele combina guias de feedforward, sensores de feedback e registro de progresso.
+
+Referencias:
+
+- https://martinfowler.com/articles/harness-engineering.html
+- https://www.youtube.com/watch?v=dLs-Pbn8stU
+
+## Quando Usar Spec
+
+- Mudanca pequena: contrato inline e sensores fast podem ser suficientes.
+- Mudanca media: crie uma spec em \`.specs/spec-XXX-nome/\` e um contrato em \`contracts/package-N.md\`.
+- Mudanca grande: divida em varios packages pequenos, reversiveis e validaveis.
+
+## Quando Usar Contrato Formal
+
+Use contrato formal quando houver alteracao de fluxo, fronteira publica, persistencia, integracao externa, arquitetura, seguranca, CI/CD ou mais de um modulo afetado.
+
+## Sensores
+
+Fast:
+
+${commandMd(project.commands.fast, "- Apenas \`check-harness-structure\` foi configurado; adicione lint/typecheck/teste rapido quando existir.")}
+
+Medium:
+
+${commandMd(project.commands.medium, "- Placeholder: nenhum build/teste completo detectado.")}
+
+Slow:
+
+${commandMd(project.commands.slow, "- Placeholder: nenhum E2E/integracao pesada detectado.")}
+
+Comandos:
+
+\`\`\`powershell
+.\\.harness\\scripts\\run-fast.ps1
+.\\.harness\\scripts\\run-medium.ps1
+.\\.harness\\scripts\\run-slow.ps1
+\`\`\`
+
+Em Unix:
+
+\`\`\`sh
+sh ./.harness/scripts/run-fast.sh
+sh ./.harness/scripts/run-medium.sh
+sh ./.harness/scripts/run-slow.sh
+\`\`\`
+
+## Progresso
+
+Cada spec deve manter \`progress.md\` com estado atual, decisoes, sensores executados, falhas anteriores e contexto para retomada.
+
+## Nova Spec
+
+1. Copie \`.harness/templates/spec.md\` para \`.specs/spec-XXX-nome/spec.md\`.
+2. Copie \`.harness/templates/progress.md\` para \`.specs/spec-XXX-nome/progress.md\`.
+3. Crie \`contracts/package-N.md\` a partir de \`.harness/templates/contract.md\`.
+4. Liste sensores obrigatorios antes da implementacao.
+
+## Concluir Package
+
+1. Confirme que o escopo do contrato foi respeitado.
+2. Rode sensores obrigatorios.
+3. Atualize \`progress.md\`.
+4. Gere \`evaluations/package-N.md\` com Score 0 ou 1.
+5. Score 1 exige todos os sensores obrigatorios passando e nenhuma violacao critica.
+
+## Hierarquia de Regras
+
+1. instrucoes superiores da plataforma/ferramenta
+2. regras ja existentes do repositorio
+3. \`.constitution/\`
+4. \`.harness/\`
+5. \`spec.md\`
+6. \`contracts/\`
+7. prompts locais
+8. implementacao
+`;
+}
+
+function promptImplementPackage() {
+  return `# Implement Package
+
+Voce esta implementando um package dentro do Harness Engineering System.
+
+1. Carregue as regras relevantes em \`.constitution/\`.
+2. Carregue a spec ativa em \`.specs/spec-XXX-nome/spec.md\`.
+3. Carregue \`progress.md\`.
+4. Carregue o contrato do package em \`contracts/package-N.md\`.
+5. Implemente somente o escopo aprovado.
+6. Crie ou ajuste testes necessarios.
+7. Rode os sensores obrigatorios do contrato.
+8. Atualize \`progress.md\`.
+9. Gere ou atualize \`evaluations/package-N.md\`.
+
+Nao amplie escopo por conveniencia. Se o contrato estiver ambiguo, pare e registre a duvida antes de implementar.
+`;
+}
+
+function promptValidateContract() {
+  return `# Validate Contract
+
+Atue simultaneamente como QA Engineer, Principal Engineer e Harness Validator.
+
+Procure:
+
+- ambiguidades
+- criterios subjetivos
+- escopo implicito
+- sensores ausentes
+- riscos sem mitigacao
+- arquivos permitidos amplos demais
+- ausencia de rollback
+- ausencia de observabilidade quando aplicavel
+
+Resultado esperado:
+
+- lista objetiva de problemas por severidade
+- mudancas necessarias no contrato
+- decisao: aprovado para implementacao ou bloqueado
+`;
+}
+
+function promptRunEvaluation() {
+  return `# Run Evaluation
+
+1. Execute os sensores obrigatorios do package.
+2. Registre evidencias: comandos, saidas relevantes e arquivos afetados.
+3. Classifique violacoes por severidade.
+4. Atribua Score 0 ou 1.
+5. Indique a proxima acao.
+
+Score 1 somente se todos os sensores obrigatorios passaram e nao ha violacao critica.
+Score 0 se houver falha, sensor pendente, regressao ou violacao critica.
+`;
+}
+
+function templateSpec() {
+  return `# Spec: <nome>
+
+## Objetivo
+
+## Contexto
+
+## Escopo
+
+## Fora de Escopo
+
+## Packages
+
+| Package | Objetivo | Estado | Sensores |
+| --- | --- | --- | --- |
+| 1 |  | planejado |  |
+
+## Riscos
+
+## Sensores Esperados
+
+## Criterios de Conclusao
+`;
+}
+
+function templateContract() {
+  return `# Contract: Package N
+
+## Package
+
+## Objetivo
+
+## Arquivos Permitidos
+
+## Arquivos Proibidos
+
+## Mudancas Permitidas
+
+## Mudancas Proibidas
+
+## Criterios de Aceite
+
+## Sensores Obrigatorios
+
+## Riscos
+
+## Rollback
+
+## Observabilidade
+
+## Duvidas Abertas
+`;
+}
+
+function templateProgress() {
+  return `# Progress
+
+## Estado Atual
+
+## Packages Concluidos
+
+## Package Atual
+
+## Decisoes Tecnicas
+
+## Sensores Executados
+
+## Falhas Anteriores
+
+## Riscos Acumulados
+
+## Pendencias
+
+## Contexto Para Retomada
+`;
+}
+
+function templateEvaluation() {
+  return `# Evaluation: Package N
+
+Score: 0
+
+## Sensores Executados
+
+## Resultado
+
+## Evidencias
+
+## Violacoes Encontradas
+
+## Riscos Residuais
+
+## Proxima Acao Recomendada
+
+Regra:
+
+- Score: 1 somente se todos os sensores obrigatorios passarem e nao houver violacao critica.
+- Score: 0 se houver falha, sensor pendente, regressao ou violacao critica.
+`;
+}
+
+function specsReadme() {
+  return `# Specs
+
+Cada spec representa uma iniciativa, epico ou frente de mudanca.
+
+Estrutura padrao:
+
+\`\`\`text
+.specs/spec-XXX-nome/
+├── spec.md
+├── progress.md
+├── contracts/
+│   └── package-N.md
+├── evaluations/
+│   └── package-N.md
+├── scripts/
+└── prompts/
+\`\`\`
+
+Cada package deve ser pequeno, reversivel e validavel.
+
+Use os templates em \`.harness/templates/\`.
+`;
+}
+
+function psCheckHarnessStructure() {
+  return `$ErrorActionPreference = "Stop"
+
+$Root = Resolve-Path (Join-Path $PSScriptRoot "..\\..")
+$Required = @(
+${REQUIRED_FILES.map((file) => `  "${file.replace(/\//g, "\\")}"`).join(",\n")}
+)
+
+$Missing = @()
+foreach ($Item in $Required) {
+  $Path = Join-Path $Root $Item
+  if (-not (Test-Path $Path)) {
+    $Missing += $Item
+  }
+}
+
+if ($Missing.Count -gt 0) {
+  Write-Host "[harness] Missing required files:"
+  $Missing | ForEach-Object { Write-Host " - $_" }
+  exit 1
+}
+
+Write-Host "[harness] Structure OK"
+exit 0
+`;
+}
+
+function psRunScript(kind, commands, placeholders) {
+  const scopedPlaceholders = placeholders.filter((item) => item.bucket === kind);
+  return `$ErrorActionPreference = "Stop"
+
+$Root = Resolve-Path (Join-Path $PSScriptRoot "..\\..")
+Set-Location $Root
+
+function Invoke-HarnessCommand {
+  param([string]$Command)
+  Write-Host "[harness:${kind}] $Command"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command $Command
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "[harness:${kind}] Failed: $Command"
+    exit $LASTEXITCODE
+  }
+}
+
+Invoke-HarnessCommand ".\\.harness\\scripts\\check-harness-structure.ps1"
+
+$Commands = @(
+${commands.map((item) => `  "${escapePowerShellString(item.command)}"`).join(",\n")}
+)
+
+foreach ($Command in $Commands) {
+  Invoke-HarnessCommand $Command
+}
+
+${scopedPlaceholders.map((item) => `Write-Host "[harness:${kind}] PLACEHOLDER: ${escapePowerShellString(item.text)}"`).join("\n")}
+
+Write-Host "[harness:${kind}] OK"
+exit 0
+`;
+}
+
+function shCheckHarnessStructure() {
+  return `#!/usr/bin/env sh
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+missing=""
+
+for item in \\
+${REQUIRED_FILES.map((file) => `  "${file}"`).join(" \\\n")}; do
+  if [ ! -e "$ROOT/$item" ]; then
+    missing="$missing
+$item"
+  fi
+done
+
+if [ -n "$missing" ]; then
+  printf '[harness] Missing required files:%s\\n' "$missing"
+  exit 1
+fi
+
+printf '[harness] Structure OK\\n'
+`;
+}
+
+function shRunScript(kind, commands, placeholders) {
+  const scopedPlaceholders = placeholders.filter((item) => item.bucket === kind);
+  return `#!/usr/bin/env sh
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+cd "$ROOT"
+
+run_cmd() {
+  printf '[harness:${kind}] %s\\n' "$1"
+  sh -c "$1"
+}
+
+run_cmd "sh ./.harness/scripts/check-harness-structure.sh"
+
+${commands.map((item) => `run_cmd "${escapeShellString(item.command)}"`).join("\n")}
+
+${scopedPlaceholders.map((item) => `printf '[harness:${kind}] PLACEHOLDER: ${escapeShellString(item.text)}\\n'`).join("\n")}
+
+printf '[harness:${kind}] OK\\n'
+`;
+}
+
+function escapePowerShellString(value) {
+  return value.replace(/`/g, "``").replace(/"/g, '`"');
+}
+
+function escapeShellString(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+}
+
+// Keep import.meta.url referenced so npm pack keeps this file as an executable entry point.
+fileURLToPath(import.meta.url);

@@ -1,0 +1,22 @@
+{
+  "name": "pbq-harness",
+  "version": "0.1.0",
+  "description": "Bootstrap deterministico de Harness Engineering para agentes de IA em repositorios de software.",
+  "type": "module",
+  "bin": {
+    "pbq": "./bin/pbq.mjs"
+  },
+  "scripts": {
+    "test": "node ./tests/pbq-init-smoke.mjs"
+  },
+  "keywords": [
+    "ai-agents",
+    "harness-engineering",
+    "codex",
+    "claude"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
