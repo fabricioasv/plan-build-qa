@@ -42,6 +42,18 @@ Por padrao, o init cria `AGENTS.md` e `CLAUDE.md` quando eles nao existem, com u
 .specs/
 ```
 
+Os templates fonte ficam versionados em `templates/`:
+
+```text
+templates/
+├── harness/
+│   ├── prompts/
+│   └── templates/
+└── specs/
+```
+
+Isso permite evoluir `spec.md`, `contract.md`, `progress.md`, `evaluation.md` e prompts operacionais sem mexer na logica do CLI.
+
 Os scripts gerados rodam a partir da raiz do repositorio alvo:
 
 ```powershell

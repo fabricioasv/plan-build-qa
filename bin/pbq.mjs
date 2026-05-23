@@ -54,7 +54,7 @@ async function main() {
   await ensureDirectory(targetRoot);
 
   const project = await inspectProject(targetRoot);
-  const generated = generateFiles(project);
+  const generated = await generateFiles(project);
   const events = [];
 
   for (const [relativePath, content] of Object.entries(generated)) {
@@ -376,16 +376,16 @@ function hasAny(fileSet, files) {
   return files.some((file) => fileSet.has(file));
 }
 
-function generateFiles(project) {
+async function generateFiles(project) {
   return Object.fromEntries([
     [".constitution/architecture.md", constitutionArchitecture(project)],
     [".constitution/testing.md", constitutionTesting(project)],
     [".constitution/operations.md", constitutionOperations(project)],
     [".constitution/repository-rules.md", constitutionRepositoryRules(project)],
     [".harness/README.md", harnessReadme(project)],
-    [".harness/prompts/implement-package.md", promptImplementPackage()],
-    [".harness/prompts/validate-contract.md", promptValidateContract()],
-    [".harness/prompts/run-evaluation.md", promptRunEvaluation()],
+    [".harness/prompts/implement-package.md", await loadTemplate("harness/prompts/implement-package.md")],
+    [".harness/prompts/validate-contract.md", await loadTemplate("harness/prompts/validate-contract.md")],
+    [".harness/prompts/run-evaluation.md", await loadTemplate("harness/prompts/run-evaluation.md")],
     [".harness/scripts/check-harness-structure.ps1", psCheckHarnessStructure()],
     [".harness/scripts/run-fast.ps1", psRunScript("fast", project.commands.fast, project.commands.placeholders)],
     [".harness/scripts/run-medium.ps1", psRunScript("medium", project.commands.medium, project.commands.placeholders)],
@@ -394,12 +394,17 @@ function generateFiles(project) {
     [".harness/scripts/run-fast.sh", shRunScript("fast", project.commands.fast, project.commands.placeholders)],
     [".harness/scripts/run-medium.sh", shRunScript("medium", project.commands.medium, project.commands.placeholders)],
     [".harness/scripts/run-slow.sh", shRunScript("slow", project.commands.slow, project.commands.placeholders)],
-    [".harness/templates/spec.md", templateSpec()],
-    [".harness/templates/contract.md", templateContract()],
-    [".harness/templates/progress.md", templateProgress()],
-    [".harness/templates/evaluation.md", templateEvaluation()],
-    [".specs/README.md", specsReadme()]
+    [".harness/templates/spec.md", await loadTemplate("harness/templates/spec.md")],
+    [".harness/templates/contract.md", await loadTemplate("harness/templates/contract.md")],
+    [".harness/templates/progress.md", await loadTemplate("harness/templates/progress.md")],
+    [".harness/templates/evaluation.md", await loadTemplate("harness/templates/evaluation.md")],
+    [".specs/README.md", await loadTemplate("specs/README.md")]
   ]);
+}
+
+async function loadTemplate(relativePath) {
+  const templateRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "templates");
+  return readFile(path.join(templateRoot, relativePath), "utf8");
 }
 
 async function writeManagedFile(root, relativePath, content, options, events) {
@@ -773,189 +778,6 @@ Cada spec deve manter \`progress.md\` com estado atual, decisoes, sensores execu
 6. \`contracts/\`
 7. prompts locais
 8. implementacao
-`;
-}
-
-function promptImplementPackage() {
-  return `# Implement Package
-
-Voce esta implementando um package dentro do Harness Engineering System.
-
-1. Carregue as regras relevantes em \`.constitution/\`.
-2. Carregue a spec ativa em \`.specs/spec-XXX-nome/spec.md\`.
-3. Carregue \`progress.md\`.
-4. Carregue o contrato do package em \`contracts/package-N.md\`.
-5. Implemente somente o escopo aprovado.
-6. Crie ou ajuste testes necessarios.
-7. Rode os sensores obrigatorios do contrato.
-8. Atualize \`progress.md\`.
-9. Gere ou atualize \`evaluations/package-N.md\`.
-
-Nao amplie escopo por conveniencia. Se o contrato estiver ambiguo, pare e registre a duvida antes de implementar.
-`;
-}
-
-function promptValidateContract() {
-  return `# Validate Contract
-
-Atue simultaneamente como QA Engineer, Principal Engineer e Harness Validator.
-
-Procure:
-
-- ambiguidades
-- criterios subjetivos
-- escopo implicito
-- sensores ausentes
-- riscos sem mitigacao
-- arquivos permitidos amplos demais
-- ausencia de rollback
-- ausencia de observabilidade quando aplicavel
-
-Resultado esperado:
-
-- lista objetiva de problemas por severidade
-- mudancas necessarias no contrato
-- decisao: aprovado para implementacao ou bloqueado
-`;
-}
-
-function promptRunEvaluation() {
-  return `# Run Evaluation
-
-1. Execute os sensores obrigatorios do package.
-2. Registre evidencias: comandos, saidas relevantes e arquivos afetados.
-3. Classifique violacoes por severidade.
-4. Atribua Score 0 ou 1.
-5. Indique a proxima acao.
-
-Score 1 somente se todos os sensores obrigatorios passaram e nao ha violacao critica.
-Score 0 se houver falha, sensor pendente, regressao ou violacao critica.
-`;
-}
-
-function templateSpec() {
-  return `# Spec: <nome>
-
-## Objetivo
-
-## Contexto
-
-## Escopo
-
-## Fora de Escopo
-
-## Packages
-
-| Package | Objetivo | Estado | Sensores |
-| --- | --- | --- | --- |
-| 1 |  | planejado |  |
-
-## Riscos
-
-## Sensores Esperados
-
-## Criterios de Conclusao
-`;
-}
-
-function templateContract() {
-  return `# Contract: Package N
-
-## Package
-
-## Objetivo
-
-## Arquivos Permitidos
-
-## Arquivos Proibidos
-
-## Mudancas Permitidas
-
-## Mudancas Proibidas
-
-## Criterios de Aceite
-
-## Sensores Obrigatorios
-
-## Riscos
-
-## Rollback
-
-## Observabilidade
-
-## Duvidas Abertas
-`;
-}
-
-function templateProgress() {
-  return `# Progress
-
-## Estado Atual
-
-## Packages Concluidos
-
-## Package Atual
-
-## Decisoes Tecnicas
-
-## Sensores Executados
-
-## Falhas Anteriores
-
-## Riscos Acumulados
-
-## Pendencias
-
-## Contexto Para Retomada
-`;
-}
-
-function templateEvaluation() {
-  return `# Evaluation: Package N
-
-Score: 0
-
-## Sensores Executados
-
-## Resultado
-
-## Evidencias
-
-## Violacoes Encontradas
-
-## Riscos Residuais
-
-## Proxima Acao Recomendada
-
-Regra:
-
-- Score: 1 somente se todos os sensores obrigatorios passarem e nao houver violacao critica.
-- Score: 0 se houver falha, sensor pendente, regressao ou violacao critica.
-`;
-}
-
-function specsReadme() {
-  return `# Specs
-
-Cada spec representa uma iniciativa, epico ou frente de mudanca.
-
-Estrutura padrao:
-
-\`\`\`text
-.specs/spec-XXX-nome/
-├── spec.md
-├── progress.md
-├── contracts/
-│   └── package-N.md
-├── evaluations/
-│   └── package-N.md
-├── scripts/
-└── prompts/
-\`\`\`
-
-Cada package deve ser pequeno, reversivel e validavel.
-
-Use os templates em \`.harness/templates/\`.
 `;
 }
 
