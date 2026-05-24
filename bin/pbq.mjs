@@ -11,6 +11,7 @@ const MARKER_END = "<!-- PBQ-HARNESS-END -->";
 const HARNESS_DIR = ".plan-build-qa";
 const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement", "test"];
 const PBQ_TEMPLATE_VERSION = 2;
+const ALLOWED_SPEC_STATUS = new Set(["planejado", "em andamento", "bloqueado", "concluido", "cancelado"]);
 
 const REQUIRED_FILES = [
   `${HARNESS_DIR}/constitution/architecture.md`,
@@ -409,6 +410,7 @@ async function analyzeHarness(root) {
 
   const roadmap = await readFile(roadmapPath, "utf8");
   const specRows = parseRoadmapSpecRows(roadmap);
+  const sensorNames = await loadSensorNames(root);
 
   if (specRows.length === 0) {
     violations.push("Nenhuma spec encontrada na tabela do roadmap.");
@@ -418,6 +420,10 @@ async function analyzeHarness(root) {
     const specRoot = path.join(root, HARNESS_DIR, "specs", spec.name);
     const progressPath = path.join(specRoot, "progress.md");
     const contractsDir = path.join(specRoot, "contracts");
+
+    if (spec.status && !ALLOWED_SPEC_STATUS.has(spec.status)) {
+      violations.push(`${spec.name}: status invalido no roadmap: "${spec.status}". Permitidos: planejado, em andamento, bloqueado, concluido, cancelado.`);
+    }
 
     if (!existsSync(specRoot)) {
       violations.push(`${spec.name}: pasta da spec ausente em ${path.join(HARNESS_DIR, "specs", spec.name)}`);
@@ -439,6 +445,21 @@ async function analyzeHarness(root) {
       }
     }
 
+    if (existsSync(contractsDir) && sensorNames !== null) {
+      const contractFiles = await readdir(contractsDir);
+      for (const file of contractFiles) {
+        if (!/^package-\d+\.md$/.test(file)) continue;
+        const contractText = await readFile(path.join(contractsDir, file), "utf8");
+        for (const entry of parseContractRequiredSensors(contractText)) {
+          if (!entry.hasName) {
+            warnings.push(`${spec.name}/${file}: sensor obrigatorio citado sem nome cadastrado em sensors.json`);
+          } else if (!sensorNames.has(entry.name)) {
+            violations.push(`${spec.name}/${file}: sensor obrigatorio "${entry.name}" nao cadastrado em sensors.json`);
+          }
+        }
+      }
+    }
+
     if (!existsSync(progressPath)) {
       continue;
     }
@@ -452,6 +473,11 @@ async function analyzeHarness(root) {
       }
     }
 
+    const progressCurrent = parseProgressCurrentPackage(progress);
+    if (spec.currentPackage && progressCurrent && spec.currentPackage !== progressCurrent) {
+      violations.push(`${spec.name}: Package Atual divergente - roadmap=${spec.currentPackage}, progress.md=${progressCurrent}`);
+    }
+
     if (spec.status === "concluido" && closedPackages.length === 0) {
       warnings.push(`${spec.name}: roadmap marca a spec como concluida, mas progress.md nao lista packages concluidos`);
     }
@@ -462,6 +488,46 @@ async function analyzeHarness(root) {
     violations,
     warnings
   };
+}
+
+async function loadSensorNames(root) {
+  const sensorsPath = path.join(root, HARNESS_DIR, "sensors.json");
+  if (!existsSync(sensorsPath)) return null;
+  try {
+    const data = JSON.parse(await readFile(sensorsPath, "utf8"));
+    return new Set((data.sensors || []).map((sensor) => sensor.name).filter(Boolean));
+  } catch {
+    return null;
+  }
+}
+
+function parseProgressCurrentPackage(progress) {
+  const sectionMatch = progress.match(/## Package Atual([\s\S]*?)(?:\n## |\s*$)/);
+  if (!sectionMatch) return "";
+  const lineMatch = sectionMatch[1].match(/(?:^|\n)\s*Package\s+(\d+)\b/);
+  return lineMatch ? lineMatch[1] : "";
+}
+
+function parseContractRequiredSensors(contract) {
+  const sectionMatch = contract.match(/## Sensores Obrigatorios([\s\S]*?)(?:\n## |\s*$)/);
+  if (!sectionMatch) return [];
+  const entries = [];
+  for (const rawLine of sectionMatch[1].split(/\r?\n/)) {
+    const trimmed = rawLine.trim();
+    if (!trimmed.startsWith("- ")) continue;
+    if (trimmed.startsWith("- **")) continue;
+    const body = trimmed.slice(2).trim();
+    const parts = body.split("|").map((part) => part.trim());
+    if (parts.length >= 2) {
+      const name = parts[1].replace(/^`|`$/g, "").trim();
+      if (name) {
+        entries.push({ name, hasName: true });
+        continue;
+      }
+    }
+    entries.push({ name: null, hasName: false });
+  }
+  return entries;
 }
 
 function parseRoadmapSpecRows(roadmap) {

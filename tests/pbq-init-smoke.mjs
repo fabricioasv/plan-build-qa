@@ -208,6 +208,106 @@ Nenhum.
     await rm(analyzeRoot, { recursive: true, force: true });
   }
 
+  const buildAnalyzeFixture = async (rootDir, overrides = {}) => {
+    await mkdir(path.join(rootDir, ".plan-build-qa", "specs", "spec-001-demo", "contracts"), { recursive: true });
+    await writeFile(
+      path.join(rootDir, ".plan-build-qa", "roadmap.md"),
+      overrides.roadmap ?? `# Roadmap
+
+## Specs
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-001-demo | em andamento | 1 | 2026-05-23 | - | Implementar package 1 |
+`
+    );
+    await writeFile(
+      path.join(rootDir, ".plan-build-qa", "specs", "spec-001-demo", "progress.md"),
+      overrides.progress ?? `# Progress\n\n## Package Atual\n\nPackage 1\n\n## Packages Concluidos\n\nNenhum.\n`
+    );
+    await writeFile(
+      path.join(rootDir, ".plan-build-qa", "specs", "spec-001-demo", "contracts", "package-1.md"),
+      overrides.contract ?? "# Contract: Package 1\n\n## Sensores Obrigatorios\n\n- Fast | `known-sensor` | `cmd`\n"
+    );
+    await writeFile(
+      path.join(rootDir, ".plan-build-qa", "sensors.json"),
+      overrides.sensors ?? JSON.stringify({ version: 1, sensors: [{ name: "known-sensor", tier: "fast", command: "cmd", enabled: true }] })
+    );
+  };
+
+  const analyzeStatusRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-status-"));
+  try {
+    await buildAnalyzeFixture(analyzeStatusRoot, {
+      roadmap: `# Roadmap
+
+## Specs
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-001-demo | fazendo | 1 | 2026-05-23 | - | Implementar package 1 |
+`
+    });
+    const invalid = spawnSync(process.execPath, [cli, "analyze", analyzeStatusRoot], { encoding: "utf8" });
+    assert.equal(invalid.status, 1, invalid.stderr || invalid.stdout);
+    assert.match(invalid.stdout, /status invalido no roadmap: "fazendo"/);
+  } finally {
+    await rm(analyzeStatusRoot, { recursive: true, force: true });
+  }
+
+  const analyzeStatusValidRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-status-ok-"));
+  try {
+    await buildAnalyzeFixture(analyzeStatusValidRoot);
+    const valid = spawnSync(process.execPath, [cli, "analyze", analyzeStatusValidRoot], { encoding: "utf8" });
+    assert.equal(valid.status, 0, valid.stderr || valid.stdout);
+    assert.doesNotMatch(valid.stdout, /status invalido no roadmap/);
+  } finally {
+    await rm(analyzeStatusValidRoot, { recursive: true, force: true });
+  }
+
+  const analyzeDivergentRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-divergent-"));
+  try {
+    await buildAnalyzeFixture(analyzeDivergentRoot, {
+      progress: `# Progress\n\n## Package Atual\n\nPackage 2\n\n## Packages Concluidos\n\nNenhum.\n`
+    });
+    const divergent = spawnSync(process.execPath, [cli, "analyze", analyzeDivergentRoot], { encoding: "utf8" });
+    assert.equal(divergent.status, 1, divergent.stderr || divergent.stdout);
+    assert.match(divergent.stdout, /Package Atual divergente - roadmap=1, progress\.md=2/);
+  } finally {
+    await rm(analyzeDivergentRoot, { recursive: true, force: true });
+  }
+
+  const analyzeCoherentRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-coherent-"));
+  try {
+    await buildAnalyzeFixture(analyzeCoherentRoot);
+    const coherent = spawnSync(process.execPath, [cli, "analyze", analyzeCoherentRoot], { encoding: "utf8" });
+    assert.equal(coherent.status, 0, coherent.stderr || coherent.stdout);
+    assert.doesNotMatch(coherent.stdout, /Package Atual divergente/);
+  } finally {
+    await rm(analyzeCoherentRoot, { recursive: true, force: true });
+  }
+
+  const analyzeUnknownSensorRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-unknown-sensor-"));
+  try {
+    await buildAnalyzeFixture(analyzeUnknownSensorRoot, {
+      contract: "# Contract: Package 1\n\n## Sensores Obrigatorios\n\n- Fast | `ghost-sensor` | `cmd`\n"
+    });
+    const unknown = spawnSync(process.execPath, [cli, "analyze", analyzeUnknownSensorRoot], { encoding: "utf8" });
+    assert.equal(unknown.status, 1, unknown.stderr || unknown.stdout);
+    assert.match(unknown.stdout, /sensor obrigatorio "ghost-sensor" nao cadastrado em sensors\.json/);
+  } finally {
+    await rm(analyzeUnknownSensorRoot, { recursive: true, force: true });
+  }
+
+  const analyzeKnownSensorRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-known-sensor-"));
+  try {
+    await buildAnalyzeFixture(analyzeKnownSensorRoot);
+    const known = spawnSync(process.execPath, [cli, "analyze", analyzeKnownSensorRoot], { encoding: "utf8" });
+    assert.equal(known.status, 0, known.stderr || known.stdout);
+    assert.doesNotMatch(known.stdout, /nao cadastrado em sensors\.json/);
+  } finally {
+    await rm(analyzeKnownSensorRoot, { recursive: true, force: true });
+  }
+
   const closePackage = spawnSync(
     process.execPath,
     [cli, "package", "close", root, "--spec", "spec-001-smoke", "--package", "1", "--tiers", "fast"],

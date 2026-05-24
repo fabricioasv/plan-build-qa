@@ -27,6 +27,7 @@ Use estes valores:
 | spec-009-sensor-preflight-evidence | planejado | - | 2026-05-23 | Ajuste operacional do harness | Exigir execucao previa dos sensores com evidencia antes de mudancas maiores, com foco em cenarios de migracao e validacao documental |
 | spec-010-test-finalization-workflow | planejado | - | 2026-05-23 | Ajuste operacional do harness | Criar fluxo para adicionar novos testes unitarios e/ou de integracao no fechamento final do trabalho, com registro objetivo no package |
 | spec-011-test-as-independent-gate | em andamento | 1 | 2026-05-23 | Discussao com usuario sobre separacao spec/implement/test: `implement` deve delegar verificacao a `test` rodando como subagente de contexto fresco, evitando re-execucao redundante e preservando independencia | Implementar `contracts/package-1.md` para reescrever a skill `test` em dois modos (contract-check apos spec, acceptance-check apos implement), tornar a invocacao automatica padrao a partir de `implement` e `spec`, e atualizar `constitution/testing.md` |
+| spec-012-spec-creates-all-contracts | planejado | - | 2026-05-23 | Bug operacional observado em 2026-05-23: `/implement` do package-2 da spec-001-analyze travou porque a skill `spec` criou apenas `contracts/package-1.md`, deixando os demais packages declarados na tabela da spec sem contrato. Isso forcou um ciclo extra de `/spec` para destravar o `/implement` | Fazer com que a skill `spec` (e o template/instalador correspondente em `templates/adapters/skills/spec`) crie esqueletos de `contracts/package-N.md` para todos os packages listados na tabela da spec, com placeholders objetivos e sensor list herdada da coluna `Sensores`, evitando que `/implement` seja bloqueado por contrato ausente |
 
 ## Sequenciamento Sugerido
 
@@ -41,9 +42,11 @@ Use estes valores:
 9. `spec-009-sensor-preflight-evidence`
 10. `spec-010-test-finalization-workflow`
 11. `spec-011-test-as-independent-gate`
+12. `spec-012-spec-creates-all-contracts`
 
 ## Decisoes De Roadmap
 
 - 2026-05-23: Priorizar `pbq analyze` como proximo incremento porque reduz falsa completude e valida coerencia entre artefatos existentes.
 - 2026-05-23: Manter `pbq doctor` logo depois de `analyze`, pois ele ajuda usuarios a diagnosticar instalacoes reais antes de adicionar novas fases.
 - 2026-05-23: Adicionar `spec-011-test-as-independent-gate` para resolver duvida operacional sobre redundancia entre `implement` e `test`. Decisao: manter as tres skills, mas tornar `test` o unico responsavel por verificacao, invocado automaticamente como subagente fresco a partir de `spec` (contract-check) e `implement` (acceptance-check).
+- 2026-05-23: Adicionar `spec-012-spec-creates-all-contracts` apos `/implement` ser bloqueado em `spec-001-analyze` por falta de `contracts/package-2.md`. Decisao: a skill `spec` deve materializar esqueletos de todos os packages declarados na tabela da spec ja na criacao, nao apenas o package 1.
