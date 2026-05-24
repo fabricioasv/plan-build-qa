@@ -24,6 +24,9 @@ Use estes valores:
 | spec-006-doctor | planejado | - | 2026-05-23 | Necessidade operacional do harness | Criar `pbq doctor` para diagnosticar estrutura, skills, manifest, sensores, specs e `.pbq-new` pendentes |
 | spec-007-agent-instructions-pin | planejado | - | 2026-05-23 | Ajuste operacional do harness | Forcar a referencia explicita a `./.plan-build-qa/` em `AGENTS.md` e `CLAUDE.md` durante `init` e `update`, evitando a inclusao solta no final do arquivo |
 | spec-008-token-cost-model | planejado | - | 2026-05-23 | Ajuste operacional do harness | Criar um exemplo de spec para estimar consumo de tokens e custo por execucao, com calculo explicito por modelo/plano |
+| spec-009-sensor-preflight-evidence | planejado | - | 2026-05-23 | Ajuste operacional do harness | Exigir execucao previa dos sensores com evidencia antes de mudancas maiores, com foco em cenarios de migracao e validacao documental |
+| spec-010-test-finalization-workflow | planejado | - | 2026-05-23 | Ajuste operacional do harness | Criar fluxo para adicionar novos testes unitarios e/ou de integracao no fechamento final do trabalho, com registro objetivo no package |
+| spec-011-test-as-independent-gate | em andamento | 1 | 2026-05-23 | Discussao com usuario sobre separacao spec/implement/test: `implement` deve delegar verificacao a `test` rodando como subagente de contexto fresco, evitando re-execucao redundante e preservando independencia | Implementar `contracts/package-1.md` para reescrever a skill `test` em dois modos (contract-check apos spec, acceptance-check apos implement), tornar a invocacao automatica padrao a partir de `implement` e `spec`, e atualizar `constitution/testing.md` |
 
 ## Sequenciamento Sugerido
 
@@ -35,8 +38,12 @@ Use estes valores:
 6. `spec-004-audit-lock`
 7. `spec-005-overrides`
 8. `spec-008-token-cost-model`
+9. `spec-009-sensor-preflight-evidence`
+10. `spec-010-test-finalization-workflow`
+11. `spec-011-test-as-independent-gate`
 
 ## Decisoes De Roadmap
 
 - 2026-05-23: Priorizar `pbq analyze` como proximo incremento porque reduz falsa completude e valida coerencia entre artefatos existentes.
 - 2026-05-23: Manter `pbq doctor` logo depois de `analyze`, pois ele ajuda usuarios a diagnosticar instalacoes reais antes de adicionar novas fases.
+- 2026-05-23: Adicionar `spec-011-test-as-independent-gate` para resolver duvida operacional sobre redundancia entre `implement` e `test`. Decisao: manter as tres skills, mas tornar `test` o unico responsavel por verificacao, invocado automaticamente como subagente fresco a partir de `spec` (contract-check) e `implement` (acceptance-check).
