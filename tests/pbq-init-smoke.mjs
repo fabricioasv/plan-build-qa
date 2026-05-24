@@ -122,6 +122,23 @@ try {
   const claudeTestSkill = await readFile(path.join(root, ".claude/skills/test/SKILL.md"), "utf8");
   assert.match(claudeTestSkill, /NEVER.*missing sensor evidence as success/);
 
+  // spec-014 package-3: sensor skill deve documentar fluxo recomendado e exemplos
+  const claudeSensorSkill = await readFile(path.join(root, ".claude/skills/sensor/SKILL.md"), "utf8");
+  assert.match(claudeSensorSkill, /pbq sensor suggest/, "claude sensor skill deve citar pbq sensor suggest");
+  assert.match(claudeSensorSkill, /sonar|Makefile|scripts\//, "claude sensor skill deve citar exemplo concreto");
+  assert.match(claudeSensorSkill, /non-zero exit code/, "claude sensor skill deve preservar regra de exit code");
+
+  const codexSensorSkill = await readFile(path.join(root, ".agents/skills/sensor/SKILL.md"), "utf8");
+  assert.match(codexSensorSkill, /pbq sensor suggest/, "codex sensor skill deve citar pbq sensor suggest");
+  assert.match(codexSensorSkill, /sonar|Makefile|scripts\//, "codex sensor skill deve citar exemplo concreto");
+  assert.match(codexSensorSkill, /non-zero exit code/, "codex sensor skill deve preservar regra de exit code");
+
+  const cliDir = path.resolve(path.dirname(cli), "..");
+  const templateSensorSkill = await readFile(path.join(cliDir, "templates/adapters/skills/sensor/SKILL.md"), "utf8");
+  assert.match(templateSensorSkill, /pbq sensor suggest/, "template sensor skill deve citar pbq sensor suggest");
+  assert.match(templateSensorSkill, /sonar|Makefile|scripts\//, "template sensor skill deve citar exemplo concreto");
+  assert.match(templateSensorSkill, /non-zero exit code/, "template sensor skill deve preservar regra de exit code");
+
   const architecture = await readFile(path.join(root, ".plan-build-qa/constitution/architecture.md"), "utf8");
   assert.match(architecture, /Varredura Arquitetural Inicial/);
   assert.match(architecture, /Use a estrutura atual como evidencia/);
@@ -354,6 +371,42 @@ Nenhum.
   const analyzeHelp2 = spawnSync(process.execPath, [cli, "help", "analyze"], { encoding: "utf8" });
   assert.equal(analyzeHelp2.status, 0, analyzeHelp2.stderr || analyzeHelp2.stdout);
   assert.match(analyzeHelp2.stdout, /--strict/);
+
+  const sensorSuggestRoot = await mkdtemp(path.join(tmpdir(), "pbq-sensor-suggest-"));
+  try {
+    await writeFile(path.join(sensorSuggestRoot, "package.json"), JSON.stringify({ scripts: {} }, null, 2));
+    await writeFile(path.join(sensorSuggestRoot, "sonar.bat"), "@echo sonar\n");
+    await mkdir(path.join(sensorSuggestRoot, "scripts"), { recursive: true });
+    await writeFile(path.join(sensorSuggestRoot, "scripts", "test.sh"), "#!/bin/sh\necho test\n");
+
+    const initForSuggest = spawnSync(process.execPath, [cli, "init", sensorSuggestRoot], { encoding: "utf8" });
+    assert.equal(initForSuggest.status, 0, initForSuggest.stderr || initForSuggest.stdout);
+
+    const sensorsBefore = await readFile(path.join(sensorSuggestRoot, ".plan-build-qa", "sensors.json"), "utf8");
+
+    const cadastrados = JSON.parse(sensorsBefore).sensors;
+    assert.ok(cadastrados.some((sensor) => /sonar\.bat/i.test(sensor.command)), "fixture deveria cadastrar sonar.bat no init");
+
+    const suggestAfterInit = spawnSync(process.execPath, [cli, "sensor", "suggest", sensorSuggestRoot], { encoding: "utf8" });
+    assert.equal(suggestAfterInit.status, 0, suggestAfterInit.stderr || suggestAfterInit.stdout);
+    assert.match(suggestAfterInit.stdout, /Nenhum candidato pendente\./);
+
+    await writeFile(path.join(sensorSuggestRoot, "lint.sh"), "#!/bin/sh\necho lint\n");
+
+    const suggestPending = spawnSync(process.execPath, [cli, "sensor", "suggest", sensorSuggestRoot], { encoding: "utf8" });
+    assert.equal(suggestPending.status, 0, suggestPending.stderr || suggestPending.stdout);
+    assert.match(suggestPending.stdout, /--tier fast --command.*lint\.sh/);
+    assert.doesNotMatch(suggestPending.stdout, /sonar\.bat/);
+
+    const sensorsAfter = await readFile(path.join(sensorSuggestRoot, ".plan-build-qa", "sensors.json"), "utf8");
+    assert.equal(sensorsAfter, sensorsBefore, "pbq sensor suggest nao deve alterar sensors.json");
+
+    const sensorHelp2 = spawnSync(process.execPath, [cli, "help", "sensor"], { encoding: "utf8" });
+    assert.equal(sensorHelp2.status, 0, sensorHelp2.stderr || sensorHelp2.stdout);
+    assert.match(sensorHelp2.stdout, /pbq sensor suggest/);
+  } finally {
+    await rm(sensorSuggestRoot, { recursive: true, force: true });
+  }
 
   const sensorDetectRoot = await mkdtemp(path.join(tmpdir(), "pbq-sensor-detect-"));
   try {

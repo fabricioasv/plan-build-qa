@@ -5,15 +5,17 @@
 
 ## Estado Atual
 
-em andamento
+concluido
 
 ## Packages Concluidos
 
 Package 1 concluido com evaluation Score 1 em `evaluations/package-1.md`.
+Package 2 concluido com evaluation Score 1 em `evaluations/package-2.md`.
+Package 3 concluido com evaluation Score 1 em `evaluations/package-3.md`.
 
 ## Package Atual
 
-Package 2 - adicionar subcomando `pbq sensor suggest [path]` que escaneia o alvo e imprime comandos `pbq sensor add` prontos para candidatos ainda nao cadastrados em `sensors.json`.
+Package 3 - refinar skill `/sensor` (Claude, Codex e template) documentando fluxo recomendado com `pbq sensor suggest` primeiro, exemplos concretos e garantindo consistencia entre variantes.
 
 ## Decisoes Tecnicas
 
@@ -27,6 +29,10 @@ Package 2 - adicionar subcomando `pbq sensor suggest [path]` que escaneia o alvo
 - 2026-05-23 - `.\.plan-build-qa\harness\scripts\run-fast.ps1` - passou - evidencia em `evaluations/package-1.md`
 - 2026-05-23 - `npm run test` - passou - evidencia em `evaluations/package-1.md`
 - 2026-05-23 - `node .\bin\pbq.mjs package close . --spec spec-014-melhora-deteccao-sensores --package 1 --tiers medium` - passou - gerou `evaluations/package-1.md`
+- 2026-05-24 - `npm run test` - passou - evidencia em `evaluations/package-2.md`
+- 2026-05-24 - `node .\bin\pbq.mjs package close . --spec spec-014-melhora-deteccao-sensores --package 2 --tiers medium` - passou - gerou `evaluations/package-2.md`
+- 2026-05-24 - `npm run test` - passou - evidencia em `evaluations/package-3.md`
+- 2026-05-24 - `node .\bin\pbq.mjs package close . --spec spec-014-melhora-deteccao-sensores --package 3 --tiers medium` - passou - gerou `evaluations/package-3.md`
 
 ## Falhas Anteriores
 

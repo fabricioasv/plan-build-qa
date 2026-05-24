@@ -168,7 +168,43 @@ async function runSensorCommand(args) {
     return;
   }
 
-  throw new Error("Uso: pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]");
+  if (action === "suggest") {
+    const targetRoot = path.resolve(args[0] || ".");
+    const project = await inspectProject(targetRoot);
+    const existing = existsSync(path.join(targetRoot, HARNESS_DIR, "sensors.json"))
+      ? new Set((await readSensors(targetRoot)).map((sensor) => sensor.command.trim()))
+      : new Set();
+
+    const pending = [];
+    for (const tier of ["fast", "medium", "slow"]) {
+      for (const item of project.commands[tier]) {
+        if (existing.has(item.command.trim())) continue;
+        pending.push({ tier, ...item });
+      }
+    }
+
+    if (pending.length === 0) {
+      console.log("[pbq] Nenhum candidato pendente.");
+      return;
+    }
+
+    const targetArg = args[0] || ".";
+    for (const candidate of pending.sort((a, b) => `${a.tier}-${a.command}`.localeCompare(`${b.tier}-${b.command}`))) {
+      const name = sensorName(candidate.command);
+      const reason = candidate.reason || "Sensor detectado";
+      console.log(
+        `pbq sensor add ${targetArg} --name ${name} --tier ${candidate.tier} --command ${shellQuote(candidate.command)} --reason ${shellQuote(reason)}`
+      );
+    }
+    return;
+  }
+
+  throw new Error("Uso: pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>] | pbq sensor list [path] | pbq sensor suggest [path]");
+}
+
+function shellQuote(value) {
+  if (/^[A-Za-z0-9._\-\/\\:=]+$/.test(value)) return value;
+  return `"${value.replace(/"/g, '\\"')}"`;
 }
 
 function parseSensorAddArgs(args) {
@@ -278,11 +314,17 @@ Exemplos:
 
     sensor: `pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
 pbq sensor list [path]
+pbq sensor suggest [path]
 
 Gerencia sensores computacionais em .plan-build-qa/sensors.json e regenera runners.
 
+  suggest  escaneia o alvo e imprime comandos 'pbq sensor add' prontos para candidatos detectados
+           (scripts soltos, Makefile, sonar*) e ainda nao cadastrados em sensors.json. So imprime;
+           nao altera arquivos.
+
 Exemplos:
   pbq sensor list .
+  pbq sensor suggest .
   pbq sensor add . --name e2e --tier slow --command "npm run test:e2e" --reason "Valida fluxo principal"`,
 
     analyze: `pbq analyze [path] [--strict]
