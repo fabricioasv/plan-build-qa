@@ -82,12 +82,14 @@ try {
     ".claude/skills/constitution/SKILL.md",
     ".claude/skills/implement/SKILL.md",
     ".claude/skills/test/SKILL.md",
+    ".claude/skills/analyze/SKILL.md",
     ".agents/skills/spec/SKILL.md",
     ".agents/skills/sensor/SKILL.md",
     ".agents/skills/roadmap/SKILL.md",
     ".agents/skills/constitution/SKILL.md",
     ".agents/skills/implement/SKILL.md",
-    ".agents/skills/test/SKILL.md"
+    ".agents/skills/test/SKILL.md",
+    ".agents/skills/analyze/SKILL.md"
   ];
 
   for (const file of required) {
@@ -138,6 +140,20 @@ try {
   assert.match(templateSensorSkill, /pbq sensor suggest/, "template sensor skill deve citar pbq sensor suggest");
   assert.match(templateSensorSkill, /sonar|Makefile|scripts\//, "template sensor skill deve citar exemplo concreto");
   assert.match(templateSensorSkill, /non-zero exit code/, "template sensor skill deve preservar regra de exit code");
+
+  // spec-015 package-1: analyze skill deve ser instalada e conter termos-chave
+  const claudeAnalyzeSkill = await readFile(path.join(root, ".claude/skills/analyze/SKILL.md"), "utf8");
+  assert.match(claudeAnalyzeSkill, /pbq analyze/, "claude analyze skill deve citar pbq analyze");
+  assert.match(claudeAnalyzeSkill, /[Vv]iolations/, "claude analyze skill deve orientar sobre violations");
+  assert.match(claudeAnalyzeSkill, /--strict/, "claude analyze skill deve mencionar --strict");
+
+  const codexAnalyzeSkill = await readFile(path.join(root, ".agents/skills/analyze/SKILL.md"), "utf8");
+  assert.match(codexAnalyzeSkill, /pbq analyze/, "codex analyze skill deve citar pbq analyze");
+  assert.match(codexAnalyzeSkill, /[Vv]iolations/, "codex analyze skill deve orientar sobre violations");
+
+  const templateAnalyzeSkill = await readFile(path.join(cliDir, "templates/adapters/skills/analyze/SKILL.md"), "utf8");
+  assert.match(templateAnalyzeSkill, /pbq analyze/, "template analyze skill deve citar pbq analyze");
+  assert.match(templateAnalyzeSkill, /[Vv]iolations/, "template analyze skill deve orientar sobre violations");
 
   const architecture = await readFile(path.join(root, ".plan-build-qa/constitution/architecture.md"), "utf8");
   assert.match(architecture, /Varredura Arquitetural Inicial/);

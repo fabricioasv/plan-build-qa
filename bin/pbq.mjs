@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const MARKER_START = "<!-- PBQ-HARNESS-START -->";
 const MARKER_END = "<!-- PBQ-HARNESS-END -->";
 const HARNESS_DIR = ".plan-build-qa";
-const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement", "test"];
+const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement", "test", "analyze"];
 const PBQ_TEMPLATE_VERSION = 2;
 const ALLOWED_SPEC_STATUS = new Set(["planejado", "em andamento", "bloqueado", "concluido", "cancelado"]);
 

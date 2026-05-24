@@ -5,15 +5,15 @@
 
 ## Estado Atual
 
-em andamento
+concluido
 
 ## Packages Concluidos
 
-Nenhum.
+Package 1 concluido com evaluation Score 1 em `evaluations/package-1.md`.
 
 ## Package Atual
 
-Package 1 - criar skill `/analyze` (template + Claude + Codex), registrar em `ADAPTER_SKILLS` em `bin/pbq.mjs`, adicionar testes que verificam instalacao e conteudo.
+Nenhum.
 
 ## Decisoes Tecnicas
 
@@ -23,7 +23,8 @@ Package 1 - criar skill `/analyze` (template + Claude + Codex), registrar em `AD
 
 ## Sensores Executados
 
-Nenhum ainda.
+- 2026-05-24 - `npm run test` - passou - evidencia em `evaluations/package-1.md`
+- 2026-05-24 - `node .\bin\pbq.mjs package close . --spec spec-015-skill-analyze --package 1 --tiers medium` - passou - gerou `evaluations/package-1.md`
 
 ## Falhas Anteriores
 
