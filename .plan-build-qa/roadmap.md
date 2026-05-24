@@ -30,6 +30,7 @@ Use estes valores:
 | spec-012-spec-creates-all-contracts | planejado | - | 2026-05-23 | Bug operacional observado em 2026-05-23: `/implement` do package-2 da spec-001-analyze travou porque a skill `spec` criou apenas `contracts/package-1.md`, deixando os demais packages declarados na tabela da spec sem contrato. Isso forcou um ciclo extra de `/spec` para destravar o `/implement` | Fazer com que a skill `spec` (e o template/instalador correspondente em `templates/adapters/skills/spec`) crie esqueletos de `contracts/package-N.md` para todos os packages listados na tabela da spec, com placeholders objetivos e sensor list herdada da coluna `Sensores`, evitando que `/implement` seja bloqueado por contrato ausente |
 | spec-013-saneamento-harness-pbq | planejado | - | 2026-05-23 | Incoerencias detectadas pelo proprio `pbq analyze .` apos a conclusao de spec-001-analyze: (a) `check-harness-structure` e referenciado como sensor obrigatorio em `contracts/package-1.md`, `contracts/package-2.md` e `contracts/package-3.md` da spec-001-analyze, mas nao esta cadastrado em `.plan-build-qa/sensors.json`; (b) o analyzer marca como violacao a ausencia de pasta para specs em status `planejado`, o que e ruidoso porque specs planejadas legitimamente ainda nao tem artefatos | Decidir entre cadastrar `check-harness-structure` em `sensors.json` ou ajustar os contratos para citar apenas comando solto (warning), e refinar a regra do analyzer para que specs `planejado` sem pasta gerem warning em vez de violacao (ou nao gerem nada). Manter mudanca aditiva sem regredir packages 1-3 da spec-001-analyze |
 | spec-014-melhora-deteccao-sensores | concluido | 3 | 2026-05-24 | Packages 1, 2 e 3 fechados com Score 1. Package 1: deteccao ampliada para scripts soltos (.bat/.cmd/.sh/.ps1), Makefile, sonar*. Package 2: `pbq sensor suggest` imprime comandos prontos para candidatos nao cadastrados. Package 3: skill `/sensor` (Claude, Codex, template) com secao "Fluxo recomendado" e exemplos concretos (sonar.bat, scripts/test.sh, Makefile). | - |
+| spec-015-skill-analyze | em andamento | 1 | 2026-05-24 | Reportado pelo usuario em 2026-05-24: `pbq update` nao instala uma skill `/analyze`, impossibilitando invocar `/analyze` no agente do projeto alvo. O subcomando `pbq analyze` existe no CLI mas nao ha skill correspondente em `.claude/skills/analyze/` nem em `.agents/skills/analyze/` | Criar skill `/analyze` (Claude, Codex e template instalavel) que orienta o agente a rodar `pbq analyze [path]` e interpretar o output (violations, warnings, resumo), e instalar via `pbq init`/`pbq update` |
 
 ## Sequenciamento Sugerido
 
@@ -47,6 +48,7 @@ Use estes valores:
 12. `spec-012-spec-creates-all-contracts`
 13. `spec-013-saneamento-harness-pbq`
 14. `spec-014-melhora-deteccao-sensores`
+15. `spec-015-skill-analyze`
 
 ## Decisoes De Roadmap
 
@@ -56,3 +58,4 @@ Use estes valores:
 - 2026-05-23: Adicionar `spec-012-spec-creates-all-contracts` apos `/implement` ser bloqueado em `spec-001-analyze` por falta de `contracts/package-2.md`. Decisao: a skill `spec` deve materializar esqueletos de todos os packages declarados na tabela da spec ja na criacao, nao apenas o package 1.
 - 2026-05-23: Adicionar `spec-013-saneamento-harness-pbq` apos `pbq analyze .` (entregue pela spec-001-analyze) surfar incoerencias reais no proprio repo. A propria entrega da spec-001 expos a divida; o saneamento e o passo logico seguinte.
 - 2026-05-23: Adicionar `spec-014-melhora-deteccao-sensores` apos relato do usuario de que `pbq init` ignorou script de teste solto e `sonar.bat`, e que a skill `/sensor` exige cadastro muito manual. Aplicada antecipadamente a decisao de spec-012: contratos dos packages 1, 2 e 3 criados na mesma alteracao para evitar bloqueio futuro do `/implement`.
+- 2026-05-24: Adicionar `spec-015-skill-analyze` apos usuario relatar que `/analyze` nao funciona no agente do projeto alvo porque `pbq update` nao instala nenhuma skill correspondente ao subcomando `pbq analyze`.
