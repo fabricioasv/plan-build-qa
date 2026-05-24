@@ -16,7 +16,7 @@ Use estes valores:
 
 | Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
 | --- | --- | --- | --- | --- | --- |
-| spec-001-analyze | em andamento | 1 | 2026-05-23 | Spec criada em `.plan-build-qa/specs/spec-001-analyze/` a partir da sugestao inspirada em Spec Kit `/speckit.analyze` | Implementar `contracts/package-1.md` para entregar a primeira versao util de `pbq analyze` |
+| spec-001-analyze | concluido | 3 | 2026-05-23 | Packages 1, 2 e 3 fechados com Score 1 (evaluations em `.plan-build-qa/specs/spec-001-analyze/evaluations/`). `pbq analyze` cobre presenca/coerencia minima, estados permitidos, package atual divergente, sensores referenciados em sensors.json, resumo com contadores, flag `--strict` e deteccao de `sensors.json` invalido | - |
 | spec-002-plan-tasks | planejado | - | 2026-05-23 | Sugestao inspirada nas fases `specify`, `plan`, `tasks`, `implement` do Spec Kit | Adicionar artefatos `plan.md` e `tasks.md` e skills `/plan` e `/tasks` |
 | spec-003-checklist | planejado | - | 2026-05-23 | Sugestao inspirada em checklists de qualidade do Spec Kit | Criar `pbq checklist` para gerar checks objetivos por spec/package |
 | spec-004-audit-lock | planejado | - | 2026-05-23 | Sugestao inspirada em hashing, lockfile e audit trail do agent-skills | Adicionar `.plan-build-qa/lock.json`, `.plan-build-qa/audit.log`, `pbq audit` e registro de operacoes |

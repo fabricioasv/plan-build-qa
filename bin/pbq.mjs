@@ -285,16 +285,20 @@ Exemplos:
   pbq sensor list .
   pbq sensor add . --name e2e --tier slow --command "npm run test:e2e" --reason "Valida fluxo principal"`,
 
-    analyze: `pbq analyze [path]
+    analyze: `pbq analyze [path] [--strict]
 
 Valida, em modo somente leitura, a coerencia minima entre roadmap, specs, progress, contracts e evaluations quando houver package fechado.
 
+Flags:
+  --strict  warnings tambem causam exit code 1 (por padrao apenas violacoes falham)
+
 Status de saida:
-  0  nenhuma violacao critica encontrada
-  1  uma ou mais violacoes criticas encontradas
+  0  nenhuma violacao critica encontrada (com --strict, tambem nenhum warning)
+  1  uma ou mais violacoes criticas encontradas (com --strict, tambem warnings)
 
 Exemplos:
   pbq analyze .
+  pbq analyze . --strict
   pbq analyze C:\\repo\\app`,
 
     package: `pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
@@ -364,7 +368,9 @@ Exemplos:
 }
 
 async function runAnalyzeCommand(args) {
-  const targetRoot = path.resolve(args[0] || ".");
+  const positional = args.filter((arg) => arg !== "--strict");
+  const strict = args.includes("--strict");
+  const targetRoot = path.resolve(positional[0] || ".");
   const report = await analyzeHarness(targetRoot);
 
   console.log(`[pbq] Analyze target: ${targetRoot}`);
@@ -388,9 +394,15 @@ async function runAnalyzeCommand(args) {
     console.log("[pbq] Warnings: nenhum");
   }
 
-  console.log(`[pbq] Resultado: ${report.violations.length === 0 ? "OK" : "FALHOU"}`);
+  console.log(
+    `[pbq] Resumo: ${report.violations.length} violacoes, ${report.warnings.length} warnings em ${report.specCount} specs`
+  );
 
-  if (report.violations.length > 0) {
+  const strictFailure = strict && report.warnings.length > 0;
+  const failed = report.violations.length > 0 || strictFailure;
+  console.log(`[pbq] Resultado: ${failed ? "FALHOU" : "OK"}`);
+
+  if (failed) {
     process.exitCode = 1;
   }
 }
@@ -410,7 +422,11 @@ async function analyzeHarness(root) {
 
   const roadmap = await readFile(roadmapPath, "utf8");
   const specRows = parseRoadmapSpecRows(roadmap);
-  const sensorNames = await loadSensorNames(root);
+  const sensorsResult = await loadSensorNames(root);
+  const sensorNames = sensorsResult.names;
+  if (sensorsResult.parseError) {
+    warnings.push(`sensors.json invalido: ${sensorsResult.parseError}`);
+  }
 
   if (specRows.length === 0) {
     violations.push("Nenhuma spec encontrada na tabela do roadmap.");
@@ -492,12 +508,15 @@ async function analyzeHarness(root) {
 
 async function loadSensorNames(root) {
   const sensorsPath = path.join(root, HARNESS_DIR, "sensors.json");
-  if (!existsSync(sensorsPath)) return null;
+  if (!existsSync(sensorsPath)) return { names: null, parseError: null };
   try {
     const data = JSON.parse(await readFile(sensorsPath, "utf8"));
-    return new Set((data.sensors || []).map((sensor) => sensor.name).filter(Boolean));
-  } catch {
-    return null;
+    return {
+      names: new Set((data.sensors || []).map((sensor) => sensor.name).filter(Boolean)),
+      parseError: null
+    };
+  } catch (error) {
+    return { names: null, parseError: error.message };
   }
 }
 

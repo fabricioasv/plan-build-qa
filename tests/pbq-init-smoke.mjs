@@ -308,6 +308,53 @@ Nenhum.
     await rm(analyzeKnownSensorRoot, { recursive: true, force: true });
   }
 
+  const analyzeSummaryRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-summary-"));
+  try {
+    await buildAnalyzeFixture(analyzeSummaryRoot);
+    const summary = spawnSync(process.execPath, [cli, "analyze", analyzeSummaryRoot], { encoding: "utf8" });
+    assert.equal(summary.status, 0, summary.stderr || summary.stdout);
+    assert.match(summary.stdout, /\[pbq\] Resumo: 0 violacoes, 0 warnings em 1 specs/);
+    assert.match(summary.stdout, /Resumo:[\s\S]*Resultado:/);
+  } finally {
+    await rm(analyzeSummaryRoot, { recursive: true, force: true });
+  }
+
+  const analyzeWarningOnlyRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-warn-only-"));
+  try {
+    await buildAnalyzeFixture(analyzeWarningOnlyRoot, {
+      contract: "# Contract: Package 1\n\n## Sensores Obrigatorios\n\n- `cmd-sem-nome-cadastrado`\n"
+    });
+    const lenient = spawnSync(process.execPath, [cli, "analyze", analyzeWarningOnlyRoot], { encoding: "utf8" });
+    assert.equal(lenient.status, 0, lenient.stderr || lenient.stdout);
+    assert.match(lenient.stdout, /sensor obrigatorio citado sem nome/);
+    assert.match(lenient.stdout, /Resultado: OK/);
+
+    const strict = spawnSync(process.execPath, [cli, "analyze", analyzeWarningOnlyRoot, "--strict"], { encoding: "utf8" });
+    assert.equal(strict.status, 1, strict.stderr || strict.stdout);
+    assert.match(strict.stdout, /Resultado: FALHOU/);
+  } finally {
+    await rm(analyzeWarningOnlyRoot, { recursive: true, force: true });
+  }
+
+  const analyzeBrokenSensorsRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-broken-sensors-"));
+  try {
+    await buildAnalyzeFixture(analyzeBrokenSensorsRoot, {
+      sensors: "{ not valid json"
+    });
+    const broken = spawnSync(process.execPath, [cli, "analyze", analyzeBrokenSensorsRoot], { encoding: "utf8" });
+    assert.equal(broken.status, 0, broken.stderr || broken.stdout);
+    assert.match(broken.stdout, /sensors\.json invalido/);
+
+    const brokenStrict = spawnSync(process.execPath, [cli, "analyze", analyzeBrokenSensorsRoot, "--strict"], { encoding: "utf8" });
+    assert.equal(brokenStrict.status, 1, brokenStrict.stderr || brokenStrict.stdout);
+  } finally {
+    await rm(analyzeBrokenSensorsRoot, { recursive: true, force: true });
+  }
+
+  const analyzeHelp2 = spawnSync(process.execPath, [cli, "help", "analyze"], { encoding: "utf8" });
+  assert.equal(analyzeHelp2.status, 0, analyzeHelp2.stderr || analyzeHelp2.stdout);
+  assert.match(analyzeHelp2.stdout, /--strict/);
+
   const closePackage = spawnSync(
     process.execPath,
     [cli, "package", "close", root, "--spec", "spec-001-smoke", "--package", "1", "--tiers", "fast"],

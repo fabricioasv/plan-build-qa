@@ -5,7 +5,7 @@
 
 ## Estado Atual
 
-`em andamento`
+`concluido`
 
 Use um destes estados: `planejado`, `em andamento`, `bloqueado`, `concluido`, `cancelado`.
 
@@ -13,10 +13,11 @@ Use um destes estados: `planejado`, `em andamento`, `bloqueado`, `concluido`, `c
 
 Package 1 concluido com evaluation Score 1 em `evaluations/package-1.md`.
 Package 2 concluido com evaluation Score 1 em `evaluations/package-2.md`.
+Package 3 concluido com evaluation Score 1 em `evaluations/package-3.md`.
 
 ## Package Atual
 
-Nenhum package em implementacao ativa. Packages 1 e 2 concluidos. Package 3 a definir conforme tabela da spec (refinamento de mensagens/documentacao/casos de erro).
+Nenhum. Spec concluida em 2026-05-23 com os tres packages fechados (Score 1 em todas as evaluations).
 
 ## Decisoes Tecnicas
 
@@ -32,6 +33,9 @@ Nenhum package em implementacao ativa. Packages 1 e 2 concluidos. Package 3 a de
 - 2026-05-23 - `.\.plan-build-qa\harness\scripts\run-fast.ps1` - passou - evidencia em `evaluations/package-2.md`
 - 2026-05-23 - `npm run test` - passou - evidencia em `evaluations/package-2.md`
 - 2026-05-23 - `node .\bin\pbq.mjs package close . --spec spec-001-analyze --package 2 --tiers medium` - passou - gerou `evaluations/package-2.md`
+- 2026-05-23 - `.\.plan-build-qa\harness\scripts\run-fast.ps1` - passou - evidencia em `evaluations/package-3.md`
+- 2026-05-23 - `npm run test` - passou - evidencia em `evaluations/package-3.md`
+- 2026-05-23 - `node .\bin\pbq.mjs package close . --spec spec-001-analyze --package 3 --tiers medium` - passou - gerou `evaluations/package-3.md`
 
 ## Falhas Anteriores
 
@@ -44,8 +48,7 @@ Nenhuma.
 
 ## Pendencias
 
-- Definir escopo do package 3 (refinamento de mensagens, documentacao e cobertura de casos de erro do `pbq analyze`) e abrir `contracts/package-3.md`.
-- Existem incoerencias reais no proprio repo (`spec-001-analyze` referencia `check-harness-structure` em contratos, mas o sensor nao esta em `.plan-build-qa/sensors.json`). Tratar em spec/package proprio - este package nao corrige artefatos.
+- Existem incoerencias reais no proprio repo (`spec-001-analyze` referencia `check-harness-structure` em contratos, mas o sensor nao esta em `.plan-build-qa/sensors.json`). Tratar em spec/package proprio - estes packages do `spec-001-analyze` nao corrigem artefatos do harness.
 
 **PARE** antes de marcar a spec como concluida se houver pendencia sem decisao registrada.
 
