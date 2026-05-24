@@ -28,6 +28,7 @@ Use estes valores:
 | spec-010-test-finalization-workflow | planejado | - | 2026-05-23 | Ajuste operacional do harness | Criar fluxo para adicionar novos testes unitarios e/ou de integracao no fechamento final do trabalho, com registro objetivo no package |
 | spec-011-test-as-independent-gate | em andamento | 1 | 2026-05-23 | Discussao com usuario sobre separacao spec/implement/test: `implement` deve delegar verificacao a `test` rodando como subagente de contexto fresco, evitando re-execucao redundante e preservando independencia | Implementar `contracts/package-1.md` para reescrever a skill `test` em dois modos (contract-check apos spec, acceptance-check apos implement), tornar a invocacao automatica padrao a partir de `implement` e `spec`, e atualizar `constitution/testing.md` |
 | spec-012-spec-creates-all-contracts | planejado | - | 2026-05-23 | Bug operacional observado em 2026-05-23: `/implement` do package-2 da spec-001-analyze travou porque a skill `spec` criou apenas `contracts/package-1.md`, deixando os demais packages declarados na tabela da spec sem contrato. Isso forcou um ciclo extra de `/spec` para destravar o `/implement` | Fazer com que a skill `spec` (e o template/instalador correspondente em `templates/adapters/skills/spec`) crie esqueletos de `contracts/package-N.md` para todos os packages listados na tabela da spec, com placeholders objetivos e sensor list herdada da coluna `Sensores`, evitando que `/implement` seja bloqueado por contrato ausente |
+| spec-013-saneamento-harness-pbq | planejado | - | 2026-05-23 | Incoerencias detectadas pelo proprio `pbq analyze .` apos a conclusao de spec-001-analyze: (a) `check-harness-structure` e referenciado como sensor obrigatorio em `contracts/package-1.md`, `contracts/package-2.md` e `contracts/package-3.md` da spec-001-analyze, mas nao esta cadastrado em `.plan-build-qa/sensors.json`; (b) o analyzer marca como violacao a ausencia de pasta para specs em status `planejado`, o que e ruidoso porque specs planejadas legitimamente ainda nao tem artefatos | Decidir entre cadastrar `check-harness-structure` em `sensors.json` ou ajustar os contratos para citar apenas comando solto (warning), e refinar a regra do analyzer para que specs `planejado` sem pasta gerem warning em vez de violacao (ou nao gerem nada). Manter mudanca aditiva sem regredir packages 1-3 da spec-001-analyze |
 
 ## Sequenciamento Sugerido
 
@@ -43,6 +44,7 @@ Use estes valores:
 10. `spec-010-test-finalization-workflow`
 11. `spec-011-test-as-independent-gate`
 12. `spec-012-spec-creates-all-contracts`
+13. `spec-013-saneamento-harness-pbq`
 
 ## Decisoes De Roadmap
 
@@ -50,3 +52,4 @@ Use estes valores:
 - 2026-05-23: Manter `pbq doctor` logo depois de `analyze`, pois ele ajuda usuarios a diagnosticar instalacoes reais antes de adicionar novas fases.
 - 2026-05-23: Adicionar `spec-011-test-as-independent-gate` para resolver duvida operacional sobre redundancia entre `implement` e `test`. Decisao: manter as tres skills, mas tornar `test` o unico responsavel por verificacao, invocado automaticamente como subagente fresco a partir de `spec` (contract-check) e `implement` (acceptance-check).
 - 2026-05-23: Adicionar `spec-012-spec-creates-all-contracts` apos `/implement` ser bloqueado em `spec-001-analyze` por falta de `contracts/package-2.md`. Decisao: a skill `spec` deve materializar esqueletos de todos os packages declarados na tabela da spec ja na criacao, nao apenas o package 1.
+- 2026-05-23: Adicionar `spec-013-saneamento-harness-pbq` apos `pbq analyze .` (entregue pela spec-001-analyze) surfar incoerencias reais no proprio repo. A propria entrega da spec-001 expos a divida; o saneamento e o passo logico seguinte.
