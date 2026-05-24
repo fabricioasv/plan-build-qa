@@ -9,11 +9,11 @@ em andamento
 
 ## Packages Concluidos
 
-Nenhum.
+Package 1 concluido com evaluation Score 1 em `evaluations/package-1.md`.
 
 ## Package Atual
 
-Package 1 - ampliar `detectCommands` em `bin/pbq.mjs` para reconhecer scripts soltos (`.bat`/`.cmd`/`.sh`/`.ps1`) em raiz e em `scripts/`, alvos de `Makefile` e padroes comuns (`sonar*`), com heuristica de tier.
+Package 2 - adicionar subcomando `pbq sensor suggest [path]` que escaneia o alvo e imprime comandos `pbq sensor add` prontos para candidatos ainda nao cadastrados em `sensors.json`.
 
 ## Decisoes Tecnicas
 
@@ -24,7 +24,9 @@ Package 1 - ampliar `detectCommands` em `bin/pbq.mjs` para reconhecer scripts so
 
 ## Sensores Executados
 
-Nenhum ate o momento. Sensores previstos por package: `check-harness-structure` (fast) e `npm-run-test` (medium).
+- 2026-05-23 - `.\.plan-build-qa\harness\scripts\run-fast.ps1` - passou - evidencia em `evaluations/package-1.md`
+- 2026-05-23 - `npm run test` - passou - evidencia em `evaluations/package-1.md`
+- 2026-05-23 - `node .\bin\pbq.mjs package close . --spec spec-014-melhora-deteccao-sensores --package 1 --tiers medium` - passou - gerou `evaluations/package-1.md`
 
 ## Falhas Anteriores
 
@@ -39,7 +41,7 @@ Nenhuma.
 ## Pendencias
 
 - Decidir nome canonico do flag de "tier-incerto" no output do `suggest` durante o package 2.
-- Validar lista final de prefixos seguros para deteccao automatica durante o package 1.
+- Resolvida no package 1: lista final de prefixos seguros para deteccao automatica - fast: `sonar`, `lint`, `typecheck`, `format`; medium: `test`, `build`, `coverage`; slow: `e2e`, `smoke`, `integration`; medium com `tier-incerto`: `qa`. Prefixos casam por igualdade ou seguidos de `-`, `_` ou `.`. Sinalizacao via sufixo `[tier-incerto]` na razao e campo `tierUncertain: true` no `sensors.json`.
 
 **PARE** antes de marcar a spec como concluida se houver pendencia sem decisao registrada.
 

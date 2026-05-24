@@ -1049,7 +1049,9 @@ async function inspectProject(root) {
   const packageJson = await readJsonIfExists(path.join(root, "package.json"));
   const agentInstructionFiles = findAgentInstructionFiles(files);
   const docs = await collectRepositoryDocs(root, files);
-  const commands = detectCommands(fileSet, packageJson);
+  const looseScriptCandidates = detectLooseScriptCandidates(fileSet);
+  const makefileCandidates = await detectMakefileCandidates(root, fileSet);
+  const commands = detectCommands(fileSet, packageJson, [...looseScriptCandidates, ...makefileCandidates]);
   const languages = detectLanguages(fileSet, packageJson);
   const risks = detectRisks(fileSet, packageJson);
   const architecture = inspectArchitecture(fileSet);
@@ -1275,7 +1277,7 @@ function architectureSignalMd(architecture) {
   return sections.join("\n");
 }
 
-function detectCommands(fileSet, packageJson) {
+function detectCommands(fileSet, packageJson, extraCandidates = []) {
   const commands = {
     fast: [],
     medium: [],
@@ -1286,6 +1288,19 @@ function detectCommands(fileSet, packageJson) {
   const add = (bucket, command, reason) => {
     if (!commands[bucket].some((item) => item.command === command)) {
       commands[bucket].push({ command, reason });
+    }
+  };
+
+  const addCandidate = (candidate) => {
+    if (!commands[candidate.tier].some((item) => item.command === candidate.command)) {
+      const reason = candidate.tierUncertain
+        ? `${candidate.reason} [tier-incerto]`
+        : candidate.reason;
+      commands[candidate.tier].push({
+        command: candidate.command,
+        reason,
+        tierUncertain: candidate.tierUncertain || undefined
+      });
     }
   };
 
@@ -1335,6 +1350,10 @@ function detectCommands(fileSet, packageJson) {
 
   if (hasAny(fileSet, ["Cargo.toml"])) {
     add("medium", "cargo test", "Projeto Rust detectado");
+  }
+
+  for (const candidate of extraCandidates) {
+    addCandidate(candidate);
   }
 
   if (commands.fast.length === 0) {
@@ -1446,17 +1465,97 @@ function buildSensors(commands) {
   const sensors = [];
   for (const tier of ["fast", "medium", "slow"]) {
     for (const item of commands[tier]) {
-      sensors.push({
+      const sensor = {
         name: sensorName(item.command),
         tier,
         command: item.command,
         reason: item.reason,
         source: "detected",
         enabled: true
-      });
+      };
+      if (item.tierUncertain) sensor.tierUncertain = true;
+      sensors.push(sensor);
     }
   }
   return sensors;
+}
+
+function detectLooseScriptCandidates(fileSet) {
+  const candidates = [];
+  const tierByPrefix = [
+    { prefixes: ["sonar", "lint", "typecheck", "format"], tier: "fast", uncertain: false },
+    { prefixes: ["test", "build", "coverage"], tier: "medium", uncertain: false },
+    { prefixes: ["e2e", "smoke", "integration"], tier: "slow", uncertain: false },
+    { prefixes: ["qa"], tier: "medium", uncertain: true }
+  ];
+
+  for (const file of fileSet) {
+    const isRoot = !file.includes("/");
+    const isScriptsDir = file.startsWith("scripts/") && file.split("/").length === 2;
+    if (!isRoot && !isScriptsDir) continue;
+
+    const match = file.match(/^(?:scripts\/)?([^/]+)\.(bat|cmd|sh|ps1)$/i);
+    if (!match) continue;
+    const stem = match[1].toLowerCase();
+    const ext = match[2].toLowerCase();
+
+    const classification = tierByPrefix.find((entry) =>
+      entry.prefixes.some((prefix) => stem === prefix || stem.startsWith(`${prefix}-`) || stem.startsWith(`${prefix}_`) || stem.startsWith(prefix + "."))
+    );
+    if (!classification) continue;
+
+    let command;
+    if (ext === "bat" || ext === "cmd") {
+      command = `.\\${file.replace(/\//g, "\\")}`;
+    } else if (ext === "ps1") {
+      command = `powershell -NoProfile -ExecutionPolicy Bypass -File .\\${file.replace(/\//g, "\\")}`;
+    } else {
+      command = `sh ./${file}`;
+    }
+
+    candidates.push({
+      tier: classification.tier,
+      command,
+      reason: `Script detectado em ${file}`,
+      tierUncertain: classification.uncertain
+    });
+  }
+
+  return candidates;
+}
+
+async function detectMakefileCandidates(root, fileSet) {
+  const makefileName = fileSet.has("Makefile") ? "Makefile" : fileSet.has("makefile") ? "makefile" : null;
+  if (!makefileName) return [];
+  let content;
+  try {
+    content = await readFile(path.join(root, makefileName), "utf8");
+  } catch {
+    return [];
+  }
+  const targets = new Set();
+  for (const line of content.split(/\r?\n/)) {
+    const targetMatch = line.match(/^([A-Za-z][A-Za-z0-9_.-]*)\s*:/);
+    if (targetMatch) targets.add(targetMatch[1].toLowerCase());
+  }
+  const mapping = [
+    { target: "test", tier: "medium" },
+    { target: "build", tier: "medium" },
+    { target: "lint", tier: "fast" },
+    { target: "e2e", tier: "slow" }
+  ];
+  const candidates = [];
+  for (const { target, tier } of mapping) {
+    if (targets.has(target)) {
+      candidates.push({
+        tier,
+        command: `make ${target}`,
+        reason: `Target detectado em Makefile: ${target}`,
+        tierUncertain: false
+      });
+    }
+  }
+  return candidates;
 }
 
 function sensorName(command) {

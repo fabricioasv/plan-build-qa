@@ -355,6 +355,48 @@ Nenhum.
   assert.equal(analyzeHelp2.status, 0, analyzeHelp2.stderr || analyzeHelp2.stdout);
   assert.match(analyzeHelp2.stdout, /--strict/);
 
+  const sensorDetectRoot = await mkdtemp(path.join(tmpdir(), "pbq-sensor-detect-"));
+  try {
+    await writeFile(path.join(sensorDetectRoot, "package.json"), JSON.stringify({ scripts: {} }, null, 2));
+    await writeFile(path.join(sensorDetectRoot, "sonar.bat"), "@echo sonar scan\n");
+    await writeFile(path.join(sensorDetectRoot, "qa.bat"), "@echo qa run\n");
+    await mkdir(path.join(sensorDetectRoot, "scripts"), { recursive: true });
+    await writeFile(path.join(sensorDetectRoot, "scripts", "test.sh"), "#!/bin/sh\necho test\n");
+    await writeFile(path.join(sensorDetectRoot, "Makefile"), "test:\n\techo make-test\n\nbuild:\n\techo make-build\n");
+
+    const detectInit = spawnSync(process.execPath, [cli, "init", sensorDetectRoot], { encoding: "utf8" });
+    assert.equal(detectInit.status, 0, detectInit.stderr || detectInit.stdout);
+
+    const detectedSensors = JSON.parse(
+      await readFile(path.join(sensorDetectRoot, ".plan-build-qa", "sensors.json"), "utf8")
+    ).sensors;
+
+    assert.ok(
+      detectedSensors.some((sensor) => sensor.tier === "fast" && /sonar\.bat/i.test(sensor.command)),
+      `sonar.bat deveria virar sensor fast. Detectados: ${JSON.stringify(detectedSensors)}`
+    );
+    assert.ok(
+      detectedSensors.some((sensor) => sensor.tier === "medium" && /scripts[\/\\]test\.sh/i.test(sensor.command)),
+      `scripts/test.sh deveria virar sensor medium. Detectados: ${JSON.stringify(detectedSensors)}`
+    );
+    assert.ok(
+      detectedSensors.some((sensor) => sensor.tier === "medium" && sensor.command === "make test"),
+      `make test deveria virar sensor medium. Detectados: ${JSON.stringify(detectedSensors)}`
+    );
+    assert.ok(
+      detectedSensors.some(
+        (sensor) =>
+          sensor.tier === "medium" &&
+          /qa\.bat/i.test(sensor.command) &&
+          sensor.tierUncertain === true &&
+          /tier-incerto/.test(sensor.reason)
+      ),
+      `qa.bat deveria ser medium com tier-incerto. Detectados: ${JSON.stringify(detectedSensors)}`
+    );
+  } finally {
+    await rm(sensorDetectRoot, { recursive: true, force: true });
+  }
+
   const closePackage = spawnSync(
     process.execPath,
     [cli, "package", "close", root, "--spec", "spec-001-smoke", "--package", "1", "--tiers", "fast"],
