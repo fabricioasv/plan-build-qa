@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "sensors": [
+    {
+      "id": "sonar-dotnet",
+      "name": "sonar-dotnet",
+      "tier": "slow",
+      "command": "dotnet sonarscanner begin /k:\"<PROJECT_KEY>\" /d:sonar.host.url=\"$SONAR_HOST_URL\" /d:sonar.login=\"$SONAR_TOKEN\" && dotnet build && dotnet sonarscanner end /d:sonar.login=\"$SONAR_TOKEN\"",
+      "reason": "Analise de qualidade SonarQube para projetos .NET",
+      "enabled": false,
+      "requiresEnv": ["SONAR_TOKEN", "SONAR_HOST_URL"]
+    },
+    {
+      "id": "sonar-js",
+      "name": "sonar-js",
+      "tier": "slow",
+      "command": "npx sonar-scanner -Dsonar.host.url=\"$SONAR_HOST_URL\" -Dsonar.login=\"$SONAR_TOKEN\"",
+      "reason": "Analise de qualidade SonarQube para projetos JavaScript/TypeScript",
+      "enabled": false,
+      "requiresEnv": ["SONAR_TOKEN", "SONAR_HOST_URL"]
+    },
+    {
+      "id": "dotnet-build",
+      "name": "dotnet-build",
+      "tier": "medium",
+      "command": "dotnet build",
+      "reason": "Compilacao de projetos .NET",
+      "enabled": true,
+      "requiresEnv": []
+    },
+    {
+      "id": "dotnet-test",
+      "name": "dotnet-test",
+      "tier": "medium",
+      "command": "dotnet test",
+      "reason": "Execucao de testes unitarios e de integracao .NET",
+      "enabled": true,
+      "requiresEnv": []
+    },
+    {
+      "id": "eslint",
+      "name": "eslint",
+      "tier": "fast",
+      "command": "npx eslint .",
+      "reason": "Linting estatico para projetos JavaScript/TypeScript",
+      "enabled": true,
+      "requiresEnv": []
+    },
+    {
+      "id": "playwright-e2e",
+      "name": "playwright-e2e",
+      "tier": "slow",
+      "command": "npx playwright test",
+      "reason": "Testes E2E com Playwright",
+      "enabled": false,
+      "requiresEnv": []
+    }
+  ]
+}

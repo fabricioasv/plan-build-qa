@@ -7,13 +7,25 @@
 
 `em andamento`
 
+Quadro de etapas (atualize a cada avanco):
+
+| Etapa | Status |
+| --- | --- |
+| 1. spec | ok |
+| 2. contract (validacao) | ok |
+| 3. implement | ok |
+| 4. test/qa | ok |
+| 5. roadmap | em andamento |
+
+Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `nao-aplicavel`.
+
 ## Packages Concluidos
 
-Nenhum.
+Package 1 - fechado com Score 1; ver `evaluations/package-1.md`.
 
 ## Package Atual
 
-Package 1 - catalogo de sensores (dado + `pbq sensor catalog` + `pbq sensor add --from-catalog`) + convite nao-interativo no fim de init/update.
+Package 2 - campo `phase` (before/after) no schema de sensores + `pbq sensor add --phase` + `pbq package close --phase`.
 
 ## Decisoes Tecnicas
 
@@ -25,7 +37,7 @@ Package 1 - catalogo de sensores (dado + `pbq sensor catalog` + `pbq sensor add 
 
 ## Sensores Executados
 
-Pendente: `npm run test` na implementacao de cada package.
+- `npm run test` (medium, `npm-run-test`) | 2026-05-25 | passou (exit 0) | evidencia: `evaluations/package-1.md` (Score 1).
 
 ## Falhas Anteriores
 

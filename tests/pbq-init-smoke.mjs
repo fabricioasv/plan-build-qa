@@ -53,6 +53,8 @@ try {
   });
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
+  // spec-017 package-1: convite ao catalogo no fim de init
+  assert.match(result.stdout, /sensores no catalogo/, "init deve imprimir convite ao catalogo");
 
   const required = [
     ".plan-build-qa/constitution/architecture.md",
@@ -525,6 +527,36 @@ Nenhum.
     await rm(sensorDetectRoot, { recursive: true, force: true });
   }
 
+  // spec-017 package-1: pbq sensor catalog lista entradas do catalogo
+  const catalogList = spawnSync(process.execPath, [cli, "sensor", "catalog", root], { encoding: "utf8" });
+  assert.equal(catalogList.status, 0, catalogList.stderr || catalogList.stdout);
+  assert.match(catalogList.stdout, /sonar-dotnet/, "catalog deve listar sonar-dotnet");
+  assert.match(catalogList.stdout, /eslint/, "catalog deve listar eslint");
+  assert.match(catalogList.stdout, /playwright-e2e/, "catalog deve listar playwright-e2e");
+
+  // spec-017 package-1: pbq sensor add --from-catalog sonar-dotnet adiciona com campos corretos
+  const addFromCatalog = spawnSync(
+    process.execPath,
+    [cli, "sensor", "add", "--from-catalog", "sonar-dotnet", root],
+    { encoding: "utf8" }
+  );
+  assert.equal(addFromCatalog.status, 0, addFromCatalog.stderr || addFromCatalog.stdout);
+
+  const sensorsAfterCatalog = JSON.parse(await readFile(path.join(root, ".plan-build-qa/sensors.json"), "utf8"));
+  const sonarDotnet = sensorsAfterCatalog.sensors.find((s) => s.name === "sonar-dotnet");
+  assert.ok(sonarDotnet, "sonar-dotnet deve estar em sensors.json apos add --from-catalog");
+  assert.equal(sonarDotnet.tier, "slow", "sonar-dotnet deve ter tier slow");
+  assert.equal(sonarDotnet.enabled, false, "sonar-dotnet deve ter enabled false (vem do catalogo)");
+  assert.equal(sonarDotnet.source, "catalog", "sonar-dotnet deve ter source catalog");
+
+  const slowAfterCatalog = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-slow.ps1"), "utf8");
+  assert.doesNotMatch(slowAfterCatalog, /sonarscanner|sonar-scanner|npx sonar/, "sensor disabled nao deve aparecer no runner");
+
+  // catalog marca sonar-dotnet como [cadastrado] apos o add
+  const catalogListAfter = spawnSync(process.execPath, [cli, "sensor", "catalog", root], { encoding: "utf8" });
+  assert.equal(catalogListAfter.status, 0, catalogListAfter.stderr || catalogListAfter.stdout);
+  assert.match(catalogListAfter.stdout, /\[cadastrado\].*sonar-dotnet|\[cadastrado\][\s\S]*sonar-dotnet/, "sonar-dotnet deve aparecer como cadastrado apos o add");
+
   const closePackage = spawnSync(
     process.execPath,
     [cli, "package", "close", root, "--spec", "spec-001-smoke", "--package", "1", "--tiers", "fast"],
@@ -543,6 +575,8 @@ Nenhum.
   });
   assert.equal(update.status, 0, update.stderr || update.stdout);
   assert.match(update.stdout, /Candidates written/);
+  // spec-017 package-1: convite ao catalogo no fim de update
+  assert.match(update.stdout, /sensores no catalogo/, "update deve imprimir convite ao catalogo");
   assert.equal(await readFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "utf8"), "custom constitution skill\n");
   assert.ok(existsSync(path.join(root, ".claude/skills/constitution/SKILL.md.pbq-new")));
   assert.ok(existsSync(path.join(root, ".agents/skills/roadmap/SKILL.md")));

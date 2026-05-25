@@ -102,7 +102,8 @@ async function main() {
     await integrateAgentInstructions(targetRoot, project.agentInstructionFiles, options, events);
   }
 
-  printSummary(targetRoot, project, events, options);
+  const catalog = await loadSensorCatalog();
+  printSummary(targetRoot, project, events, options, catalog.length);
 }
 
 function parseInitArgs(args) {
@@ -133,6 +134,10 @@ function parseInitArgs(args) {
 async function runSensorCommand(args) {
   const action = args.shift();
   if (action === "add") {
+    if (args.includes("--from-catalog")) {
+      await runSensorAddFromCatalog(args);
+      return;
+    }
     const options = parseSensorAddArgs(args);
     const targetRoot = path.resolve(options.targetPath);
     await ensureDirectory(targetRoot);
@@ -152,6 +157,28 @@ async function runSensorCommand(args) {
     await writeSensors(targetRoot, sensors);
     await regenerateSensorScripts(targetRoot, sensors);
     console.log(`[pbq] Sensor ${index >= 0 ? "updated" : "added"}: ${nextSensor.name} (${nextSensor.tier})`);
+    return;
+  }
+
+  if (action === "catalog") {
+    const targetRoot = path.resolve(args[0] || ".");
+    const catalog = await loadSensorCatalog();
+    if (catalog.length === 0) {
+      console.log("[pbq] Catalogo vazio.");
+      return;
+    }
+    let registered = new Set();
+    try {
+      registered = new Set((await readSensors(targetRoot)).map((sensor) => sensor.name));
+    } catch {
+      // harness not initialized; proceed without registered set
+    }
+    for (const entry of catalog) {
+      const alreadyAdded = registered.has(entry.name);
+      const envNote = entry.requiresEnv && entry.requiresEnv.length > 0 ? ` [requer: ${entry.requiresEnv.join(", ")}]` : "";
+      const status = alreadyAdded ? "[cadastrado]" : entry.enabled === false ? "[disabled]" : "[disponivel]";
+      console.log(`${status}\t${entry.tier}\t${entry.id}${envNote}\t${entry.reason}`);
+    }
     return;
   }
 
@@ -199,7 +226,51 @@ async function runSensorCommand(args) {
     return;
   }
 
-  throw new Error("Uso: pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>] | pbq sensor list [path] | pbq sensor suggest [path]");
+  throw new Error("Uso: pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>] | pbq sensor add --from-catalog <id> [path] | pbq sensor list [path] | pbq sensor suggest [path] | pbq sensor catalog [path]");
+}
+
+async function runSensorAddFromCatalog(args) {
+  let catalogId = "";
+  let targetPath = ".";
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--from-catalog") {
+      catalogId = readOptionValue(args, ++index, "--from-catalog");
+    } else if (arg.startsWith("--")) {
+      throw new Error(`Opcao desconhecida: ${arg}`);
+    } else {
+      targetPath = arg;
+    }
+  }
+  if (!catalogId) throw new Error("Informe --from-catalog <id>.");
+
+  const catalog = await loadSensorCatalog();
+  const entry = catalog.find((item) => item.id === catalogId);
+  if (!entry) throw new Error(`Sensor "${catalogId}" nao encontrado no catalogo. Use 'pbq sensor catalog' para listar.`);
+
+  const targetRoot = path.resolve(targetPath);
+  await ensureDirectory(targetRoot);
+  const sensors = await readSensors(targetRoot);
+
+  const nextSensor = {
+    name: entry.name,
+    tier: entry.tier,
+    command: entry.command,
+    reason: entry.reason,
+    source: "catalog",
+    enabled: entry.enabled !== undefined ? entry.enabled : true
+  };
+  if (entry.requiresEnv && entry.requiresEnv.length > 0) {
+    nextSensor.requiresEnv = entry.requiresEnv;
+  }
+
+  const index = sensors.findIndex((sensor) => sensor.name === nextSensor.name);
+  if (index >= 0) sensors[index] = nextSensor;
+  else sensors.push(nextSensor);
+
+  await writeSensors(targetRoot, sensors);
+  await regenerateSensorScripts(targetRoot, sensors);
+  console.log(`[pbq] Sensor ${index >= 0 ? "updated" : "added"} from catalog: ${nextSensor.name} (${nextSensor.tier})`);
 }
 
 function shellQuote(value) {
@@ -313,19 +384,24 @@ Exemplos:
   pbq update . --force`,
 
     sensor: `pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
+pbq sensor add --from-catalog <id> [path]
 pbq sensor list [path]
 pbq sensor suggest [path]
+pbq sensor catalog [path]
 
 Gerencia sensores computacionais em .plan-build-qa/sensors.json e regenera runners.
 
   suggest  escaneia o alvo e imprime comandos 'pbq sensor add' prontos para candidatos detectados
            (scripts soltos, Makefile, sonar*) e ainda nao cadastrados em sensors.json. So imprime;
            nao altera arquivos.
+  catalog  lista entradas do catalogo curado de sensores prontos, marcando as ja cadastradas.
 
 Exemplos:
   pbq sensor list .
   pbq sensor suggest .
-  pbq sensor add . --name e2e --tier slow --command "npm run test:e2e" --reason "Valida fluxo principal"`,
+  pbq sensor catalog .
+  pbq sensor add . --name e2e --tier slow --command "npm run test:e2e" --reason "Valida fluxo principal"
+  pbq sensor add --from-catalog sonar-dotnet .`,
 
     analyze: `pbq analyze [path] [--strict]
 
@@ -651,7 +727,8 @@ async function runUpdateCommand(args) {
     await updateManagedFile(targetRoot, relativePath, latest, previousManifest, options, events);
   }
 
-  printUpdateSummary(targetRoot, events, options);
+  const catalog = await loadSensorCatalog();
+  printUpdateSummary(targetRoot, events, options, catalog.length);
 }
 
 function parseUpdateArgs(args) {
@@ -717,7 +794,7 @@ async function updateManagedFile(root, relativePath, latest, previousManifest, o
   events.push({ type: "candidate", path: candidatePath });
 }
 
-function printUpdateSummary(targetRoot, events, options) {
+function printUpdateSummary(targetRoot, events, options, catalogCount = 0) {
   const grouped = groupBy(events, "type");
   console.log(`[pbq] Update target: ${targetRoot}`);
   if (options.dryRun) console.log("[pbq] Dry run: nenhum arquivo foi alterado.");
@@ -728,6 +805,9 @@ function printUpdateSummary(targetRoot, events, options) {
   console.log(`[pbq] Already current: ${(grouped.ok || []).length}`);
   if ((grouped.candidate || []).length > 0) {
     console.log("[pbq] Review .pbq-new files and merge manually; existing custom files were preserved.");
+  }
+  if (catalogCount > 0) {
+    console.log(`[pbq] ${catalogCount} sensores no catalogo. Rode 'pbq sensor catalog' ou /sensor para adicionar.`);
   }
 }
 
@@ -1624,6 +1704,16 @@ async function loadTemplate(relativePath) {
   return readFile(path.join(templateRoot, relativePath), "utf8");
 }
 
+async function loadSensorCatalog() {
+  const catalogPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "templates", "sensor-catalog.json");
+  try {
+    const data = JSON.parse(await readFile(catalogPath, "utf8"));
+    return Array.isArray(data.sensors) ? data.sensors : [];
+  } catch {
+    return [];
+  }
+}
+
 async function writeManagedFile(root, relativePath, content, options, events) {
   const absolutePath = path.join(root, relativePath);
   const exists = existsSync(absolutePath);
@@ -1708,7 +1798,7 @@ ${MARKER_END}
   }
 }
 
-function printSummary(targetRoot, project, events, options) {
+function printSummary(targetRoot, project, events, options, catalogCount = 0) {
   const grouped = groupBy(events, "type");
   console.log(`[pbq] Harness target: ${targetRoot}`);
   if (options.dryRun) {
@@ -1730,6 +1820,9 @@ function printSummary(targetRoot, project, events, options) {
   if (project.commands.placeholders.length > 0) {
     console.log("[pbq] Placeholders:");
     for (const placeholder of project.commands.placeholders) console.log(`  - ${placeholder.bucket}: ${placeholder.text}`);
+  }
+  if (catalogCount > 0) {
+    console.log(`[pbq] ${catalogCount} sensores no catalogo. Rode 'pbq sensor catalog' ou /sensor para adicionar.`);
   }
 }
 
