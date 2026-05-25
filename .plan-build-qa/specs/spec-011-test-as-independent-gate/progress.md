@@ -7,6 +7,18 @@
 
 em andamento
 
+Quadro de etapas (atualize a cada avanco):
+
+| Etapa | Status |
+| --- | --- |
+| 1. spec | ok |
+| 2. contract (validacao) | em andamento |
+| 3. implement | pendente |
+| 4. test/qa | pendente |
+| 5. roadmap | pendente |
+
+Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `nao-aplicavel`.
+
 ## Packages Concluidos
 
 Nenhum.
@@ -21,6 +33,8 @@ Arquivos previstos para edicao:
 - `.claude/skills/implement/SKILL.md`
 - `.claude/skills/spec/SKILL.md`
 - `.plan-build-qa/constitution/testing.md`
+- `templates/harness/templates/progress.md` (quadro de etapas)
+- `.plan-build-qa/harness/templates/progress.md` (quadro de etapas, identico a fonte)
 
 ## Decisoes Tecnicas
 
@@ -28,6 +42,9 @@ Arquivos previstos para edicao:
 - 2026-05-23: Manter as tres skills (`spec`, `implement`, `test`). Nao fundir `test` em `implement`.
 - 2026-05-23: `test` deve inferir o modo pelo estado dos artefatos quando invocada manualmente sem flag.
 - 2026-05-23: Manter `pbq package close` na CLI; muda apenas quem o invoca (skill `test` em vez de `implement`).
+- 2026-05-25: Formalizar o trabalho como pipeline de 5 etapas (spec / contract (validacao) / implement / test-qa / roadmap), deixando `implement` (etapa 3, so codigo) e `test/qa` (etapa 4, valida o contrato) explicitamente separados. `test` segue auto-invocado como subagente, mas como etapa distinta.
+- 2026-05-25: O quadro das 5 etapas entra na secao `Estado Atual` do template de `progress.md` do harness (duas copias: `templates/harness/templates/progress.md` e `.plan-build-qa/harness/templates/progress.md`), para toda spec futura herdar. Decisao do usuario.
+- 2026-05-25: Trocar o sensor obrigatorio do package 1 de `check-harness-structure` (nao cadastrado em sensors.json) para `npm-run-test` (registrado), que cobre regressao do instalador apos editar o template de progress.
 
 ## Sensores Executados
 

@@ -9,7 +9,7 @@
 
 ## Objetivo
 
-Reposicionar a skill `test` como unico ponto de verificacao do harness, com dois modos explicitos (`contract-check` e `acceptance-check`), invocada automaticamente como subagente de contexto fresco a partir de `implement` e `spec`. Atualizar a constituicao para codificar a politica.
+Reposicionar a skill `test` como unico ponto de verificacao do harness, com dois modos explicitos (`contract-check` e `acceptance-check`), invocada automaticamente como subagente de contexto fresco a partir de `implement` e `spec`, deixando `implement` (etapa 3) e `test/qa` (etapa 4) como etapas distintas do pipeline. Atualizar a constituicao para codificar a politica e adicionar o quadro de 5 etapas na secao `Estado Atual` do template de `progress.md` (duas copias).
 
 ## Arquivos Permitidos
 
@@ -17,21 +17,24 @@ Reposicionar a skill `test` como unico ponto de verificacao do harness, com dois
 - `.claude/skills/implement/SKILL.md`
 - `.claude/skills/spec/SKILL.md`
 - `.plan-build-qa/constitution/testing.md`
+- `templates/harness/templates/progress.md` (fonte do instalador - adicionar o quadro de etapas)
+- `.plan-build-qa/harness/templates/progress.md` (copia dogfood - manter identica a fonte)
 - `.plan-build-qa/specs/spec-011-test-as-independent-gate/progress.md`
 - `.plan-build-qa/specs/spec-011-test-as-independent-gate/evaluations/package-1.md`
 - `.plan-build-qa/roadmap.md` (apenas para marcar `concluido` ao final)
 
 ## Arquivos Proibidos
 
-- Qualquer arquivo em `templates/` (templates do instalador do pbq) - mudanca afeta apenas as skills locais deste repo nesta etapa.
-- Qualquer arquivo em `src/` da CLI `pbq`.
+- Qualquer arquivo em `templates/` EXCETO `templates/harness/templates/progress.md`. Em especial, **nao** propagar as mudancas das skills (`templates/adapters/skills/**`) nesta etapa - isso fica para spec separada.
+- Qualquer arquivo em `src/` da CLI `pbq` e `bin/pbq.mjs`.
 - `.plan-build-qa/sensors.json`.
 - Outras skills nao listadas.
 
 ## Mudancas Permitidas
 
-- Reescrita do conteudo das SKILL.md listadas para refletir os dois modos e a delegacao via subagente.
-- Adicao de secao em `constitution/testing.md` sobre verificacao independente.
+- Reescrita do conteudo das SKILL.md listadas para refletir os dois modos, a delegacao via subagente e o pipeline de 5 etapas com `implement` e `test/qa` distintos.
+- Adicao de secao em `constitution/testing.md` sobre verificacao independente e o pipeline de 5 etapas.
+- Adicao do quadro de etapas na secao `Estado Atual` das duas copias do template de `progress.md`. As duas copias devem ficar identicas (o instalador gera a copia dogfood a partir da fonte).
 - Definicao textual (na SKILL.md de `test`) da convencao de bypass manual.
 - Atualizacao de `progress.md` desta spec ao avancar.
 
@@ -39,9 +42,9 @@ Reposicionar a skill `test` como unico ponto de verificacao do harness, com dois
 
 **NUNCA** inclua refactor amplo, mudanca funcional extra ou ajuste de teste fora do objetivo deste package.
 
-- Nao alterar comportamento da CLI `pbq`.
+- Nao alterar comportamento da CLI `pbq` (`bin/pbq.mjs`).
 - Nao introduzir novos sensores em `sensors.json` neste package.
-- Nao propagar as mudancas para `templates/` (sera spec separada se necessario).
+- Nao propagar as mudancas das SKILL.md para `templates/adapters/skills/**` (sera spec separada se necessario). A unica mudanca permitida em `templates/` e o quadro de etapas em `templates/harness/templates/progress.md`.
 - Nao mudar fluxo de roadmap alem da marcacao final de status.
 
 ## Criterios de Aceite
@@ -52,17 +55,18 @@ Reposicionar a skill `test` como unico ponto de verificacao do harness, com dois
 2. `.claude/skills/test/SKILL.md` documenta que deve ser executada como subagente de contexto fresco quando invocada automaticamente. Verificavel por grep de `subagente` e `contexto fresco`.
 3. `.claude/skills/implement/SKILL.md` nao contem mais instrucao de rodar `pbq package close` diretamente; em vez disso, instrui delegar a verificacao a `test`. Verificavel por grep negativo de `pbq package close` no passo de fechamento e grep positivo de delegacao a `test`.
 4. `.claude/skills/spec/SKILL.md` contem passo explicito de invocar `test` em modo `contract-check` ao final do fluxo de criacao/atualizacao de contrato. Verificavel por grep.
-5. `.plan-build-qa/constitution/testing.md` contem secao "Verificacao Independente" (ou titulo equivalente) descrevendo a politica. Verificavel por grep.
-6. Sensor `check-harness-structure` passa (exit code 0) apos as edicoes.
-7. Evaluation do package 1 lista cada sensor obrigatorio com status, comando, exit code e evidencia.
-8. Convencao de bypass manual esta definida textualmente na SKILL.md de `test` (nome exato pendente, a decidir durante a implementacao e registrar em `progress.md`).
+5. `.plan-build-qa/constitution/testing.md` contem secao "Verificacao Independente" (ou titulo equivalente) descrevendo a politica e o pipeline de 5 etapas com `implement` e `test/qa` separados. Verificavel por grep.
+6. As duas copias do template de `progress.md` (`templates/harness/templates/progress.md` e `.plan-build-qa/harness/templates/progress.md`) contem, dentro da secao `## Estado Atual`, um quadro com as 5 etapas nomeadas (`1. spec`, `2. contract (validacao)`, `3. implement`, `4. test/qa`, `5. roadmap`) e a legenda de status de etapa. As duas copias sao identicas (verificavel por diff/grep).
+7. `npm run test` sai com exit code 0 apos as edicoes (regressao do instalador, incluindo geracao do template de progress).
+8. Evaluation do package 1 lista cada sensor obrigatorio com status, comando, exit code e evidencia.
+9. Convencao de bypass manual esta definida textualmente na SKILL.md de `test` (nome exato pendente, a decidir durante a implementacao e registrar em `progress.md`).
 
 ## Sensores Obrigatorios
 
 **OBRIGATORIO** listar sensores por nome/tier/comando esperado.
 
-- `check-harness-structure` (fast) - comando registrado em `.plan-build-qa/sensors.json`. Esperado: exit code 0.
-- Validacao textual ad-hoc das SKILL.md e da constituicao alterada, com grep dos termos listados nos criterios de aceite 1-5. Resultado registrado na evaluation com comando exato, arquivo, exit code do grep e trecho de evidencia.
+- medium | `npm-run-test` | `npm run test` - sensor registrado em `.plan-build-qa/sensors.json`. Esperado: exit code 0. Garante que o instalador continua integro apos editar o template de `progress.md`.
+- Validacao textual ad-hoc das SKILL.md, da constituicao e das duas copias do template de `progress.md`, com grep dos termos listados nos criterios de aceite 1-6. Resultado registrado na evaluation com comando exato, arquivo, exit code do grep e trecho de evidencia.
 
 ## Riscos
 

@@ -4,6 +4,16 @@
 
 Tornar a skill `test` o unico ponto de verificacao do harness, invocada automaticamente como subagente de contexto fresco a partir de `spec` (modo contract-check) e `implement` (modo acceptance-check), preservando invocacao manual. Eliminar redundancia onde `implement` ja roda sensores e depois `test` re-roda os mesmos sensores no mesmo turno sem ganho de independencia.
 
+Formalizar o trabalho como um **pipeline de 5 etapas distintas**, deixando explicito que `implement` e `test/qa` sao etapas separadas: `implement` produz o codigo (etapa 3) e `test/qa` valida o contrato sobre esse codigo (etapa 4), como gate independente. As etapas sao:
+
+1. **spec** - spec.md criada/atualizada.
+2. **contract (validacao)** - contrato criado e validado por `test` em modo contract-check.
+3. **implement** - codigo escrito contra o contrato (sem rodar sensores diretamente).
+4. **test/qa** - `test` em modo acceptance-check valida o contrato sobre o codigo (subagente de contexto fresco).
+5. **roadmap** - status/evidencia atualizados.
+
+Para que esse pipeline fique rastreavel, o template de `progress.md` do harness passa a conter, na secao `Estado Atual`, um quadro com o status de cada uma das 5 etapas.
+
 ## Contexto
 
 Hoje:
@@ -26,6 +36,7 @@ Discussao com usuario (2026-05-23) concluiu que:
 - Atualizar `.claude/skills/spec/SKILL.md` para invocar `test` em modo contract-check ao criar ou atualizar contrato.
 - Atualizar `.plan-build-qa/constitution/testing.md` para codificar a politica: verificacao acontece em `test`, com contexto fresco, e e bloqueante.
 - Definir, na propria skill `test`, o comportamento esperado para a flag de pular auto-invocacao (`--skip-test` ou equivalente em prompt), permitindo override manual em casos raros documentados.
+- Adicionar o quadro de status das 5 etapas na secao `Estado Atual` do template de `progress.md` do harness, nas duas copias: `templates/harness/templates/progress.md` (fonte do instalador) e `.plan-build-qa/harness/templates/progress.md` (copia dogfood). Toda spec futura passa a herdar o quadro.
 
 ## Fora de Escopo
 
@@ -39,7 +50,7 @@ Discussao com usuario (2026-05-23) concluiu que:
 
 | Package | Objetivo | Estado | Sensores |
 | --- | --- | --- | --- |
-| 1 | Reescrever skill `test` em dois modos, atualizar `implement` e `spec` para auto-invocacao via subagente, atualizar `constitution/testing.md` | planejado | check-harness-structure (fast); validacao textual das SKILL.md alteradas (fast, ad-hoc grep) |
+| 1 | Reescrever skill `test` em dois modos, atualizar `implement` e `spec` para auto-invocacao via subagente, atualizar `constitution/testing.md`, e adicionar o quadro de 5 etapas no template de `progress.md` (duas copias) | planejado | npm-run-test (medium); validacao textual das SKILL.md/templates alterados (ad-hoc grep) |
 
 ## Riscos
 
@@ -58,7 +69,8 @@ Discussao com usuario (2026-05-23) concluiu que:
 - `.claude/skills/test/SKILL.md` documenta explicitamente os dois modos e como sao acionados.
 - `.claude/skills/implement/SKILL.md` nao chama mais sensores diretamente; delega a `test` via subagente.
 - `.claude/skills/spec/SKILL.md` invoca `test` em modo contract-check no final do fluxo de criacao/atualizacao de contrato.
-- `.plan-build-qa/constitution/testing.md` registra a politica de verificacao independente.
-- Sensor `check-harness-structure` passa.
+- `.plan-build-qa/constitution/testing.md` registra a politica de verificacao independente e o pipeline de 5 etapas (`implement` e `test/qa` separados).
+- As duas copias do template de `progress.md` contem, na secao `Estado Atual`, o quadro com as 5 etapas (1.spec / 2.contract (validacao) / 3.implement / 4.test/qa / 5.roadmap) e a legenda de status de etapa.
+- `npm run test` passa.
 - Evaluation do package 1 com Score 1.
 - Roadmap atualizado para `concluido` com evidencia.
