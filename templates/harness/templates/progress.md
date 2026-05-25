@@ -7,6 +7,18 @@
 
 Use um destes estados: `planejado`, `em andamento`, `bloqueado`, `concluido`, `cancelado`.
 
+Quadro de etapas (atualize a cada avanco):
+
+| Etapa | Status |
+| --- | --- |
+| 1. spec | pendente |
+| 2. contract (validacao) | pendente |
+| 3. implement | pendente |
+| 4. test/qa | pendente |
+| 5. roadmap | pendente |
+
+Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `nao-aplicavel`.
+
 ## Packages Concluidos
 
 ## Package Atual

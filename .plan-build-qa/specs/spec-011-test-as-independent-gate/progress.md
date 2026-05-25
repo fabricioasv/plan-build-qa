@@ -5,23 +5,23 @@
 
 ## Estado Atual
 
-em andamento
+concluido
 
 Quadro de etapas (atualize a cada avanco):
 
 | Etapa | Status |
 | --- | --- |
 | 1. spec | ok |
-| 2. contract (validacao) | em andamento |
-| 3. implement | pendente |
-| 4. test/qa | pendente |
-| 5. roadmap | pendente |
+| 2. contract (validacao) | ok |
+| 3. implement | ok |
+| 4. test/qa | ok |
+| 5. roadmap | ok |
 
 Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `nao-aplicavel`.
 
 ## Packages Concluidos
 
-Nenhum.
+Package 1 - fechado com Score 1 (`evaluations/package-1.md`). Sensor `npm-run-test` exit 0; validacao textual (grep) dos AC 1-6 registrada na evaluation.
 
 ## Package Atual
 
@@ -48,10 +48,8 @@ Arquivos previstos para edicao:
 
 ## Sensores Executados
 
-Nenhum ate o momento. Sensores previstos para o package 1:
-
-- `check-harness-structure` (fast)
-- Validacao textual ad-hoc nas SKILL.md alteradas (registrada na evaluation)
+- `npm run test` (medium, `npm-run-test`) | 2026-05-25 | passou (exit 0) | evidencia: `evaluations/package-1.md` (Score 1), via `pbq package close`.
+- Validacao textual ad-hoc (grep) dos criterios de aceite 1-6 | 2026-05-25 | passou | evidencia registrada em `evaluations/package-1.md`.
 
 ## Falhas Anteriores
 
@@ -64,7 +62,8 @@ Nenhuma.
 
 ## Pendencias
 
-- Definir nome exato da flag de bypass manual (`--skip-test`, `--no-verify`, ou via prompt) durante o package 1.
+- Resolvida (2026-05-25): convencao de bypass manual definida como `skip test` (equivalente `--skip-test`) em linguagem natural no prompt, documentada na SKILL.md de `test` e `implement`/`spec`.
+- Aberta para spec futura: propagar as mudancas das skills (`test`/`implement`/`spec`) para `templates/adapters/skills/**`, de modo que projetos alvo recebam o novo comportamento via `pbq init`/`update`. Nesta spec so a fonte do template de `progress.md` foi propagada.
 
 ## Contexto Para Retomada
 

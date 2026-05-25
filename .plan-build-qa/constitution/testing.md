@@ -24,6 +24,25 @@ Slow:
 
 - Placeholder: nenhum comando lento detectado.
 
+## Verificacao Independente
+
+O trabalho segue um pipeline de 5 etapas distintas:
+
+1. **spec** - `spec.md` criada/atualizada.
+2. **contract (validacao)** - contrato criado e validado pela skill `test` em modo `contract-check`.
+3. **implement** - codigo escrito contra o contrato. `implement` **nao** roda sensores.
+4. **test/qa** - skill `test` em modo `acceptance-check` valida o contrato sobre o codigo e roda os sensores obrigatorios.
+5. **roadmap** - status/evidencia atualizados.
+
+Regras:
+
+- A skill `test` e o **unico ponto de verificacao** do harness. `implement` (etapa 3) e `test/qa` (etapa 4) sao etapas separadas.
+- Quando acionada automaticamente a partir de `spec` (etapa 2) ou `implement` (etapa 4), `test` roda como **subagente de contexto fresco**, carregando spec, contrato e numero do package do disco, sem herdar suposicoes de quem implementou. A independencia do verificador e o motivo de manter as etapas separadas.
+- A verificacao e **bloqueante**: nenhuma etapa avanca com sensor obrigatorio `falhou` ou `pendente`.
+- O bypass manual (`skip test`) e raro, deve ser documentado em `progress.md`, e nunca conta como gate aprovado.
+- O custo adicional de tokens/latencia do subagente fresco e aceito como preco da independencia.
+- O quadro de etapas em `Estado Atual` do `progress.md` registra o status de cada uma das 5 etapas.
+
 ## Quando Rodar
 
 - Mudanca pequena: `.plan-build-qa/harness/scripts/run-fast.ps1` ou `.plan-build-qa/harness/scripts/run-fast.sh`.
