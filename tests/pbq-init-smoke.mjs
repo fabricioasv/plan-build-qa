@@ -297,6 +297,40 @@ Nenhum.
     await rm(analyzeStatusValidRoot, { recursive: true, force: true });
   }
 
+  // spec-016 package-1: nome entre crases e status com emoji devem ser tolerados
+  const analyzeDecoratedRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-decorated-"));
+  try {
+    await buildAnalyzeFixture(analyzeDecoratedRoot, {
+      roadmap: `# Roadmap
+
+## Mapa De Epicos
+
+| Epico | Status | Nota |
+| --- | --- | --- |
+| onda-5-cs-finalizacao | ✅ concluido | linha de indice sem pasta de spec |
+
+## Specs
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| \`spec-001-demo\` | ✅ concluido | 1 | 2026-05-24 | - | - |
+`,
+      progress: `# Progress\n\n## Package Atual\n\nPackage 1\n\n## Packages Concluidos\n\nPackage 1\n`
+    });
+    await mkdir(path.join(analyzeDecoratedRoot, ".plan-build-qa", "specs", "spec-001-demo", "evaluations"), { recursive: true });
+    await writeFile(
+      path.join(analyzeDecoratedRoot, ".plan-build-qa", "specs", "spec-001-demo", "evaluations", "package-1.md"),
+      "# Evaluation: Package 1\n\nScore: 1\n"
+    );
+    const decorated = spawnSync(process.execPath, [cli, "analyze", analyzeDecoratedRoot], { encoding: "utf8" });
+    assert.equal(decorated.status, 0, decorated.stderr || decorated.stdout);
+    assert.doesNotMatch(decorated.stdout, /Nenhuma spec encontrada/, "nome entre crases deve ser reconhecido");
+    assert.doesNotMatch(decorated.stdout, /status invalido no roadmap/, "status com emoji deve normalizar para concluido");
+    assert.match(decorated.stdout, /em 1 specs/, "linha de epico sem spec-NNN nao deve ser contada como spec");
+  } finally {
+    await rm(analyzeDecoratedRoot, { recursive: true, force: true });
+  }
+
   const analyzeDivergentRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-divergent-"));
   try {
     await buildAnalyzeFixture(analyzeDivergentRoot, {

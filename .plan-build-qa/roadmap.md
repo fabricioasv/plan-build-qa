@@ -31,6 +31,7 @@ Use estes valores:
 | spec-013-saneamento-harness-pbq | planejado | - | 2026-05-23 | Incoerencias detectadas pelo proprio `pbq analyze .` apos a conclusao de spec-001-analyze: (a) `check-harness-structure` e referenciado como sensor obrigatorio em `contracts/package-1.md`, `contracts/package-2.md` e `contracts/package-3.md` da spec-001-analyze, mas nao esta cadastrado em `.plan-build-qa/sensors.json`; (b) o analyzer marca como violacao a ausencia de pasta para specs em status `planejado`, o que e ruidoso porque specs planejadas legitimamente ainda nao tem artefatos | Decidir entre cadastrar `check-harness-structure` em `sensors.json` ou ajustar os contratos para citar apenas comando solto (warning), e refinar a regra do analyzer para que specs `planejado` sem pasta gerem warning em vez de violacao (ou nao gerem nada). Manter mudanca aditiva sem regredir packages 1-3 da spec-001-analyze |
 | spec-014-melhora-deteccao-sensores | concluido | 3 | 2026-05-24 | Packages 1, 2 e 3 fechados com Score 1. Package 1: deteccao ampliada para scripts soltos (.bat/.cmd/.sh/.ps1), Makefile, sonar*. Package 2: `pbq sensor suggest` imprime comandos prontos para candidatos nao cadastrados. Package 3: skill `/sensor` (Claude, Codex, template) com secao "Fluxo recomendado" e exemplos concretos (sonar.bat, scripts/test.sh, Makefile). | - |
 | spec-015-skill-analyze | concluido | 1 | 2026-05-24 | Package 1 fechado com Score 1. Skill `/analyze` criada nas tres variantes (Claude, Codex, template), registrada em `ADAPTER_SKILLS`. `pbq init`/`pbq update` agora instala `.claude/skills/analyze/SKILL.md` e `.agents/skills/analyze/SKILL.md` em projetos alvo. | - |
+| spec-016-roadmap-parse-tolerante | concluido | 1 | 2026-05-24 | Package 1 fechado com Score 1 (`evaluations/package-1.md`). `parseRoadmapSpecRows` normaliza crases no nome e decoracao/emoji no status; gate final `/^spec-\d+/i` preserva o descarte de linhas de epico/backlog. Testes em `tests/pbq-init-smoke.mjs` cobrem nome entre crases + `✅ concluido`; regressoes (`_nenhuma_`, `fazendo`, `em andamento`) preservadas | - |
 
 ## Sequenciamento Sugerido
 
@@ -49,6 +50,7 @@ Use estes valores:
 13. `spec-013-saneamento-harness-pbq`
 14. `spec-014-melhora-deteccao-sensores`
 15. `spec-015-skill-analyze`
+16. `spec-016-roadmap-parse-tolerante`
 
 ## Decisoes De Roadmap
 
@@ -59,3 +61,4 @@ Use estes valores:
 - 2026-05-23: Adicionar `spec-013-saneamento-harness-pbq` apos `pbq analyze .` (entregue pela spec-001-analyze) surfar incoerencias reais no proprio repo. A propria entrega da spec-001 expos a divida; o saneamento e o passo logico seguinte.
 - 2026-05-23: Adicionar `spec-014-melhora-deteccao-sensores` apos relato do usuario de que `pbq init` ignorou script de teste solto e `sonar.bat`, e que a skill `/sensor` exige cadastro muito manual. Aplicada antecipadamente a decisao de spec-012: contratos dos packages 1, 2 e 3 criados na mesma alteracao para evitar bloqueio futuro do `/implement`.
 - 2026-05-24: Adicionar `spec-015-skill-analyze` apos usuario relatar que `/analyze` nao funciona no agente do projeto alvo porque `pbq update` nao instala nenhuma skill correspondente ao subcomando `pbq analyze`.
+- 2026-05-24: Adicionar `spec-016-roadmap-parse-tolerante` apos `pbq analyze` falhar em repo alvo com "Nenhuma spec encontrada"/status invalido por causa de nome entre crases e status com emoji. Decisao: tornar o parser tolerante (normalizar crases no nome e decoracao no status) em vez de exigir que o repo alvo abra mao do tracker humano ou da regra de emoji. Escopo restrito aos dois bugs reais confirmados; demais alegacoes do diagnostico descartadas.

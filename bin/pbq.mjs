@@ -594,14 +594,26 @@ function parseContractRequiredSensors(contract) {
 function parseRoadmapSpecRows(roadmap) {
   return roadmap
     .split(/\r?\n/)
-    .filter((line) => /^\|\s*spec-\d+/i.test(line))
+    .filter((line) => line.trimStart().startsWith("|"))
     .map((line) => line.split("|").map((cell) => cell.trim()))
     .map((cells) => ({
-      name: cells[1] || "",
-      status: (cells[2] || "").toLowerCase(),
+      name: stripCellDecoration(cells[1] || ""),
+      status: normalizeRoadmapStatus(cells[2] || ""),
       currentPackage: parsePackageNumber(cells[3] || "")
     }))
-    .filter((row) => row.name);
+    .filter((row) => /^spec-\d+/i.test(row.name));
+}
+
+function stripCellDecoration(value) {
+  return value.replace(/`/g, "").trim();
+}
+
+function normalizeRoadmapStatus(value) {
+  return value
+    .replace(/[^\p{L}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 function parsePackageNumber(value) {
