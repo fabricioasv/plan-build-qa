@@ -22,10 +22,11 @@ Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `nao-aplicavel`.
 ## Packages Concluidos
 
 Package 1 - fechado com Score 1; ver `evaluations/package-1.md`.
+Package 2 - fechado com Score 1; ver `evaluations/package-2.md`.
 
 ## Package Atual
 
-Package 2 - campo `phase` (before/after) no schema de sensores + `pbq sensor add --phase` + `pbq package close --phase`.
+Package 3 - skill `/sensor` (Claude, Codex, template) atualizada com catalogo, selecao guiada e explicacao de phase.
 
 ## Decisoes Tecnicas
 
@@ -38,6 +39,7 @@ Package 2 - campo `phase` (before/after) no schema de sensores + `pbq sensor add
 ## Sensores Executados
 
 - `npm run test` (medium, `npm-run-test`) | 2026-05-25 | passou (exit 0) | evidencia: `evaluations/package-1.md` (Score 1).
+- `npm run test` (medium, `npm-run-test`) | 2026-05-25 | passou (exit 0) | evidencia: `evaluations/package-2.md` (Score 1).
 
 ## Falhas Anteriores
 

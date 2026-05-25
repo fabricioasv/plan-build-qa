@@ -557,6 +557,63 @@ Nenhum.
   assert.equal(catalogListAfter.status, 0, catalogListAfter.stderr || catalogListAfter.stdout);
   assert.match(catalogListAfter.stdout, /\[cadastrado\].*sonar-dotnet|\[cadastrado\][\s\S]*sonar-dotnet/, "sonar-dotnet deve aparecer como cadastrado apos o add");
 
+  // spec-017 package-2: from-catalog propaga phase do catalogo (sonar-dotnet tem ["before","after"])
+  const sensorsWithPhase = JSON.parse(await readFile(path.join(root, ".plan-build-qa/sensors.json"), "utf8"));
+  const sonarPhase = sensorsWithPhase.sensors.find((s) => s.name === "sonar-dotnet");
+  assert.ok(Array.isArray(sonarPhase?.phase), "sonar-dotnet deve ter campo phase como array");
+  assert.ok(sonarPhase.phase.includes("before") && sonarPhase.phase.includes("after"), "sonar-dotnet phase deve incluir before e after");
+
+  // spec-017 package-2: sensor add --phase before grava phase:["before"]
+  const phaseRoot = await mkdtemp(path.join(tmpdir(), "pbq-phase-"));
+  try {
+    const initPhase = spawnSync(process.execPath, [cli, "init", phaseRoot], { encoding: "utf8" });
+    assert.equal(initPhase.status, 0, initPhase.stderr || initPhase.stdout);
+
+    const addPhase = spawnSync(
+      process.execPath,
+      [cli, "sensor", "add", phaseRoot, "--name", "preflight-check", "--tier", "fast", "--command", "echo preflight", "--phase", "before"],
+      { encoding: "utf8" }
+    );
+    assert.equal(addPhase.status, 0, addPhase.stderr || addPhase.stdout);
+
+    const sensorsPhase = JSON.parse(await readFile(path.join(phaseRoot, ".plan-build-qa/sensors.json"), "utf8"));
+    const preflight = sensorsPhase.sensors.find((s) => s.name === "preflight-check");
+    assert.ok(Array.isArray(preflight?.phase), "sensor com --phase deve gravar campo phase como array");
+    assert.deepEqual(preflight.phase, ["before"], "phase deve ser [\"before\"]");
+
+    // sensor sem phase se comporta como after (AC3/AC5): package close padrao (after) inclui sensor sem phase
+    const addNoPhaseSensor = spawnSync(
+      process.execPath,
+      [cli, "sensor", "add", phaseRoot, "--name", "no-phase-sensor", "--tier", "fast", "--command", "echo gate"],
+      { encoding: "utf8" }
+    );
+    assert.equal(addNoPhaseSensor.status, 0, addNoPhaseSensor.stderr || addNoPhaseSensor.stdout);
+
+    // package close padrao (--phase after): roda no-phase-sensor (sem phase = after), nao roda preflight-check (phase=before)
+    const closePhaseBefore = spawnSync(
+      process.execPath,
+      [cli, "package", "close", phaseRoot, "--spec", "spec-phase-test", "--package", "1", "--tiers", "fast"],
+      { encoding: "utf8" }
+    );
+    assert.equal(closePhaseBefore.status, 0, closePhaseBefore.stderr || closePhaseBefore.stdout);
+    const evalAfter = await readFile(path.join(phaseRoot, ".plan-build-qa/specs/spec-phase-test/evaluations/package-1.md"), "utf8");
+    assert.match(evalAfter, /no-phase-sensor/, "package close padrao deve incluir sensor sem phase (equivale a after)");
+    assert.doesNotMatch(evalAfter, /preflight-check/, "package close padrao nao deve incluir sensor com phase:before");
+
+    // package close --phase before: roda preflight-check, nao roda no-phase-sensor
+    const closePhaseBeforeExplicit = spawnSync(
+      process.execPath,
+      [cli, "package", "close", phaseRoot, "--spec", "spec-phase-test", "--package", "2", "--tiers", "fast", "--phase", "before"],
+      { encoding: "utf8" }
+    );
+    assert.equal(closePhaseBeforeExplicit.status, 0, closePhaseBeforeExplicit.stderr || closePhaseBeforeExplicit.stdout);
+    const evalBefore = await readFile(path.join(phaseRoot, ".plan-build-qa/specs/spec-phase-test/evaluations/package-2.md"), "utf8");
+    assert.match(evalBefore, /preflight-check/, "package close --phase before deve incluir sensor com phase:before");
+    assert.doesNotMatch(evalBefore, /no-phase-sensor/, "package close --phase before nao deve incluir sensor sem phase (que e after)");
+  } finally {
+    await rm(phaseRoot, { recursive: true, force: true });
+  }
+
   const closePackage = spawnSync(
     process.execPath,
     [cli, "package", "close", root, "--spec", "spec-001-smoke", "--package", "1", "--tiers", "fast"],

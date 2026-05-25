@@ -150,6 +150,9 @@ async function runSensorCommand(args) {
       source: "manual",
       enabled: true
     };
+    if (options.phase) {
+      nextSensor.phase = parsePhaseOption(options.phase);
+    }
     const index = sensors.findIndex((sensor) => sensor.name === nextSensor.name);
     if (index >= 0) sensors[index] = nextSensor;
     else sensors.push(nextSensor);
@@ -263,6 +266,9 @@ async function runSensorAddFromCatalog(args) {
   if (entry.requiresEnv && entry.requiresEnv.length > 0) {
     nextSensor.requiresEnv = entry.requiresEnv;
   }
+  if (entry.phase && entry.phase.length > 0) {
+    nextSensor.phase = entry.phase;
+  }
 
   const index = sensors.findIndex((sensor) => sensor.name === nextSensor.name);
   if (index >= 0) sensors[index] = nextSensor;
@@ -284,7 +290,8 @@ function parseSensorAddArgs(args) {
     name: "",
     tier: "",
     command: "",
-    reason: ""
+    reason: "",
+    phase: ""
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -293,6 +300,7 @@ function parseSensorAddArgs(args) {
     else if (arg === "--tier") options.tier = readOptionValue(args, ++index, "--tier");
     else if (arg === "--command") options.command = readOptionValue(args, ++index, "--command");
     else if (arg === "--reason") options.reason = readOptionValue(args, ++index, "--reason");
+    else if (arg === "--phase") options.phase = readOptionValue(args, ++index, "--phase");
     else if (arg.startsWith("--")) throw new Error(`Opcao desconhecida: ${arg}`);
     else options.targetPath = arg;
   }
@@ -305,6 +313,17 @@ function parseSensorAddArgs(args) {
   }
 
   return options;
+}
+
+function parsePhaseOption(value) {
+  const parts = value.split(",").map((p) => p.trim()).filter((p) => ["before", "after"].includes(p));
+  if (parts.length === 0) throw new Error("--phase deve ser before, after ou before,after.");
+  return parts;
+}
+
+function isSensorEligibleForPhase(sensor, phase) {
+  if (!sensor.phase) return phase === "after";
+  return sensor.phase.includes(phase);
 }
 
 function readOptionValue(args, index, optionName) {
@@ -419,12 +438,16 @@ Exemplos:
   pbq analyze . --strict
   pbq analyze C:\\repo\\app`,
 
-    package: `pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
+    package: `pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow] [--phase before|after]
 
 Executa sensores cadastrados, gera evaluation em .plan-build-qa/specs/<spec>/evaluations/package-N.md e falha se sensor obrigatorio falhar.
 
+  --phase  fase de execucao (default: after). Sensores sem campo phase so rodam na fase after.
+           Sensores com phase:["before"] so rodam com --phase before.
+
 Exemplos:
   pbq package close . --spec spec-001-login --package 1 --tiers fast,medium
+  pbq package close . --spec spec-001-login --package 1 --phase before
   pbq package close C:\\repo\\app --spec spec-002-checkout --package 3`,
 
     run: `pbq run [path] [--resume]
@@ -819,7 +842,9 @@ async function runPackageCommand(args) {
 
   const options = parsePackageCloseArgs(args);
   const targetRoot = path.resolve(options.targetPath);
-  const sensors = (await readSensors(targetRoot)).filter((sensor) => sensor.enabled !== false && options.tiers.includes(sensor.tier));
+  const sensors = (await readSensors(targetRoot)).filter(
+    (sensor) => sensor.enabled !== false && options.tiers.includes(sensor.tier) && isSensorEligibleForPhase(sensor, options.phase)
+  );
   const result = executePackageSensors(targetRoot, sensors);
   await writePackageEvaluation(targetRoot, options, result);
 
@@ -834,7 +859,8 @@ function parsePackageCloseArgs(args) {
     targetPath: ".",
     spec: "",
     packageNumber: "",
-    tiers: ["fast", "medium", "slow"]
+    tiers: ["fast", "medium", "slow"],
+    phase: "after"
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -842,6 +868,7 @@ function parsePackageCloseArgs(args) {
     if (arg === "--spec") options.spec = readOptionValue(args, ++index, "--spec");
     else if (arg === "--package") options.packageNumber = readOptionValue(args, ++index, "--package");
     else if (arg === "--tiers") options.tiers = readOptionValue(args, ++index, "--tiers").split(",").map((tier) => tier.trim());
+    else if (arg === "--phase") options.phase = readOptionValue(args, ++index, "--phase");
     else if (arg.startsWith("--")) throw new Error(`Opcao desconhecida: ${arg}`);
     else options.targetPath = arg;
   }
@@ -850,6 +877,9 @@ function parsePackageCloseArgs(args) {
   if (!options.packageNumber) throw new Error("Informe --package.");
   if (options.tiers.some((tier) => !["fast", "medium", "slow"].includes(tier))) {
     throw new Error("--tiers deve conter apenas fast, medium ou slow.");
+  }
+  if (!["before", "after"].includes(options.phase)) {
+    throw new Error("--phase deve ser before ou after.");
   }
 
   return options;
