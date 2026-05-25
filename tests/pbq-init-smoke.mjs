@@ -358,6 +358,26 @@ Nenhum.
     await rm(analyzeCoherentRoot, { recursive: true, force: true });
   }
 
+  // spec-018: numeros soltos na prosa de "Packages Concluidos" nao viram packages concluidos
+  const analyzeClosedProseRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-closed-prose-"));
+  try {
+    await buildAnalyzeFixture(analyzeClosedProseRoot, {
+      progress: `# Progress\n\n## Package Atual\n\nPackage 1\n\n## Packages Concluidos\n\nPackage 1 - fechado com Score 1; sensor exit 0; validacao dos AC 1-6.\n`
+    });
+    await mkdir(path.join(analyzeClosedProseRoot, ".plan-build-qa", "specs", "spec-001-demo", "evaluations"), { recursive: true });
+    await writeFile(
+      path.join(analyzeClosedProseRoot, ".plan-build-qa", "specs", "spec-001-demo", "evaluations", "package-1.md"),
+      "# Evaluation: Package 1\n\nScore: 1\n"
+    );
+    const closedProse = spawnSync(process.execPath, [cli, "analyze", analyzeClosedProseRoot], { encoding: "utf8" });
+    assert.equal(closedProse.status, 0, closedProse.stderr || closedProse.stdout);
+    assert.doesNotMatch(closedProse.stdout, /package concluido 0/, "exit 0 nao deve virar package concluido");
+    assert.doesNotMatch(closedProse.stdout, /package concluido 6/, "AC 1-6 nao deve virar package concluido");
+    assert.doesNotMatch(closedProse.stdout, /evaluation ausente/, "package 1 tem evaluation; nao deve faltar nenhuma");
+  } finally {
+    await rm(analyzeClosedProseRoot, { recursive: true, force: true });
+  }
+
   const analyzeUnknownSensorRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-unknown-sensor-"));
   try {
     await buildAnalyzeFixture(analyzeUnknownSensorRoot, {

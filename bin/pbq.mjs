@@ -626,9 +626,8 @@ function parseClosedPackages(progress) {
   if (!sectionMatch) return [];
 
   const packages = new Set();
-  for (const match of sectionMatch[1].matchAll(/package\s+(\d+)|\b(\d+)\b/gi)) {
-    const value = match[1] || match[2];
-    if (value) packages.add(value);
+  for (const match of sectionMatch[1].matchAll(/package\s+(\d+)/gi)) {
+    if (match[1]) packages.add(match[1]);
   }
   return [...packages];
 }
