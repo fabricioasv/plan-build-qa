@@ -7,7 +7,7 @@
 
 concluido
 
-Quadro de etapas (atualize a cada avanco):
+Quadro de etapas do package 2 (propagacao das skills aos templates do instalador):
 
 | Etapa | Status |
 | --- | --- |
@@ -21,20 +21,12 @@ Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `nao-aplicavel`.
 
 ## Packages Concluidos
 
-Package 1 - fechado com Score 1 (`evaluations/package-1.md`). Sensor `npm-run-test` exit 0; validacao textual (grep) dos AC 1-6 registrada na evaluation.
+Package 1 - fechado com Score 1; ver `evaluations/package-1.md` (sensor `npm-run-test` e validacao textual por grep).
+Package 2 - fechado com Score 1; ver `evaluations/package-2.md` (skills propagadas aos templates, diff vazio vs `.claude/skills`, e smoke test alinhado).
 
 ## Package Atual
 
-Package 1 - Reescrever skill `test` em dois modos, atualizar `implement` e `spec` para delegar verificacao, e atualizar `constitution/testing.md`.
-
-Arquivos previstos para edicao:
-
-- `.claude/skills/test/SKILL.md`
-- `.claude/skills/implement/SKILL.md`
-- `.claude/skills/spec/SKILL.md`
-- `.plan-build-qa/constitution/testing.md`
-- `templates/harness/templates/progress.md` (quadro de etapas)
-- `.plan-build-qa/harness/templates/progress.md` (quadro de etapas, identico a fonte)
+Nenhum. Spec concluida (packages 1 e 2 fechados com Score 1).
 
 ## Decisoes Tecnicas
 
@@ -63,7 +55,7 @@ Nenhuma.
 ## Pendencias
 
 - Resolvida (2026-05-25): convencao de bypass manual definida como `skip test` (equivalente `--skip-test`) em linguagem natural no prompt, documentada na SKILL.md de `test` e `implement`/`spec`.
-- Aberta para spec futura: propagar as mudancas das skills (`test`/`implement`/`spec`) para `templates/adapters/skills/**`, de modo que projetos alvo recebam o novo comportamento via `pbq init`/`update`. Nesta spec so a fonte do template de `progress.md` foi propagada.
+- Resolvida (2026-05-25, package 2): skills `test`/`implement`/`spec` propagadas para `templates/adapters/skills/**`; projetos alvo passam a receber o novo comportamento via `pbq init`/`update`.
 
 ## Contexto Para Retomada
 

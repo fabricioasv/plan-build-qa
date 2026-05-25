@@ -22,7 +22,10 @@ Workflow:
 6. **REQUIRED**: when creating a spec, update `.plan-build-qa/roadmap.md` with status `em andamento`.
 7. **REQUIRED**: when finalizing a spec, update `.plan-build-qa/roadmap.md` with status `concluido`, date, and evidence.
 8. Create or update `contracts/package-N.md` for the next small, reversible, verifiable package.
-9. Keep implementation out of this command unless the user explicitly asks to implement.
-10. **REQUIRED**: make acceptance criteria and required sensors objective.
+9. **REQUIRED**: after creating or updating a contract, invoke the `test` skill in `contract-check` mode (stage 2 of the pipeline) to validate that the contract is well-formed, has objective acceptance criteria, and names sensors registered in `sensors.json`. When invoked automatically, `test` runs as a fresh-context subagent. This can be skipped only with an explicit, documented `skip test`.
+10. Keep implementation out of this command unless the user explicitly asks to implement.
+11. **REQUIRED**: make acceptance criteria and required sensors objective.
 
 Prefer a short contract for small changes. Require a formal spec and contract for medium or large changes.
+
+This skill owns stages 1 (`spec`) and 2 (`contract (validacao)`) of the harness pipeline `1. spec` -> `2. contract (validacao)` -> `3. implement` -> `4. test/qa` -> `5. roadmap`. Verification stays in `test`, kept separate from `implement`.

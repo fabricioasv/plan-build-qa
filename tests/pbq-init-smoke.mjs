@@ -118,11 +118,16 @@ try {
   const specSkill = await readFile(path.join(root, ".claude/skills/spec/SKILL.md"), "utf8");
   assert.match(specSkill, /roadmap\.md/);
 
+  // spec-011 package-2: implement delega verificacao a test (nao roda pbq package close direto)
   const codexImplementSkill = await readFile(path.join(root, ".agents/skills/implement/SKILL.md"), "utf8");
-  assert.match(codexImplementSkill, /pbq package close/);
+  assert.doesNotMatch(codexImplementSkill, /pbq package close/, "implement skill deve delegar verificacao, nao citar pbq package close");
+  assert.match(codexImplementSkill, /[Dd]elegate verification to the .test. skill/, "implement skill deve delegar a test");
 
   const claudeTestSkill = await readFile(path.join(root, ".claude/skills/test/SKILL.md"), "utf8");
   assert.match(claudeTestSkill, /NEVER.*missing sensor evidence as success/);
+  // spec-011 package-2: test skill expoe os dois modos do gate independente
+  assert.match(claudeTestSkill, /contract-check/, "test skill deve documentar o modo contract-check");
+  assert.match(claudeTestSkill, /acceptance-check/, "test skill deve documentar o modo acceptance-check");
 
   // spec-014 package-3: sensor skill deve documentar fluxo recomendado e exemplos
   const claudeSensorSkill = await readFile(path.join(root, ".claude/skills/sensor/SKILL.md"), "utf8");

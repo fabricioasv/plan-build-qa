@@ -50,7 +50,8 @@ Discussao com usuario (2026-05-23) concluiu que:
 
 | Package | Objetivo | Estado | Sensores |
 | --- | --- | --- | --- |
-| 1 | Reescrever skill `test` em dois modos, atualizar `implement` e `spec` para auto-invocacao via subagente, atualizar `constitution/testing.md`, e adicionar o quadro de 5 etapas no template de `progress.md` (duas copias) | planejado | npm-run-test (medium); validacao textual das SKILL.md/templates alterados (ad-hoc grep) |
+| 1 | Reescrever skill `test` em dois modos, atualizar `implement` e `spec` para auto-invocacao via subagente, atualizar `constitution/testing.md`, e adicionar o quadro de 5 etapas no template de `progress.md` (duas copias) | concluido | npm-run-test (medium); validacao textual das SKILL.md/templates alterados (ad-hoc grep) |
+| 2 | Propagar as skills `test`/`implement`/`spec` alteradas no package 1 para os templates-fonte do instalador (`templates/adapters/skills/**`) e alinhar `tests/pbq-init-smoke.mjs` ao novo comportamento (sem `pbq package close` na skill `implement`) | planejado | npm-run-test (medium) |
 
 ## Riscos
 
@@ -72,5 +73,7 @@ Discussao com usuario (2026-05-23) concluiu que:
 - `.plan-build-qa/constitution/testing.md` registra a politica de verificacao independente e o pipeline de 5 etapas (`implement` e `test/qa` separados).
 - As duas copias do template de `progress.md` contem, na secao `Estado Atual`, o quadro com as 5 etapas (1.spec / 2.contract (validacao) / 3.implement / 4.test/qa / 5.roadmap) e a legenda de status de etapa.
 - `npm run test` passa.
-- Evaluation do package 1 com Score 1.
+- Os templates-fonte do instalador (`templates/adapters/skills/test|implement|spec/SKILL.md`) ficam identicos as copias `.claude/skills/*` editadas no package 1, de modo que `pbq init`/`update` instale o novo comportamento em projetos alvo (package 2).
+- `tests/pbq-init-smoke.mjs` reflete o novo comportamento da skill `implement` (delegacao a `test`, sem `pbq package close` direto) (package 2).
+- Evaluation de cada package com Score 1.
 - Roadmap atualizado para `concluido` com evidencia.
