@@ -32,6 +32,7 @@ Use estes valores:
 | spec-014-melhora-deteccao-sensores | concluido | 3 | 2026-05-24 | Packages 1, 2 e 3 fechados com Score 1. Package 1: deteccao ampliada para scripts soltos (.bat/.cmd/.sh/.ps1), Makefile, sonar*. Package 2: `pbq sensor suggest` imprime comandos prontos para candidatos nao cadastrados. Package 3: skill `/sensor` (Claude, Codex, template) com secao "Fluxo recomendado" e exemplos concretos (sonar.bat, scripts/test.sh, Makefile). | - |
 | spec-015-skill-analyze | concluido | 1 | 2026-05-24 | Package 1 fechado com Score 1. Skill `/analyze` criada nas tres variantes (Claude, Codex, template), registrada em `ADAPTER_SKILLS`. `pbq init`/`pbq update` agora instala `.claude/skills/analyze/SKILL.md` e `.agents/skills/analyze/SKILL.md` em projetos alvo. | - |
 | spec-016-roadmap-parse-tolerante | concluido | 1 | 2026-05-24 | Package 1 fechado com Score 1 (`evaluations/package-1.md`). `parseRoadmapSpecRows` normaliza crases no nome e decoracao/emoji no status; gate final `/^spec-\d+/i` preserva o descarte de linhas de epico/backlog. Testes em `tests/pbq-init-smoke.mjs` cobrem nome entre crases + `✅ concluido`; regressoes (`_nenhuma_`, `fazendo`, `em andamento`) preservadas | - |
+| spec-018-parse-closed-packages-robusto | em andamento | 1 | 2026-05-25 | Durante a spec-011, `pbq analyze` reportou falsas violacoes "evaluation ausente para package concluido 0/6" porque `parseClosedPackages` (`bin/pbq.mjs:629`) raspa inteiros soltos da prosa em "Packages Concluidos". Inverso da spec-016: tornar o parser mais restritivo (exigir `package <N>`) | Implementar `contracts/package-1.md`: trocar o regex por `package\s+(\d+)` e cobrir com teste de numeros soltos |
 | spec-017-catalogo-de-sensores | em andamento | 1 | 2026-05-24 | Discussao com usuario: catalogo de sensores prontos selecionaveis pela skill `/sensor`, com `add` livre preservado, convite nao-interativo no init/update, e campo `phase` (before/after) no schema. Tiers seguem fast/medium/slow (sem tier `sonar`, decisao B) | Implementar package 1: `templates/sensor-catalog.json`, `pbq sensor catalog`, `pbq sensor add --from-catalog`, convite nao-interativo |
 
 ## Sequenciamento Sugerido
@@ -53,7 +54,8 @@ Use estes valores:
 15. `spec-015-skill-analyze`
 16. `spec-016-roadmap-parse-tolerante`
 17. `spec-017-catalogo-de-sensores`
-18. `spec-009-sensor-preflight-evidence` (depende do campo `phase` da spec-017)
+18. `spec-018-parse-closed-packages-robusto`
+19. `spec-009-sensor-preflight-evidence` (depende do campo `phase` da spec-017)
 
 ## Decisoes De Roadmap
 
@@ -65,4 +67,5 @@ Use estes valores:
 - 2026-05-23: Adicionar `spec-014-melhora-deteccao-sensores` apos relato do usuario de que `pbq init` ignorou script de teste solto e `sonar.bat`, e que a skill `/sensor` exige cadastro muito manual. Aplicada antecipadamente a decisao de spec-012: contratos dos packages 1, 2 e 3 criados na mesma alteracao para evitar bloqueio futuro do `/implement`.
 - 2026-05-24: Adicionar `spec-015-skill-analyze` apos usuario relatar que `/analyze` nao funciona no agente do projeto alvo porque `pbq update` nao instala nenhuma skill correspondente ao subcomando `pbq analyze`.
 - 2026-05-24: Adicionar `spec-016-roadmap-parse-tolerante` apos `pbq analyze` falhar em repo alvo com "Nenhuma spec encontrada"/status invalido por causa de nome entre crases e status com emoji. Decisao: tornar o parser tolerante (normalizar crases no nome e decoracao no status) em vez de exigir que o repo alvo abra mao do tracker humano ou da regra de emoji. Escopo restrito aos dois bugs reais confirmados; demais alegacoes do diagnostico descartadas.
+- 2026-05-25: Adicionar `spec-018-parse-closed-packages-robusto` apos a spec-011 expor que `parseClosedPackages` raspa inteiros soltos da prosa em "Packages Concluidos", gerando falsas violacoes de evaluation ausente. Decisao: tornar o parser restritivo, exigindo a forma `package <N>` (inverso da spec-016, que afrouxou o parser de roadmap).
 - 2026-05-24: Adicionar `spec-017-catalogo-de-sensores` a partir de discussao sobre semear sensores no init/update. Decisoes: (a) catalogo de sensores prontos selecionaveis pela skill `/sensor` (terminologia "catalogo", nao "preset"); (b) `add` livre preservado; (c) interatividade so na skill, `pbq init`/`update`/`sensor` continuam deterministicos (apenas convite em texto); (d) NAO criar tier `sonar` (decisao B) - sensores de sonar entram como slow; (e) campo `phase` (before/after) = preflight vs gate no ciclo do package, ausencia == after. A `spec-009-sensor-preflight-evidence` foi reescrita para consumir `phase` e sera executada depois da spec-017.
