@@ -136,17 +136,27 @@ try {
   assert.match(claudeSensorSkill, /pbq sensor suggest/, "claude sensor skill deve citar pbq sensor suggest");
   assert.match(claudeSensorSkill, /sonar|Makefile|scripts\//, "claude sensor skill deve citar exemplo concreto");
   assert.match(claudeSensorSkill, /non-zero exit code/, "claude sensor skill deve preservar regra de exit code");
+  // spec-017 package-3: sensor skill deve documentar catalogo e phase
+  assert.match(claudeSensorSkill, /pbq sensor catalog/, "claude sensor skill deve citar pbq sensor catalog");
+  assert.match(claudeSensorSkill, /--from-catalog/, "claude sensor skill deve citar --from-catalog");
+  assert.match(claudeSensorSkill, /phase/, "claude sensor skill deve documentar campo phase");
 
   const codexSensorSkill = await readFile(path.join(root, ".agents/skills/sensor/SKILL.md"), "utf8");
   assert.match(codexSensorSkill, /pbq sensor suggest/, "codex sensor skill deve citar pbq sensor suggest");
   assert.match(codexSensorSkill, /sonar|Makefile|scripts\//, "codex sensor skill deve citar exemplo concreto");
   assert.match(codexSensorSkill, /non-zero exit code/, "codex sensor skill deve preservar regra de exit code");
+  // spec-017 package-3
+  assert.match(codexSensorSkill, /pbq sensor catalog/, "codex sensor skill deve citar pbq sensor catalog");
+  assert.match(codexSensorSkill, /--from-catalog/, "codex sensor skill deve citar --from-catalog");
 
   const cliDir = path.resolve(path.dirname(cli), "..");
   const templateSensorSkill = await readFile(path.join(cliDir, "templates/adapters/skills/sensor/SKILL.md"), "utf8");
   assert.match(templateSensorSkill, /pbq sensor suggest/, "template sensor skill deve citar pbq sensor suggest");
   assert.match(templateSensorSkill, /sonar|Makefile|scripts\//, "template sensor skill deve citar exemplo concreto");
   assert.match(templateSensorSkill, /non-zero exit code/, "template sensor skill deve preservar regra de exit code");
+  // spec-017 package-3
+  assert.match(templateSensorSkill, /pbq sensor catalog/, "template sensor skill deve citar pbq sensor catalog");
+  assert.match(templateSensorSkill, /--from-catalog/, "template sensor skill deve citar --from-catalog");
 
   // spec-015 package-1: analyze skill deve ser instalada e conter termos-chave
   const claudeAnalyzeSkill = await readFile(path.join(root, ".claude/skills/analyze/SKILL.md"), "utf8");

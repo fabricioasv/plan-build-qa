@@ -22,17 +22,61 @@ Generated sensor runners:
 
 ## Fluxo recomendado
 
-Run `pbq sensor suggest` first to discover candidates not yet registered. Review the output, then run the printed `pbq sensor add` commands for each candidate you want to add.
+### 1. Ver candidatos detectados automaticamente
+
+Run `pbq sensor suggest` to discover candidates not yet registered (scripts, Makefile targets, sonar files):
 
 ```sh
-# 1. Discover candidates
 pbq sensor suggest .
+```
 
-# 2. Register the ones you want (copy-paste from suggest output)
+### 2. Ver sensores prontos no catalogo
+
+Run `pbq sensor catalog` to list curated ready-to-use sensors. Entries marked `[cadastrado]` are already in `sensors.json`:
+
+```sh
+pbq sensor catalog .
+```
+
+### 3. Adicionar a partir do catalogo
+
+If a catalog entry fits the project, add it with `--from-catalog`:
+
+```sh
+pbq sensor add --from-catalog dotnet-build .
+pbq sensor add --from-catalog eslint .
+pbq sensor add --from-catalog sonar-dotnet .
+```
+
+Catalog entries carry preset `tier`, `enabled`, `requiresEnv`, and `phase` values. Disabled entries (e.g. `sonar-dotnet`) require environment variables (`SONAR_TOKEN`, `SONAR_HOST_URL`) to run.
+
+### 4. Adicionar sensor manualmente
+
+For sensors not in the catalog, use free-form `add`:
+
+```sh
 pbq sensor add . --name <name> --tier <fast|medium|slow> --command "<command>" --reason "<why>"
 ```
 
 If the `pbq` executable is not available in the target repository, update `.plan-build-qa/sensors.json` directly and regenerate the affected runner scripts consistently.
+
+## Campo phase (before / after)
+
+The optional `phase` field on a sensor controls when it runs in the package cycle:
+
+- `"before"` — preflight check, runs before the main implementation changes (e.g. SonarQube analysis baseline).
+- `"after"` — acceptance gate, runs after implementation to validate the result. **Default** when `phase` is absent.
+
+A sensor may belong to both phases: `["before","after"]`.
+
+Pass `--phase` when adding a sensor manually:
+
+```sh
+pbq sensor add . --name preflight-scan --tier slow --command "sonar.bat" --phase before
+pbq sensor add . --name acceptance-test --tier medium --command "npm test" --phase after
+```
+
+Run `pbq package close --phase before` for preflight checks, and `pbq package close` (default `after`) for acceptance gates.
 
 ## Exemplos concretos
 

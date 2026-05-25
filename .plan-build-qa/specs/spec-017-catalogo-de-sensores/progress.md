@@ -5,7 +5,7 @@
 
 ## Estado Atual
 
-`em andamento`
+concluido
 
 Quadro de etapas (atualize a cada avanco):
 
@@ -15,7 +15,7 @@ Quadro de etapas (atualize a cada avanco):
 | 2. contract (validacao) | ok |
 | 3. implement | ok |
 | 4. test/qa | ok |
-| 5. roadmap | em andamento |
+| 5. roadmap | ok |
 
 Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `nao-aplicavel`.
 
@@ -23,10 +23,11 @@ Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `nao-aplicavel`.
 
 Package 1 - fechado com Score 1; ver `evaluations/package-1.md`.
 Package 2 - fechado com Score 1; ver `evaluations/package-2.md`.
+Package 3 - fechado com Score 1; ver `evaluations/package-3.md`.
 
 ## Package Atual
 
-Package 3 - skill `/sensor` (Claude, Codex, template) atualizada com catalogo, selecao guiada e explicacao de phase.
+Nenhum. Spec concluida.
 
 ## Decisoes Tecnicas
 
@@ -40,6 +41,7 @@ Package 3 - skill `/sensor` (Claude, Codex, template) atualizada com catalogo, s
 
 - `npm run test` (medium, `npm-run-test`) | 2026-05-25 | passou (exit 0) | evidencia: `evaluations/package-1.md` (Score 1).
 - `npm run test` (medium, `npm-run-test`) | 2026-05-25 | passou (exit 0) | evidencia: `evaluations/package-2.md` (Score 1).
+- `npm run test` (medium, `npm-run-test`) | 2026-05-25 | passou (exit 0) | evidencia: `evaluations/package-3.md` (Score 1).
 
 ## Falhas Anteriores
 
