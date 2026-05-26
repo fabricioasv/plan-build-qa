@@ -172,6 +172,11 @@ try {
   assert.match(templateAnalyzeSkill, /pbq analyze/, "template analyze skill deve citar pbq analyze");
   assert.match(templateAnalyzeSkill, /[Vv]iolations/, "template analyze skill deve orientar sobre violations");
 
+  // OVERVIEW.md deve ser instalado pelo init e conter os diagramas Mermaid
+  const overview = await readFile(path.join(root, ".plan-build-qa/OVERVIEW.md"), "utf8");
+  assert.match(overview, /mermaid/, "OVERVIEW.md deve conter blocos Mermaid");
+  assert.match(overview, /Pipeline/, "OVERVIEW.md deve conter o diagrama de pipeline");
+
   const architecture = await readFile(path.join(root, ".plan-build-qa/constitution/architecture.md"), "utf8");
   assert.match(architecture, /Varredura Arquitetural Inicial/);
   assert.match(architecture, /Use a estrutura atual como evidencia/);
@@ -635,6 +640,8 @@ Nenhum.
   assert.match(evaluation, /Score: 1/);
   assert.match(evaluation, /\| npm-run-lint \| fast \| sim \| passou \|/);
 
+  // OVERVIEW.md deve ser sempre substituido no update (nao gera .pbq-new)
+  await writeFile(path.join(root, ".plan-build-qa/OVERVIEW.md"), "conteudo customizado que deve ser substituido\n");
   await writeFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "custom constitution skill\n");
   await rm(path.join(root, ".agents/skills/roadmap/SKILL.md"), { force: true });
   const update = spawnSync(process.execPath, [cli, "update", root], {
@@ -647,6 +654,10 @@ Nenhum.
   assert.equal(await readFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "utf8"), "custom constitution skill\n");
   assert.ok(existsSync(path.join(root, ".claude/skills/constitution/SKILL.md.pbq-new")));
   assert.ok(existsSync(path.join(root, ".agents/skills/roadmap/SKILL.md")));
+  // OVERVIEW.md deve ter sido substituido (nao preservado como custom)
+  const overviewAfterUpdate = await readFile(path.join(root, ".plan-build-qa/OVERVIEW.md"), "utf8");
+  assert.match(overviewAfterUpdate, /mermaid/, "OVERVIEW.md deve ter sido substituido pelo update, nao preservado");
+  assert.doesNotMatch(overviewAfterUpdate, /conteudo customizado/, "OVERVIEW.md customizado nao deve sobreviver ao update");
 
   const second = spawnSync(process.execPath, [cli, "init", root], {
     encoding: "utf8"

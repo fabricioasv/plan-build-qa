@@ -13,6 +13,8 @@ const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement"
 const PBQ_TEMPLATE_VERSION = 2;
 const ALLOWED_SPEC_STATUS = new Set(["planejado", "em andamento", "bloqueado", "concluido", "cancelado"]);
 
+const ALWAYS_REPLACE_FILES = new Set([`${HARNESS_DIR}/OVERVIEW.md`]);
+
 const REQUIRED_FILES = [
   `${HARNESS_DIR}/constitution/architecture.md`,
   `${HARNESS_DIR}/constitution/testing.md`,
@@ -95,7 +97,8 @@ async function main() {
   const events = [];
 
   for (const [relativePath, content] of Object.entries(generated)) {
-    await writeManagedFile(targetRoot, relativePath, content, options, events);
+    const effectiveOptions = ALWAYS_REPLACE_FILES.has(relativePath) ? { ...options, force: true } : options;
+    await writeManagedFile(targetRoot, relativePath, content, effectiveOptions, events);
   }
 
   if (options.integrateAgents) {
@@ -747,7 +750,8 @@ async function runUpdateCommand(args) {
 
   for (const [relativePath, latest] of Object.entries(generated)) {
     if (relativePath === `${HARNESS_DIR}/sensors.json`) continue;
-    await updateManagedFile(targetRoot, relativePath, latest, previousManifest, options, events);
+    const effectiveOptions = ALWAYS_REPLACE_FILES.has(relativePath) ? { ...options, force: true } : options;
+    await updateManagedFile(targetRoot, relativePath, latest, previousManifest, effectiveOptions, events);
   }
 
   const catalog = await loadSensorCatalog();
@@ -1576,6 +1580,7 @@ async function generateFiles(project) {
     [`${HARNESS_DIR}/harness/templates/progress.md`, await loadTemplate("harness/templates/progress.md")],
     [`${HARNESS_DIR}/harness/templates/evaluation.md`, await loadTemplate("harness/templates/evaluation.md")],
     [`${HARNESS_DIR}/roadmap.md`, await loadTemplate("roadmap.md")],
+    [`${HARNESS_DIR}/OVERVIEW.md`, await loadTemplate("harness/OVERVIEW.md")],
     [`${HARNESS_DIR}/specs/README.md`, await loadTemplate("specs/README.md")],
     [`${HARNESS_DIR}/sensors.json`, JSON.stringify({ version: 1, sensors }, null, 2) + "\n"],
     ...(await adapterSkillEntries())
