@@ -1,0 +1,1303 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-19T11:52:34.316Z",
+  "root": "C:\\dti\\plan-build-qa",
+  "summary": {
+    "specsByStatus": {
+      "concluido": 10,
+      "em andamento": 1,
+      "planejado": 11
+    },
+    "integrity": {
+      "healthy": 18,
+      "warning": 4,
+      "critical": 0
+    },
+    "totals": {
+      "specs": 22,
+      "materializedSpecs": 11,
+      "plannedOnlySpecs": 11,
+      "packages": 35,
+      "contracts": 34,
+      "evaluations": 33
+    }
+  },
+  "specs": [
+    {
+      "name": "spec-022-dashboard-visual-status",
+      "status": "concluido",
+      "currentPackage": "14",
+      "updatedAt": "2026-06-19",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14"
+        ],
+        "stages": [
+          {
+            "stage": "1. spec",
+            "status": "ok"
+          },
+          {
+            "stage": "2. contract (validacao)",
+            "status": "ok"
+          },
+          {
+            "stage": "3. implement",
+            "status": "ok"
+          },
+          {
+            "stage": "4. test/qa",
+            "status": "ok"
+          },
+          {
+            "stage": "5. roadmap",
+            "status": "ok"
+          }
+        ]
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 4,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 5,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 6,
+          "declaredInSpec": true,
+          "contractExists": false,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 7,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 8,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 9,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 10,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 11,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 12,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 13,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 14,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "Package 6 declarado na spec sem contract."
+      ],
+      "integrity": "warning",
+      "integrityReason": "Package 6 declarado na spec sem contract."
+    },
+    {
+      "name": "spec-021-package-close-contract-driven",
+      "status": "em andamento",
+      "currentPackage": "1",
+      "updatedAt": "2026-05-31",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "1",
+        "closedPackages": [],
+        "stages": [
+          {
+            "stage": "1. spec",
+            "status": "ok"
+          },
+          {
+            "stage": "2. contract (validacao)",
+            "status": "ok"
+          },
+          {
+            "stage": "3. implement",
+            "status": "pendente"
+          },
+          {
+            "stage": "4. test/qa",
+            "status": "pendente"
+          },
+          {
+            "stage": "5. roadmap",
+            "status": "pendente"
+          }
+        ]
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": false,
+          "score": null,
+          "requiredSensors": [],
+          "evaluationSensors": []
+        },
+        {
+          "number": 2,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": false,
+          "score": null,
+          "requiredSensors": [],
+          "evaluationSensors": []
+        }
+      ],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "materialized"
+    },
+    {
+      "name": "spec-020-analyze-package-matrix",
+      "status": "concluido",
+      "currentPackage": "2",
+      "updatedAt": "2026-05-31",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1",
+          "2"
+        ],
+        "stages": [
+          {
+            "stage": "1. spec",
+            "status": "ok"
+          },
+          {
+            "stage": "2. contract (validacao)",
+            "status": "ok"
+          },
+          {
+            "stage": "3. implement",
+            "status": "ok"
+          },
+          {
+            "stage": "4. test/qa",
+            "status": "ok"
+          },
+          {
+            "stage": "5. roadmap",
+            "status": "ok"
+          }
+        ]
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "materialized"
+    },
+    {
+      "name": "spec-019-modelo-gatilho-eventos",
+      "status": "concluido",
+      "currentPackage": "3",
+      "updatedAt": "2026-05-30",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1",
+          "2",
+          "3"
+        ],
+        "stages": [
+          {
+            "stage": "1. spec",
+            "status": "ok"
+          },
+          {
+            "stage": "2. contract (validacao)",
+            "status": "ok"
+          },
+          {
+            "stage": "3. implement",
+            "status": "ok"
+          },
+          {
+            "stage": "4. test/qa",
+            "status": "ok"
+          },
+          {
+            "stage": "5. roadmap",
+            "status": "ok"
+          }
+        ]
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "materialized"
+    },
+    {
+      "name": "spec-018-parse-closed-packages-robusto",
+      "status": "concluido",
+      "currentPackage": "1",
+      "updatedAt": "2026-05-25",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1"
+        ],
+        "stages": [
+          {
+            "stage": "1. spec",
+            "status": "ok"
+          },
+          {
+            "stage": "2. contract (validacao)",
+            "status": "ok"
+          },
+          {
+            "stage": "3. implement",
+            "status": "ok"
+          },
+          {
+            "stage": "4. test/qa",
+            "status": "ok"
+          },
+          {
+            "stage": "5. roadmap",
+            "status": "ok"
+          }
+        ]
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "materialized"
+    },
+    {
+      "name": "spec-017-catalogo-de-sensores",
+      "status": "concluido",
+      "currentPackage": "3",
+      "updatedAt": "2026-05-25",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1",
+          "2",
+          "3"
+        ],
+        "stages": [
+          {
+            "stage": "1. spec",
+            "status": "ok"
+          },
+          {
+            "stage": "2. contract (validacao)",
+            "status": "ok"
+          },
+          {
+            "stage": "3. implement",
+            "status": "ok"
+          },
+          {
+            "stage": "4. test/qa",
+            "status": "ok"
+          },
+          {
+            "stage": "5. roadmap",
+            "status": "ok"
+          }
+        ]
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "materialized"
+    },
+    {
+      "name": "spec-011-test-as-independent-gate",
+      "status": "concluido",
+      "currentPackage": "2",
+      "updatedAt": "2026-05-25",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1",
+          "2"
+        ],
+        "stages": [
+          {
+            "stage": "1. spec",
+            "status": "ok"
+          },
+          {
+            "stage": "2. contract (validacao)",
+            "status": "ok"
+          },
+          {
+            "stage": "3. implement",
+            "status": "ok"
+          },
+          {
+            "stage": "4. test/qa",
+            "status": "ok"
+          },
+          {
+            "stage": "5. roadmap",
+            "status": "ok"
+          }
+        ]
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "materialized"
+    },
+    {
+      "name": "spec-016-roadmap-parse-tolerante",
+      "status": "concluido",
+      "currentPackage": "1",
+      "updatedAt": "2026-05-24",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1"
+        ],
+        "stages": []
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "materialized"
+    },
+    {
+      "name": "spec-015-skill-analyze",
+      "status": "concluido",
+      "currentPackage": "1",
+      "updatedAt": "2026-05-24",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1"
+        ],
+        "stages": []
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "check-harness-structure",
+              "registered": false,
+              "tier": "-"
+            },
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json."
+      ],
+      "integrity": "warning",
+      "integrityReason": "Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json."
+    },
+    {
+      "name": "spec-014-melhora-deteccao-sensores",
+      "status": "concluido",
+      "currentPackage": "3",
+      "updatedAt": "2026-05-24",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "3",
+        "closedPackages": [
+          "1",
+          "2",
+          "3"
+        ],
+        "stages": []
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "check-harness-structure",
+              "registered": false,
+              "tier": "-"
+            },
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "check-harness-structure",
+              "status": "passou"
+            },
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "check-harness-structure",
+              "registered": false,
+              "tier": "-"
+            },
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "check-harness-structure",
+              "registered": false,
+              "tier": "-"
+            },
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json.",
+        "Package 2 exige sensor \"check-harness-structure\" ausente de sensors.json.",
+        "Package 3 exige sensor \"check-harness-structure\" ausente de sensors.json."
+      ],
+      "integrity": "warning",
+      "integrityReason": "Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json."
+    },
+    {
+      "name": "spec-009-sensor-preflight-evidence",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-24",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-013-saneamento-harness-pbq",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-012-spec-creates-all-contracts",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-010-test-finalization-workflow",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-008-token-cost-model",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-007-agent-instructions-pin",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-006-doctor",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-005-overrides",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-004-audit-lock",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-003-checklist",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-002-plan-tasks",
+      "status": "planejado",
+      "currentPackage": "",
+      "updatedAt": "2026-05-23",
+      "materialized": false,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [],
+        "stages": []
+      },
+      "packages": [],
+      "warnings": [],
+      "integrity": "healthy",
+      "integrityReason": "roadmap-only"
+    },
+    {
+      "name": "spec-001-analyze",
+      "status": "concluido",
+      "currentPackage": "3",
+      "updatedAt": "2026-05-23",
+      "materialized": true,
+      "progress": {
+        "currentPackage": "",
+        "closedPackages": [
+          "1",
+          "2",
+          "3"
+        ],
+        "stages": []
+      },
+      "packages": [
+        {
+          "number": 1,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "check-harness-structure",
+              "registered": false,
+              "tier": "-"
+            },
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "check-harness-structure",
+              "status": "passou"
+            },
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "check-harness-structure",
+              "registered": false,
+              "tier": "-"
+            },
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "check-harness-structure",
+              "status": "passou"
+            },
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "declaredInSpec": true,
+          "contractExists": true,
+          "evaluationExists": true,
+          "score": 1,
+          "requiredSensors": [
+            {
+              "name": "check-harness-structure",
+              "registered": false,
+              "tier": "-"
+            },
+            {
+              "name": "npm-run-test",
+              "registered": true,
+              "tier": "medium"
+            }
+          ],
+          "evaluationSensors": [
+            {
+              "name": "check-harness-structure",
+              "status": "passou"
+            },
+            {
+              "name": "npm-run-test",
+              "status": "passou"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json.",
+        "Package 2 exige sensor \"check-harness-structure\" ausente de sensors.json.",
+        "Package 3 exige sensor \"check-harness-structure\" ausente de sensors.json."
+      ],
+      "integrity": "warning",
+      "integrityReason": "Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json."
+    }
+  ]
+}

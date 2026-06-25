@@ -22,11 +22,13 @@ flowchart LR
 
 ## Pipeline das 5 Etapas
 
-> **Laranja** = acao manual do agente/usuario. **Azul** = disparado automaticamente pelo passo anterior.
+> **Laranja** = acao manual do agente/usuario. **Azul** = disparado automaticamente pelo passo anterior. **Verde** = hooks early-warning (advisory).
 
 ```mermaid
 flowchart TD
     START(["Mudanca identificada"])
+
+    HOOK["pbq guard --event edit\nHook PostToolUse advisory\nearly-warning nao bloqueante"]
 
     S1["/spec\nCria spec.md\nCria contracts/package-N.md\nAtualiza roadmap: em andamento"]
 
@@ -34,15 +36,19 @@ flowchart TD
 
     S3["/implement\nProduz codigo\nRespeita escopo do contrato\nNAO executa sensores"]
 
-    S4["/test — acceptance-check\npbq package close\nExecuta sensores obrigatorios\nGera evaluations/package-N.md\nScore 0 ou 1"]
+    COMMIT["pbq guard --event commit\nHook pre-commit advisory\nearly-warning nao bloqueante"]
+
+    S4["/test — acceptance-check\npbq package close  on:close\nExecuta sensores obrigatorios\nGera evaluations/package-N.md\nScore 0 ou 1"]
 
     S5["Atualiza progress.md\nAtualiza roadmap.md\nconcluido ou proximo package"]
 
-    START --> S1
+    START --> HOOK
+    HOOK -->|"edita harness files"| S1
     S1 -->|"contrato criado"| S2
     S2 -->|"contrato invalido"| S1
     S2 -->|"contrato valido"| S3
-    S3 --> S4
+    S3 --> COMMIT
+    COMMIT --> S4
     S4 -->|"Score 0 — sensor falhou"| S3
     S4 -->|"Score 1"| S5
     S5 -->|"spec concluida"| END(["Proxima spec"])
@@ -53,16 +59,20 @@ flowchart TD
     style S2 fill:#0f3460,color:#eee
     style S4 fill:#0f3460,color:#eee
     style S5 fill:#533483,color:#eee
+    style HOOK fill:#2d6a2d,color:#eee
+    style COMMIT fill:#2d6a2d,color:#eee
 ```
 
 **O que e automatico:**
 - `/spec` dispara `/test contract-check` logo apos criar o contrato (etapa 2 e automatica)
 - `/implement` delega para `/test acceptance-check` ao terminar o codigo (etapa 4 e automatica)
-- As atualizacoes de `progress.md` e `roadmap.md` fazem parte do workflow da skill ativa
+- `pbq guard --event edit` roda via hook PostToolUse (advisory, nao bloqueia)
+- `pbq guard --event commit` roda via hook pre-commit (advisory por default)
 
 **O que e manual:**
 - O usuario invoca `/spec` para iniciar ou avançar uma spec
 - O usuario invoca `/implement` para codificar o package
+- `pbq hooks install` ativa o hook de pre-commit (nao ativado automaticamente)
 - Bypass documentado: `skip test` desabilita a delegacao automatica ao test
 
 ---
@@ -77,33 +87,32 @@ flowchart TD
     end
 
     subgraph Registro["Registro em sensors.json"]
-        MANUAL["pbq sensor add\n--name  --tier  --command\n--reason  --phase"]
+        MANUAL["pbq sensor add\n--name  --on  --command\n--reason  [--tier cosmético]"]
         FROMCAT["pbq sensor add\n--from-catalog id"]
     end
 
-    subgraph SJ["sensors.json"]
-        FIELDS["name  tier  command  reason\nsource  enabled  requiresEnv\nphase: before ou after"]
+    subgraph SJ["sensors.json v2"]
+        FIELDS["name  command  reason\nsource  enabled  requiresEnv\non: edit  commit  close  manual\ntier: cosmético opcional"]
     end
 
-    subgraph Runners["Runners Gerados"]
-        direction LR
-        RF["run-fast\n.ps1 / .sh"]
-        RM["run-medium\n.ps1 / .sh"]
-        RS["run-slow\n.ps1 / .sh"]
+    subgraph Guard["pbq guard"]
+        GEDIT["--event edit\nPostToolUse hook\nadvisory"]
+        GCOMMIT["--event commit\npre-commit hook\nadvisory por default"]
     end
 
-    subgraph Close["pbq package close"]
-        PHASE["--phase before  preflight\n--phase after   gate default\n--tiers fast,medium,slow"]
-        EVAL["evaluations/package-N.md\nScore: 0 ou 1"]
+    subgraph Close["pbq package close  gate bloqueante"]
+        CEVENT["on:close\nExecuta sensores de gate\n--tiers cosmético opcional"]
+        EVAL["evaluations/package-N.md\nScore: 0 ou 1\nEvidencia: stdout real"]
     end
 
     AUTO -->|"candidatos detectados"| MANUAL
     CAT -->|"id selecionado"| FROMCAT
     MANUAL --> SJ
     FROMCAT --> SJ
-    SJ -->|"sensors enabled"| Runners
-    SJ --> PHASE
-    PHASE --> EVAL
+    SJ -->|"on:edit"| GEDIT
+    SJ -->|"on:commit"| GCOMMIT
+    SJ -->|"on:close"| CEVENT
+    CEVENT --> EVAL
 ```
 
 ---

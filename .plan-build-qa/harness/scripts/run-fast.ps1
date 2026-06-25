@@ -16,14 +16,14 @@ function Invoke-HarnessCommand {
 Invoke-HarnessCommand ".\.plan-build-qa\harness\scripts\check-harness-structure.ps1"
 
 $Commands = @(
-
+  "node ./bin/pbq.mjs analyze ."
 )
 
 foreach ($Command in $Commands) {
   Invoke-HarnessCommand $Command
 }
 
-Write-Host "[harness:fast] PLACEHOLDER: Nenhum lint/typecheck/teste unitario rapido foi detectado. Use 'pbq sensor add' ou edite .plan-build-qa/sensors.json quando existir."
+
 
 Write-Host "[harness:fast] OK"
 exit 0

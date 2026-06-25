@@ -65,7 +65,7 @@ Expandir `pbq analyze` (introduzido no package 1) com tres verificacoes objetiva
 
 **OBRIGATORIO** listar sensores por nome/tier/comando esperado.
 
-- Fast | `check-harness-structure` | `.\.plan-build-qa\harness\scripts\run-fast.ps1`
+- Runner legado: `.\.plan-build-qa\harness\scripts\run-fast.ps1` (inclui check de estrutura; nao era sensor cadastrado em sensors.json na epoca)
 - Medium | `npm-run-test` | `npm run test`
 
 ## Riscos

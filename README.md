@@ -175,6 +175,27 @@ pbq status
 
 O painel le `.plan-build-qa/specs/`, contratos, evaluations e `.plan-build-qa/sensors.json`. Ele nao substitui a execucao dos sensores; ele mostra quando algo ainda esta pendente ou sem evidencia.
 
+Para gerar um snapshot navegavel do dashboard:
+
+```powershell
+pbq dashboard . --output .plan-build-qa/dashboard
+```
+
+Isso grava:
+
+- `.plan-build-qa/dashboard/status.json`
+- `.plan-build-qa/dashboard/index.html`
+
+`index.html` abre sozinho como snapshot estatico. Quando servido por HTTP, ele tambem tenta recarregar `status.json` periodicamente.
+
+Para acompanhar ao vivo durante a execucao:
+
+```powershell
+pbq dashboard . --serve --watch --port 4173
+```
+
+O servidor local escreve os snapshots no diretorio `.plan-build-qa/dashboard/` e serve `http://127.0.0.1:4173/` sem depender de internet ou dependencias extras.
+
 ## Analyze
 
 Use `pbq analyze` para validar, em modo somente leitura, a coerencia minima entre `roadmap.md`, a pasta da spec, `progress.md`, `contracts/` e `evaluations/` quando houver package concluido.

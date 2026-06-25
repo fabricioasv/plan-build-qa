@@ -13,10 +13,14 @@ Use this skill when the user asks to test, validate, run sensors, diagnose faili
 Canonical files:
 
 - `.plan-build-qa/sensors.json`
-- `.plan-build-qa/harness/scripts/run-fast.ps1`
-- `.plan-build-qa/harness/scripts/run-medium.ps1`
-- `.plan-build-qa/harness/scripts/run-slow.ps1`
+- `.plan-build-qa/harness/scripts/run-commit.ps1` / `.sh` — sensors with `on:commit` (early-warning)
+- `.plan-build-qa/harness/scripts/run-close.ps1` / `.sh` — sensors with `on:close` (gate)
 - `.plan-build-qa/harness/templates/evaluation.md`
+
+> **Advisory hooks vs blocking gate**: `pbq guard --event commit` (pre-commit hook) and `pbq guard --event edit`
+> (PostToolUse hook) are **early-warning only** — they never replace this skill as the verification gate.
+> The authoritative blocking gate is `pbq package close` (`on:close` sensors). Do not confuse hook output
+> with acceptance-check results.
 
 ## Pipeline position
 
@@ -45,8 +49,8 @@ Applies after `implement` produces code against the contract. Verify the impleme
 
 1. Read `.plan-build-qa/constitution/testing.md`.
 2. Read the required sensors from `contracts/package-N.md`.
-3. Prefer `pbq package close . --spec <spec> --package <N> --tiers <tiers>` for enforced execution and evaluation generation.
-4. For exploratory validation, use `.plan-build-qa/harness/scripts/run-fast.ps1`, `run-medium.ps1`, or `run-slow.ps1`.
+3. Prefer `pbq package close . --spec <spec> --package <N> --tiers <tiers>` for enforced execution and evaluation generation. The evaluation's Evidence column is auto-populated with real stdout/stderr output.
+4. For exploratory validation, use `.plan-build-qa/harness/scripts/run-close.ps1` or `run-close.sh` (event-based runners).
 5. **REQUIRED**: record every required sensor in the evaluation table with status, command, exit code, and evidence.
 6. If a required sensor cannot run, mark it `pendente` and keep `Score: 0`.
 

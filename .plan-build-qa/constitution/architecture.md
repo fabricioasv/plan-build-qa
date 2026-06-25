@@ -10,7 +10,8 @@ Linguagens/frameworks detectados:
 
 Arquivos de instrucao existentes:
 
-- Nao detectado no bootstrap.
+- AGENTS.md
+- CLAUDE.md
 
 ## Varredura Arquitetural Inicial
 
@@ -18,6 +19,9 @@ Esta secao e informativa. Ela descreve sinais encontrados no repositorio para or
 
 Top-level detectado:
 
+- .agents
+- AGENTS.md
+- CLAUDE.md
 - README.md
 - package.json
 - templates
@@ -25,8 +29,8 @@ Top-level detectado:
 
 Sinais de camadas/modulos:
 
-- Infrastructure: templates/adapters/skills/constitution, templates/adapters/skills/implement, templates/adapters/skills/roadmap, templates/adapters/skills/sensor, templates/adapters/skills/spec, templates/adapters/skills/test
-- Tests: templates/adapters/skills/spec, templates/adapters/skills/test, templates/specs, tests
+- Infrastructure: templates/adapters/skills/analyze, templates/adapters/skills/constitution, templates/adapters/skills/implement, templates/adapters/skills/roadmap, templates/adapters/skills/sensor, templates/adapters/skills/spec, templates/adapters/skills/test
+- Tests: .agents/skills/spec, .agents/skills/test, templates/adapters/skills/spec, templates/adapters/skills/test, templates/specs, tests
 
 Conectores e fronteiras tecnicas:
 

@@ -23,7 +23,7 @@ foreach ($Command in $Commands) {
   Invoke-HarnessCommand $Command
 }
 
-Write-Host "[harness:slow] PLACEHOLDER: Nenhum E2E/integracao pesada foi detectado. Mantenha run-slow como placeholder ate haver sensor real."
+Write-Host "[harness:slow] PLACEHOLDER: Nenhum sensor slow cadastrado. Use 'pbq sensor add --tier slow' para adicionar."
 
 Write-Host "[harness:slow] OK"
 exit 0

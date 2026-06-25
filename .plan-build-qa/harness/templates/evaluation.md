@@ -11,6 +11,10 @@ Score: 0
 | --- | --- | --- | --- | --- | --- | --- |
 | <nome> | fast/medium/slow | sim/nao | pendente | `<comando>` | - | - |
 
+> A coluna Evidencia e preenchida automaticamente por `pbq package close` com os ultimos ~500 chars
+> de stdout+stderr do sensor. Preenchimento manual so e necessario quando o sensor e executado fora
+> do `pbq package close`.
+
 Status permitidos:
 
 - `passou`

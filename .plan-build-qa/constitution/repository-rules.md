@@ -4,10 +4,24 @@ Este arquivo consolida regras existentes detectadas no repositorio durante o boo
 
 ## Fontes Lidas
 
+- AGENTS.md
+- CLAUDE.md
 - README.md
 - templates/specs/README.md
 
 ## Trechos Operacionais Extraidos
+
+### AGENTS.md
+
+  - Este repositorio possui um harness em `.plan-build-qa/`.
+  - 1. criar ou localizar uma spec em `.plan-build-qa/specs/`
+  - Mudancas pequenas podem usar contrato inline, desde que respeitem `.plan-build-qa/constitution/` e os sensores aplicaveis.
+
+### CLAUDE.md
+
+  - Este repositorio possui um harness em `.plan-build-qa/`.
+  - 1. criar ou localizar uma spec em `.plan-build-qa/specs/`
+  - Mudancas pequenas podem usar contrato inline, desde que respeitem `.plan-build-qa/constitution/` e os sensores aplicaveis.
 
 ### README.md
 

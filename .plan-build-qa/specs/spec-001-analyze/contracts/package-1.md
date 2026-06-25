@@ -58,7 +58,7 @@ Entregar a primeira versao util de `pbq analyze`, em modo somente leitura, para 
 
 ## Sensores Obrigatorios
 
-- Fast | `check-harness-structure` | `.\.plan-build-qa\harness\scripts\run-fast.ps1`
+- Runner legado: `.\.plan-build-qa\harness\scripts\run-fast.ps1` (inclui check de estrutura; nao era sensor cadastrado em sensors.json na epoca)
 - Medium | `npm-run-test` | `npm run test`
 
 **OBRIGATORIO** listar sensores por nome/tier/comando esperado. Se um sensor ainda nao existir, registre como criar via `pbq sensor add`.

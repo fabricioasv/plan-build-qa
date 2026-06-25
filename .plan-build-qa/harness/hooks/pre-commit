@@ -1,0 +1,15 @@
+#!/bin/sh
+# pbq guard — advisory pre-commit hook
+# Activate with: pbq hooks install
+# This hook runs sensors with on:commit before each git commit.
+# Exit code is always 0 (advisory) unless Enforcement: blocking is set in the active spec.
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
+if command -v pbq >/dev/null 2>&1; then
+  pbq guard --event commit "$REPO_ROOT" || true
+elif [ -f "$REPO_ROOT/node_modules/.bin/pbq" ]; then
+  "$REPO_ROOT/node_modules/.bin/pbq" guard --event commit "$REPO_ROOT" || true
+elif [ -f "$REPO_ROOT/bin/pbq.mjs" ]; then
+  node "$REPO_ROOT/bin/pbq.mjs" guard --event commit "$REPO_ROOT" || true
+fi

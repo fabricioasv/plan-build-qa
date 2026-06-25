@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "sensors": [
     {
       "name": "npm-run-test",
@@ -7,7 +7,22 @@
       "command": "npm run test",
       "reason": "package.json script 'test'",
       "source": "detected",
-      "enabled": true
+      "enabled": true,
+      "on": [
+        "close"
+      ]
+    },
+    {
+      "name": "pbq-analyze",
+      "command": "node ./bin/pbq.mjs analyze .",
+      "reason": "Validacao de coerencia do harness",
+      "source": "manual",
+      "enabled": true,
+      "tier": "fast",
+      "on": [
+        "edit",
+        "close"
+      ]
     }
   ]
 }

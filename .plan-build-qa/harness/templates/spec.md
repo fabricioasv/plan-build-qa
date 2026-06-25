@@ -19,3 +19,7 @@
 ## Sensores Esperados
 
 ## Criterios de Conclusao
+
+## Enforcement
+
+Enforcement: advisory

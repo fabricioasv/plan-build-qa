@@ -11,8 +11,8 @@ run_cmd() {
 
 run_cmd "sh ./.plan-build-qa/harness/scripts/check-harness-structure.sh"
 
+run_cmd "node ./bin/pbq.mjs analyze ."
 
 
-printf '[harness:fast] PLACEHOLDER: Nenhum lint/typecheck/teste unitario rapido foi detectado. Use 'pbq sensor add' ou edite .plan-build-qa/sensors.json quando existir.\n'
 
 printf '[harness:fast] OK\n'

@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PBQ Dashboard</title>
+  <style>
+    :root {
+      --bg: #f2efe8;
+      --panel: #fbf8f2;
+      --ink: #172126;
+      --muted: #5e6a70;
+      --line: #d8d0c3;
+      --accent: #0f766e;
+      --accent-soft: #d8efe9;
+      --warning: #b45309;
+      --warning-soft: #fde8c8;
+      --critical: #b42318;
+      --critical-soft: #fee4e2;
+      --shadow: 0 18px 40px rgba(39, 30, 19, 0.08);
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 28%),
+        linear-gradient(180deg, #f8f4ec 0%, var(--bg) 100%);
+    }
+    main {
+      width: 100%;
+      padding: 28px 20px 48px;
+    }
+    .hero, .panel {
+      background: rgba(251, 248, 242, 0.92);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+    }
+    .hero {
+      padding: 28px;
+      display: grid;
+      gap: 18px;
+    }
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(32px, 4vw, 54px);
+      font-weight: 700;
+    }
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 940px;
+      line-height: 1.5;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .summary article {
+      padding: 14px 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    .summary strong {
+      display: block;
+      font-size: 24px;
+    }
+    .summary span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .summary-stack {
+      display: grid;
+      gap: 14px;
+    }
+    .summary-section {
+      display: grid;
+      gap: 10px;
+    }
+    .summary-section h2 {
+      margin: 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    section.panel {
+      margin-top: 20px;
+      padding: 20px;
+    }
+    section.panel > header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 16px;
+    }
+    section.panel h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+    section.panel p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .gantt-wrapper {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.5);
+    }
+    .gantt-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      align-items: center;
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dashboard-filters {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(160px, 0.5fr));
+      gap: 10px;
+      margin: 0 0 12px;
+    }
+    .filter-control {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .filter-control input,
+    .filter-control select {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: rgba(255,255,255,0.82);
+      color: var(--ink);
+      font: inherit;
+    }
+    .gantt-legend strong {
+      color: var(--ink);
+      font-size: 12px;
+    }
+    .legend-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .gantt-grid {
+      min-width: 1180px;
+      display: grid;
+    }
+    .gantt-head,
+    .gantt-row {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.7fr) 120px 110px 88px 98px repeat(5, minmax(84px, 0.5fr));
+      align-items: center;
+    }
+    .gantt-head {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: rgba(244, 239, 231, 0.98);
+      border-bottom: 1px solid var(--line);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .gantt-head span,
+    .gantt-row > * {
+      padding: 14px 16px;
+      border-right: 1px solid var(--line);
+    }
+    .gantt-head span:last-child,
+    .gantt-row > *:last-child {
+      border-right: 0;
+    }
+    .gantt-row {
+      background: rgba(251, 248, 242, 0.92);
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .gantt-row:last-child {
+      border-bottom: 1px solid var(--line);
+    }
+    .gantt-spec {
+      display: grid;
+      gap: 4px;
+    }
+    .gantt-sub {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .gantt-integrity,
+    .gantt-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+    .swatch-healthy { background: #16a34a; }
+    .swatch-warning { background: #d97706; }
+    .swatch-critical { background: #dc2626; }
+    .gantt-status {
+      text-transform: lowercase;
+    }
+    .gantt-count {
+      text-align: center;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .stage-cell {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 48px;
+      font-size: 18px;
+      background: transparent;
+    }
+    .stage-icon-soon {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1;
+      gap: 2px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #b45309;
+    }
+    .stage-icon-soon .arrow {
+      font-size: 14px;
+    }
+    .gantt-detail-row {
+      display: block;
+      background: rgba(247, 241, 232, 0.86);
+      border-bottom: 1px solid var(--line);
+    }
+    .gantt-detail-cell {
+      padding: 0 16px 14px 16px;
+    }
+    .gantt-collapse {
+      width: 100%;
+    }
+    .gantt-collapse summary {
+      cursor: pointer;
+      list-style: none;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .gantt-collapse summary::-webkit-details-marker {
+      display: none;
+    }
+    .gantt-collapse summary::before {
+      content: "▸";
+      display: inline-block;
+      margin-right: 8px;
+      color: var(--muted);
+    }
+    .gantt-collapse[open] summary::before {
+      content: "▾";
+    }
+    .gantt-collapse-body {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+      align-items: flex-start;
+    }
+    .collapse-package {
+      display: grid;
+      gap: 3px;
+      min-width: 132px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.62);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .collapse-package strong {
+      color: var(--ink);
+      font-size: 12px;
+    }
+    .collapse-empty {
+      color: var(--muted);
+      font-size: 12px;
+      align-self: center;
+    }
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(220px, 1fr));
+      gap: 14px;
+      overflow-x: auto;
+    }
+    .kanban-column {
+      min-width: 220px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(247,241,232,0.92));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .kanban-column > header,
+    .spec-card > header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .kanban-column h2,
+    .spec-card h3 {
+      margin: 0;
+    }
+    .kanban-cards {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .spec-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 12px;
+    }
+    .meta {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .pill {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      white-space: nowrap;
+    }
+    .integrity-warning { border-color: var(--warning); background: var(--warning-soft); }
+    .integrity-critical { border-color: var(--critical); background: var(--critical-soft); }
+    .warnings {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 8px;
+    }
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 12px 4px;
+    }
+    @media (max-width: 960px) {
+      .kanban {
+        grid-template-columns: repeat(5, minmax(240px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <h1>PBQ Dashboard</h1>
+        <p>Visualizacao derivada do harness. O estado exibido vem de roadmap, specs, contracts, progress, evaluations e sensors; o dashboard nao e fonte manual de verdade.</p>
+      </div>
+      <div class="summary-stack">
+        <div class="summary-section">
+          <h2>Totais Gerais</h2>
+          <div class="summary">
+            <article><strong>22</strong><span>specs visiveis</span></article>
+            <article><strong>11</strong><span>specs materializadas</span></article>
+            <article><strong>35</strong><span>packages rastreados</span></article>
+            <article><strong>4</strong><span>alertas de integridade</span></article>
+          </div>
+        </div>
+        <div class="summary-section">
+          <h2>Status</h2>
+          <div class="summary"><article><strong>11</strong><span>status: planejado</span></article><article><strong>1</strong><span>status: em andamento</span></article><article><strong>10</strong><span>status: concluido</span></article></div>
+        </div>
+        <div class="summary-section">
+          <h2>Integridade</h2>
+          <div class="summary"><article><strong>18</strong><span>integridade: healthy</span></article><article><strong>4</strong><span>integridade: warning</span></article><article><strong>0</strong><span>integridade: critical</span></article></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="gantt-execution">
+      <header>
+        <h2>Grade De Execucao</h2>
+        <p>Uma linha por spec, com packages, evaluations e etapas concluidas</p>
+      </header>
+      <div class="dashboard-filters" aria-label="Filtros da grade de execucao">
+        <label class="filter-control">
+          <span>Buscar spec</span>
+          <input id="filter-spec-text" type="search" placeholder="nome da spec" />
+        </label>
+        <label class="filter-control">
+          <span>Status</span>
+          <select id="filter-spec-status">
+            <option value="">todos</option>
+            <option value="planejado">planejado</option>
+            <option value="em andamento">em andamento</option>
+            <option value="concluido">concluido</option>
+            <option value="bloqueado">bloqueado</option>
+            <option value="cancelado">cancelado</option>
+          </select>
+        </label>
+        <label class="filter-control">
+          <span>Integridade</span>
+          <select id="filter-spec-integrity">
+            <option value="">todas</option>
+            <option value="healthy">healthy</option>
+            <option value="warning">warning</option>
+            <option value="critical">critical</option>
+          </select>
+        </label>
+        <label class="filter-control">
+          <span>Ordenar</span>
+          <select id="filter-spec-sort">
+            <option value="updated-desc">mais atual -> mais antiga</option>
+            <option value="updated-asc">mais antiga -> mais atual</option>
+            <option value="name-asc">nome A -> Z</option>
+            <option value="name-desc">nome Z -> A</option>
+          </select>
+        </label>
+      </div>
+      <div class="gantt-legend" aria-label="Legenda da grade de execucao">
+        <div class="legend-group">
+          <strong>Integridade</strong>
+          <span class="legend-item"><span class="swatch swatch-healthy"></span><span>healthy</span></span>
+          <span class="legend-item"><span class="swatch swatch-warning"></span><span>warning</span></span>
+          <span class="legend-item"><span class="swatch swatch-critical"></span><span>critical</span></span>
+        </div>
+        <div class="legend-group">
+          <strong>Etapas</strong>
+          <span class="legend-item"><span>✅</span><span>ok</span></span>
+          <span class="legend-item"><span>🟡</span><span>em andamento</span></span>
+          <span class="legend-item"><span class="stage-icon-soon"><span class="arrow">↑</span><span>SOON</span></span><span>pendente</span></span>
+          <span class="legend-item"><span>❌</span><span>falhou</span></span>
+          <span class="legend-item"><span>∅</span><span>nao-aplicavel</span></span>
+          <span class="legend-item"><span>▫️</span><span>sem evidencia</span></span>
+        </div>
+      </div>
+      <div class="gantt-wrapper">
+        <div class="gantt-grid" id="gantt-grid">
+          <div class="gantt-head">
+            <span>Spec</span>
+            <span>Integridade</span>
+            <span>Status</span>
+            <span>Packages</span>
+            <span>Evaluations</span>
+            <span>1. spec</span><span>2. contract (validacao)</span><span>3. implement</span><span>4. test/qa</span><span>5. roadmap</span>
+          </div>
+          
+        <div class="gantt-row integrity-warning" data-spec-name="spec-022-dashboard-visual-status" data-spec-status="concluido" data-spec-integrity="warning" data-spec-updated-at="2026-06-19" data-spec-number="22">
+          <div class="gantt-spec">
+            <strong>spec-022-dashboard-visual-status</strong>
+            <span class="gantt-sub">Package 6 declarado na spec sem contract.</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-warning"></span><span>warning</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">14</div>
+          <div class="gantt-count">14</div>
+          <span class="stage-cell stage-ok" title="1. spec: ok">✅</span><span class="stage-cell stage-ok" title="2. contract (validacao): ok">✅</span><span class="stage-cell stage-ok" title="3. implement: ok">✅</span><span class="stage-cell stage-ok" title="4. test/qa: ok">✅</span><span class="stage-cell stage-ok" title="5. roadmap: ok">✅</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-022-dashboard-visual-status" data-spec-status="concluido" data-spec-integrity="warning" data-spec-updated-at="2026-06-19" data-spec-number="22">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (14)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 2</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 3</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 4</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 5</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 6</strong>
+              <span>contract: no</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 7</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 8</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 9</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 10</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 11</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 12</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 13</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 14</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-021-package-close-contract-driven" data-spec-status="em andamento" data-spec-integrity="healthy" data-spec-updated-at="2026-05-31" data-spec-number="21">
+          <div class="gantt-spec">
+            <strong>spec-021-package-close-contract-driven</strong>
+            <span class="gantt-sub">materialized</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">em andamento</div>
+          <div class="gantt-count">2</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-ok" title="1. spec: ok">✅</span><span class="stage-cell stage-ok" title="2. contract (validacao): ok">✅</span><span class="stage-cell stage-pendente" title="3. implement: pendente"><span class="stage-icon-soon"><span class="arrow">↑</span><span>SOON</span></span></span><span class="stage-cell stage-pendente" title="4. test/qa: pendente"><span class="stage-icon-soon"><span class="arrow">↑</span><span>SOON</span></span></span><span class="stage-cell stage-pendente" title="5. roadmap: pendente"><span class="stage-icon-soon"><span class="arrow">↑</span><span>SOON</span></span></span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-021-package-close-contract-driven" data-spec-status="em andamento" data-spec-integrity="healthy" data-spec-updated-at="2026-05-31" data-spec-number="21">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (2)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: no</span>
+              <span>score: -</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 2</strong>
+              <span>contract: yes</span>
+              <span>evaluation: no</span>
+              <span>score: -</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-020-analyze-package-matrix" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-31" data-spec-number="20">
+          <div class="gantt-spec">
+            <strong>spec-020-analyze-package-matrix</strong>
+            <span class="gantt-sub">materialized</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">2</div>
+          <div class="gantt-count">2</div>
+          <span class="stage-cell stage-ok" title="1. spec: ok">✅</span><span class="stage-cell stage-ok" title="2. contract (validacao): ok">✅</span><span class="stage-cell stage-ok" title="3. implement: ok">✅</span><span class="stage-cell stage-ok" title="4. test/qa: ok">✅</span><span class="stage-cell stage-ok" title="5. roadmap: ok">✅</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-020-analyze-package-matrix" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-31" data-spec-number="20">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (2)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 2</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-019-modelo-gatilho-eventos" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-30" data-spec-number="19">
+          <div class="gantt-spec">
+            <strong>spec-019-modelo-gatilho-eventos</strong>
+            <span class="gantt-sub">materialized</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">3</div>
+          <div class="gantt-count">3</div>
+          <span class="stage-cell stage-ok" title="1. spec: ok">✅</span><span class="stage-cell stage-ok" title="2. contract (validacao): ok">✅</span><span class="stage-cell stage-ok" title="3. implement: ok">✅</span><span class="stage-cell stage-ok" title="4. test/qa: ok">✅</span><span class="stage-cell stage-ok" title="5. roadmap: ok">✅</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-019-modelo-gatilho-eventos" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-30" data-spec-number="19">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (3)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 2</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 3</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-018-parse-closed-packages-robusto" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-25" data-spec-number="18">
+          <div class="gantt-spec">
+            <strong>spec-018-parse-closed-packages-robusto</strong>
+            <span class="gantt-sub">materialized</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">1</div>
+          <div class="gantt-count">1</div>
+          <span class="stage-cell stage-ok" title="1. spec: ok">✅</span><span class="stage-cell stage-ok" title="2. contract (validacao): ok">✅</span><span class="stage-cell stage-ok" title="3. implement: ok">✅</span><span class="stage-cell stage-ok" title="4. test/qa: ok">✅</span><span class="stage-cell stage-ok" title="5. roadmap: ok">✅</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-018-parse-closed-packages-robusto" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-25" data-spec-number="18">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (1)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-017-catalogo-de-sensores" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-25" data-spec-number="17">
+          <div class="gantt-spec">
+            <strong>spec-017-catalogo-de-sensores</strong>
+            <span class="gantt-sub">materialized</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">3</div>
+          <div class="gantt-count">3</div>
+          <span class="stage-cell stage-ok" title="1. spec: ok">✅</span><span class="stage-cell stage-ok" title="2. contract (validacao): ok">✅</span><span class="stage-cell stage-ok" title="3. implement: ok">✅</span><span class="stage-cell stage-ok" title="4. test/qa: ok">✅</span><span class="stage-cell stage-ok" title="5. roadmap: ok">✅</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-017-catalogo-de-sensores" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-25" data-spec-number="17">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (3)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 2</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 3</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-011-test-as-independent-gate" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-25" data-spec-number="11">
+          <div class="gantt-spec">
+            <strong>spec-011-test-as-independent-gate</strong>
+            <span class="gantt-sub">materialized</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">2</div>
+          <div class="gantt-count">2</div>
+          <span class="stage-cell stage-ok" title="1. spec: ok">✅</span><span class="stage-cell stage-ok" title="2. contract (validacao): ok">✅</span><span class="stage-cell stage-ok" title="3. implement: ok">✅</span><span class="stage-cell stage-ok" title="4. test/qa: ok">✅</span><span class="stage-cell stage-ok" title="5. roadmap: ok">✅</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-011-test-as-independent-gate" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-25" data-spec-number="11">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (2)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 2</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-016-roadmap-parse-tolerante" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-24" data-spec-number="16">
+          <div class="gantt-spec">
+            <strong>spec-016-roadmap-parse-tolerante</strong>
+            <span class="gantt-sub">materialized</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">1</div>
+          <div class="gantt-count">1</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-016-roadmap-parse-tolerante" data-spec-status="concluido" data-spec-integrity="healthy" data-spec-updated-at="2026-05-24" data-spec-number="16">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (1)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-warning" data-spec-name="spec-015-skill-analyze" data-spec-status="concluido" data-spec-integrity="warning" data-spec-updated-at="2026-05-24" data-spec-number="15">
+          <div class="gantt-spec">
+            <strong>spec-015-skill-analyze</strong>
+            <span class="gantt-sub">Package 1 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-warning"></span><span>warning</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">1</div>
+          <div class="gantt-count">1</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-015-skill-analyze" data-spec-status="concluido" data-spec-integrity="warning" data-spec-updated-at="2026-05-24" data-spec-number="15">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (1)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-warning" data-spec-name="spec-014-melhora-deteccao-sensores" data-spec-status="concluido" data-spec-integrity="warning" data-spec-updated-at="2026-05-24" data-spec-number="14">
+          <div class="gantt-spec">
+            <strong>spec-014-melhora-deteccao-sensores</strong>
+            <span class="gantt-sub">Package 1 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-warning"></span><span>warning</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">3</div>
+          <div class="gantt-count">3</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-014-melhora-deteccao-sensores" data-spec-status="concluido" data-spec-integrity="warning" data-spec-updated-at="2026-05-24" data-spec-number="14">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (3)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 2</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 3</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-009-sensor-preflight-evidence" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-24" data-spec-number="9">
+          <div class="gantt-spec">
+            <strong>spec-009-sensor-preflight-evidence</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-009-sensor-preflight-evidence" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-24" data-spec-number="9">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-013-saneamento-harness-pbq" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="13">
+          <div class="gantt-spec">
+            <strong>spec-013-saneamento-harness-pbq</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-013-saneamento-harness-pbq" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="13">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-012-spec-creates-all-contracts" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="12">
+          <div class="gantt-spec">
+            <strong>spec-012-spec-creates-all-contracts</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-012-spec-creates-all-contracts" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="12">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-010-test-finalization-workflow" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="10">
+          <div class="gantt-spec">
+            <strong>spec-010-test-finalization-workflow</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-010-test-finalization-workflow" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="10">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-008-token-cost-model" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="8">
+          <div class="gantt-spec">
+            <strong>spec-008-token-cost-model</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-008-token-cost-model" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="8">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-007-agent-instructions-pin" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="7">
+          <div class="gantt-spec">
+            <strong>spec-007-agent-instructions-pin</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-007-agent-instructions-pin" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="7">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-006-doctor" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="6">
+          <div class="gantt-spec">
+            <strong>spec-006-doctor</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-006-doctor" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="6">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-005-overrides" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="5">
+          <div class="gantt-spec">
+            <strong>spec-005-overrides</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-005-overrides" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="5">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-004-audit-lock" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="4">
+          <div class="gantt-spec">
+            <strong>spec-004-audit-lock</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-004-audit-lock" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="4">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-003-checklist" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="3">
+          <div class="gantt-spec">
+            <strong>spec-003-checklist</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-003-checklist" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="3">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-healthy" data-spec-name="spec-002-plan-tasks" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="2">
+          <div class="gantt-spec">
+            <strong>spec-002-plan-tasks</strong>
+            <span class="gantt-sub">roadmap-only</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-healthy"></span><span>healthy</span></div>
+          <div class="gantt-status">planejado</div>
+          <div class="gantt-count">0</div>
+          <div class="gantt-count">0</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-002-plan-tasks" data-spec-status="planejado" data-spec-integrity="healthy" data-spec-updated-at="2026-05-23" data-spec-number="2">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (0)</summary>
+              <div class="gantt-collapse-body"><div class="collapse-empty">Sem packages materializados; aguardando pasta/contratos.</div></div>
+            </details>
+          </div>
+        </div>
+        <div class="gantt-row integrity-warning" data-spec-name="spec-001-analyze" data-spec-status="concluido" data-spec-integrity="warning" data-spec-updated-at="2026-05-23" data-spec-number="1">
+          <div class="gantt-spec">
+            <strong>spec-001-analyze</strong>
+            <span class="gantt-sub">Package 1 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</span>
+          </div>
+          <div class="gantt-integrity"><span class="swatch swatch-warning"></span><span>warning</span></div>
+          <div class="gantt-status">concluido</div>
+          <div class="gantt-count">3</div>
+          <div class="gantt-count">3</div>
+          <span class="stage-cell stage-missing" title="1. spec: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="2. contract (validacao): sem evidencia">▫️</span><span class="stage-cell stage-missing" title="3. implement: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="4. test/qa: sem evidencia">▫️</span><span class="stage-cell stage-missing" title="5. roadmap: sem evidencia">▫️</span>
+        </div>
+        <div class="gantt-detail-row" data-spec-name="spec-001-analyze" data-spec-status="concluido" data-spec-integrity="warning" data-spec-updated-at="2026-05-23" data-spec-number="1">
+          <div class="gantt-detail-cell">
+            <details class="gantt-collapse">
+              <summary>ver packages (3)</summary>
+              <div class="gantt-collapse-body">
+            <div class="collapse-package">
+              <strong>package 1</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 2</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div>
+            <div class="collapse-package">
+              <strong>package 3</strong>
+              <span>contract: yes</span>
+              <span>evaluation: yes</span>
+              <span>score: 1</span>
+            </div></div>
+            </details>
+          </div>
+        </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="integrity-matrix">
+      <header>
+        <h2>Integridade</h2>
+        <p>Warnings e lacunas detectadas no snapshot</p>
+      </header>
+      <ul class="warnings"><li><strong>spec-022-dashboard-visual-status:</strong> Package 6 declarado na spec sem contract.</li><li><strong>spec-015-skill-analyze:</strong> Package 1 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</li><li><strong>spec-014-melhora-deteccao-sensores:</strong> Package 1 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</li><li><strong>spec-014-melhora-deteccao-sensores:</strong> Package 2 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</li><li><strong>spec-014-melhora-deteccao-sensores:</strong> Package 3 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</li><li><strong>spec-001-analyze:</strong> Package 1 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</li><li><strong>spec-001-analyze:</strong> Package 2 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</li><li><strong>spec-001-analyze:</strong> Package 3 exige sensor &quot;check-harness-structure&quot; ausente de sensors.json.</li></ul>
+    </section>
+  </main>
+
+  <script id="pbq-dashboard-data" type="application/json">{"schemaVersion":1,"generatedAt":"2026-06-19T11:52:34.316Z","root":"C:\\dti\\plan-build-qa","summary":{"specsByStatus":{"concluido":10,"em andamento":1,"planejado":11},"integrity":{"healthy":18,"warning":4,"critical":0},"totals":{"specs":22,"materializedSpecs":11,"plannedOnlySpecs":11,"packages":35,"contracts":34,"evaluations":33}},"specs":[{"name":"spec-022-dashboard-visual-status","status":"concluido","currentPackage":"14","updatedAt":"2026-06-19","materialized":true,"progress":{"currentPackage":"","closedPackages":["1","2","3","4","5","6","7","8","9","10","11","12","13","14"],"stages":[{"stage":"1. spec","status":"ok"},{"stage":"2. contract (validacao)","status":"ok"},{"stage":"3. implement","status":"ok"},{"stage":"4. test/qa","status":"ok"},{"stage":"5. roadmap","status":"ok"}]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":2,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":3,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":4,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":5,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":6,"declaredInSpec":true,"contractExists":false,"evaluationExists":true,"score":1,"requiredSensors":[],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":7,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":8,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":9,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":10,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":11,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":12,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":13,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":14,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":["Package 6 declarado na spec sem contract."],"integrity":"warning","integrityReason":"Package 6 declarado na spec sem contract."},{"name":"spec-021-package-close-contract-driven","status":"em andamento","currentPackage":"1","updatedAt":"2026-05-31","materialized":true,"progress":{"currentPackage":"1","closedPackages":[],"stages":[{"stage":"1. spec","status":"ok"},{"stage":"2. contract (validacao)","status":"ok"},{"stage":"3. implement","status":"pendente"},{"stage":"4. test/qa","status":"pendente"},{"stage":"5. roadmap","status":"pendente"}]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":false,"score":null,"requiredSensors":[],"evaluationSensors":[]},{"number":2,"declaredInSpec":true,"contractExists":true,"evaluationExists":false,"score":null,"requiredSensors":[],"evaluationSensors":[]}],"warnings":[],"integrity":"healthy","integrityReason":"materialized"},{"name":"spec-020-analyze-package-matrix","status":"concluido","currentPackage":"2","updatedAt":"2026-05-31","materialized":true,"progress":{"currentPackage":"","closedPackages":["1","2"],"stages":[{"stage":"1. spec","status":"ok"},{"stage":"2. contract (validacao)","status":"ok"},{"stage":"3. implement","status":"ok"},{"stage":"4. test/qa","status":"ok"},{"stage":"5. roadmap","status":"ok"}]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":2,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":[],"integrity":"healthy","integrityReason":"materialized"},{"name":"spec-019-modelo-gatilho-eventos","status":"concluido","currentPackage":"3","updatedAt":"2026-05-30","materialized":true,"progress":{"currentPackage":"","closedPackages":["1","2","3"],"stages":[{"stage":"1. spec","status":"ok"},{"stage":"2. contract (validacao)","status":"ok"},{"stage":"3. implement","status":"ok"},{"stage":"4. test/qa","status":"ok"},{"stage":"5. roadmap","status":"ok"}]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":2,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":3,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":[],"integrity":"healthy","integrityReason":"materialized"},{"name":"spec-018-parse-closed-packages-robusto","status":"concluido","currentPackage":"1","updatedAt":"2026-05-25","materialized":true,"progress":{"currentPackage":"","closedPackages":["1"],"stages":[{"stage":"1. spec","status":"ok"},{"stage":"2. contract (validacao)","status":"ok"},{"stage":"3. implement","status":"ok"},{"stage":"4. test/qa","status":"ok"},{"stage":"5. roadmap","status":"ok"}]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":[],"integrity":"healthy","integrityReason":"materialized"},{"name":"spec-017-catalogo-de-sensores","status":"concluido","currentPackage":"3","updatedAt":"2026-05-25","materialized":true,"progress":{"currentPackage":"","closedPackages":["1","2","3"],"stages":[{"stage":"1. spec","status":"ok"},{"stage":"2. contract (validacao)","status":"ok"},{"stage":"3. implement","status":"ok"},{"stage":"4. test/qa","status":"ok"},{"stage":"5. roadmap","status":"ok"}]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":2,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":3,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":[],"integrity":"healthy","integrityReason":"materialized"},{"name":"spec-011-test-as-independent-gate","status":"concluido","currentPackage":"2","updatedAt":"2026-05-25","materialized":true,"progress":{"currentPackage":"","closedPackages":["1","2"],"stages":[{"stage":"1. spec","status":"ok"},{"stage":"2. contract (validacao)","status":"ok"},{"stage":"3. implement","status":"ok"},{"stage":"4. test/qa","status":"ok"},{"stage":"5. roadmap","status":"ok"}]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":2,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":[],"integrity":"healthy","integrityReason":"materialized"},{"name":"spec-016-roadmap-parse-tolerante","status":"concluido","currentPackage":"1","updatedAt":"2026-05-24","materialized":true,"progress":{"currentPackage":"","closedPackages":["1"],"stages":[]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":[],"integrity":"healthy","integrityReason":"materialized"},{"name":"spec-015-skill-analyze","status":"concluido","currentPackage":"1","updatedAt":"2026-05-24","materialized":true,"progress":{"currentPackage":"","closedPackages":["1"],"stages":[]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"check-harness-structure","registered":false,"tier":"-"},{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":["Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json."],"integrity":"warning","integrityReason":"Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json."},{"name":"spec-014-melhora-deteccao-sensores","status":"concluido","currentPackage":"3","updatedAt":"2026-05-24","materialized":true,"progress":{"currentPackage":"3","closedPackages":["1","2","3"],"stages":[]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"check-harness-structure","registered":false,"tier":"-"},{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"check-harness-structure","status":"passou"},{"name":"npm-run-test","status":"passou"}]},{"number":2,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"check-harness-structure","registered":false,"tier":"-"},{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]},{"number":3,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"check-harness-structure","registered":false,"tier":"-"},{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"npm-run-test","status":"passou"}]}],"warnings":["Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json.","Package 2 exige sensor \"check-harness-structure\" ausente de sensors.json.","Package 3 exige sensor \"check-harness-structure\" ausente de sensors.json."],"integrity":"warning","integrityReason":"Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json."},{"name":"spec-009-sensor-preflight-evidence","status":"planejado","currentPackage":"","updatedAt":"2026-05-24","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-013-saneamento-harness-pbq","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-012-spec-creates-all-contracts","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-010-test-finalization-workflow","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-008-token-cost-model","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-007-agent-instructions-pin","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-006-doctor","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-005-overrides","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-004-audit-lock","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-003-checklist","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-002-plan-tasks","status":"planejado","currentPackage":"","updatedAt":"2026-05-23","materialized":false,"progress":{"currentPackage":"","closedPackages":[],"stages":[]},"packages":[],"warnings":[],"integrity":"healthy","integrityReason":"roadmap-only"},{"name":"spec-001-analyze","status":"concluido","currentPackage":"3","updatedAt":"2026-05-23","materialized":true,"progress":{"currentPackage":"","closedPackages":["1","2","3"],"stages":[]},"packages":[{"number":1,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"check-harness-structure","registered":false,"tier":"-"},{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"check-harness-structure","status":"passou"},{"name":"npm-run-test","status":"passou"}]},{"number":2,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"check-harness-structure","registered":false,"tier":"-"},{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"check-harness-structure","status":"passou"},{"name":"npm-run-test","status":"passou"}]},{"number":3,"declaredInSpec":true,"contractExists":true,"evaluationExists":true,"score":1,"requiredSensors":[{"name":"check-harness-structure","registered":false,"tier":"-"},{"name":"npm-run-test","registered":true,"tier":"medium"}],"evaluationSensors":[{"name":"check-harness-structure","status":"passou"},{"name":"npm-run-test","status":"passou"}]}],"warnings":["Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json.","Package 2 exige sensor \"check-harness-structure\" ausente de sensors.json.","Package 3 exige sensor \"check-harness-structure\" ausente de sensors.json."],"integrity":"warning","integrityReason":"Package 1 exige sensor \"check-harness-structure\" ausente de sensors.json."}]}</script>
+  <script>
+    const embedded = document.getElementById("pbq-dashboard-data");
+    const initialDashboard = embedded ? JSON.parse(embedded.textContent) : null;
+    const textFilter = document.getElementById("filter-spec-text");
+    const statusFilter = document.getElementById("filter-spec-status");
+    const integrityFilter = document.getElementById("filter-spec-integrity");
+    const sortFilter = document.getElementById("filter-spec-sort");
+    const ganttGrid = document.getElementById("gantt-grid");
+    const compareSpecBlocks = (left, right, mode) => {
+      const leftUpdated = left.row.getAttribute("data-spec-updated-at") || "";
+      const rightUpdated = right.row.getAttribute("data-spec-updated-at") || "";
+      const leftNumber = Number(left.row.getAttribute("data-spec-number") || "0");
+      const rightNumber = Number(right.row.getAttribute("data-spec-number") || "0");
+      const leftName = left.row.getAttribute("data-spec-name") || "";
+      const rightName = right.row.getAttribute("data-spec-name") || "";
+      if (mode === "updated-asc") {
+        if (leftUpdated !== rightUpdated) return leftUpdated.localeCompare(rightUpdated);
+        if (leftNumber !== rightNumber) return leftNumber - rightNumber;
+        return leftName.localeCompare(rightName);
+      }
+      if (mode === "name-asc") return leftName.localeCompare(rightName);
+      if (mode === "name-desc") return rightName.localeCompare(leftName);
+      if (leftUpdated !== rightUpdated) return rightUpdated.localeCompare(leftUpdated);
+      if (leftNumber !== rightNumber) return rightNumber - leftNumber;
+      return rightName.localeCompare(leftName);
+    };
+    const applyDashboardSort = () => {
+      if (!ganttGrid) return;
+      const mode = sortFilter?.value || "updated-desc";
+      const rows = Array.from(ganttGrid.querySelectorAll(".gantt-row"));
+      const blocks = rows.map((row) => {
+        const detail = row.nextElementSibling && row.nextElementSibling.classList.contains("gantt-detail-row")
+          ? row.nextElementSibling
+          : null;
+        return { row, detail };
+      });
+      blocks.sort((left, right) => compareSpecBlocks(left, right, mode));
+      for (const block of blocks) {
+        ganttGrid.appendChild(block.row);
+        if (block.detail) ganttGrid.appendChild(block.detail);
+      }
+    };
+    const applyDashboardFilters = () => {
+      const textValue = (textFilter?.value || "").trim().toLowerCase();
+      const statusValue = statusFilter?.value || "";
+      const integrityValue = integrityFilter?.value || "";
+      const rows = document.querySelectorAll(".gantt-row");
+      for (const row of rows) {
+        const name = row.getAttribute("data-spec-name") || "";
+        const status = row.getAttribute("data-spec-status") || "";
+        const integrity = row.getAttribute("data-spec-integrity") || "";
+        const matches =
+          (!textValue || name.includes(textValue)) &&
+          (!statusValue || status === statusValue) &&
+          (!integrityValue || integrity === integrityValue);
+        row.style.display = matches ? "" : "none";
+        const detail = row.nextElementSibling;
+        if (detail && detail.classList.contains("gantt-detail-row")) {
+          detail.style.display = matches ? "" : "none";
+        }
+      }
+    };
+    textFilter?.addEventListener("input", applyDashboardFilters);
+    statusFilter?.addEventListener("change", applyDashboardFilters);
+    integrityFilter?.addEventListener("change", applyDashboardFilters);
+    sortFilter?.addEventListener("change", applyDashboardSort);
+    applyDashboardSort();
+    applyDashboardFilters();
+    if (location.protocol.startsWith("http")) {
+      setInterval(async () => {
+        try {
+          const response = await fetch("./status.json", { cache: "no-store" });
+          if (!response.ok) return;
+          const next = await response.json();
+          if (next.generatedAt && initialDashboard && next.generatedAt !== initialDashboard.generatedAt) {
+            location.reload();
+          }
+        } catch {
+        }
+      }, 4000);
+    }
+  </script>
+</body>
+</html>

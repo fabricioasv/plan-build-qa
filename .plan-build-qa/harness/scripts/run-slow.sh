@@ -13,6 +13,6 @@ run_cmd "sh ./.plan-build-qa/harness/scripts/check-harness-structure.sh"
 
 
 
-printf '[harness:slow] PLACEHOLDER: Nenhum E2E/integracao pesada foi detectado. Mantenha run-slow como placeholder ate haver sensor real.\n'
+printf '[harness:slow] PLACEHOLDER: Nenhum sensor slow cadastrado. Use 'pbq sensor add --tier slow' para adicionar.\n'
 
 printf '[harness:slow] OK\n'

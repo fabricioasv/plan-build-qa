@@ -25,7 +25,7 @@ O subcomando `pbq analyze` existe no CLI desde a spec-001, mas nao ha skill corr
 
 | Package | Objetivo | Estado | Sensores |
 | --- | --- | --- | --- |
-| 1 | Criar skill `/analyze` (template + Claude + Codex), registrar em `ADAPTER_SKILLS`, adicionar testes | planejado | check-harness-structure (fast), npm-run-test (medium) |
+| 1 | Criar skill `/analyze` (template + Claude + Codex), registrar em `ADAPTER_SKILLS`, adicionar testes | planejado | runner legado de estrutura, npm-run-test (medium) |
 
 ## Riscos
 
@@ -34,7 +34,7 @@ O subcomando `pbq analyze` existe no CLI desde a spec-001, mas nao ha skill corr
 
 ## Sensores Esperados
 
-- Fast: `check-harness-structure`
+- Fast: runner legado `.\.plan-build-qa\harness\scripts\run-fast.ps1` (nao cadastrado como sensor na epoca)
 - Medium: `npm run test`
 
 ## Criterios de Conclusao

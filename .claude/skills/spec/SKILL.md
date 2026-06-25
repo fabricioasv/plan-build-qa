@@ -25,6 +25,7 @@ Workflow:
 9. **REQUIRED**: after creating or updating a contract, invoke the `test` skill in `contract-check` mode (stage 2 of the pipeline) to validate that the contract is well-formed, has objective acceptance criteria, and names sensors registered in `sensors.json`. When invoked automatically, `test` runs as a fresh-context subagent. This can be skipped only with an explicit, documented `skip test`.
 10. Keep implementation out of this command unless the user explicitly asks to implement.
 11. **REQUIRED**: make acceptance criteria and required sensors objective.
+12. For specs where hooks should block (not just warn), add `Enforcement: blocking` to `spec.md`. Default is `advisory` (hooks are early-warning only, never block).
 
 Prefer a short contract for small changes. Require a formal spec and contract for medium or large changes.
 

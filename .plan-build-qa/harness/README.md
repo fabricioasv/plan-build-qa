@@ -31,21 +31,29 @@ Slow:
 
 - Placeholder: nenhum E2E/integracao pesada detectado.
 
-Comandos:
+Comandos (por evento):
 
 ```powershell
-.\.plan-build-qa\harness\scripts\run-fast.ps1
-.\.plan-build-qa\harness\scripts\run-medium.ps1
-.\.plan-build-qa\harness\scripts\run-slow.ps1
+.\.plan-build-qa\harness\scripts\run-commit.ps1  # sensores on:commit
+.\.plan-build-qa\harness\scripts\run-close.ps1   # sensores on:close (gate)
 ```
 
 Em Unix:
 
 ```sh
-sh ./.plan-build-qa/harness/scripts/run-fast.sh
-sh ./.plan-build-qa/harness/scripts/run-medium.sh
-sh ./.plan-build-qa/harness/scripts/run-slow.sh
+sh ./.plan-build-qa/harness/scripts/run-commit.sh
+sh ./.plan-build-qa/harness/scripts/run-close.sh
 ```
+
+Ou via pbq guard:
+
+```sh
+pbq guard --event commit .
+pbq guard --event close .
+```
+
+Runners por tier (deprecated — use os runners por evento acima):
+`run-fast.ps1`, `run-medium.ps1`, `run-slow.ps1`
 
 ## Progresso
 
