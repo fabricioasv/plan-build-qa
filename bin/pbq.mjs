@@ -64,6 +64,11 @@ async function main() {
     return;
   }
 
+  if (isHelpRequest(args[0])) {
+    printHelp(command);
+    return;
+  }
+
   if (command === "sensor") {
     await runSensorCommand(args);
     return;
@@ -126,6 +131,10 @@ async function main() {
 
   const catalog = await loadSensorCatalog();
   printSummary(targetRoot, project, events, options, catalog.length);
+}
+
+function isHelpRequest(value) {
+  return value === "help" || value === "--help" || value === "-h";
 }
 
 function parseInitArgs(args) {

@@ -72,6 +72,19 @@ try {
   assert.match(dashboardHelp.stdout, /--serve/);
   assert.match(dashboardHelp.stdout, /--watch/);
 
+  const dashboardHelpAfterCommand = spawnSync(process.execPath, [cli, "dashboard", "help"], {
+    encoding: "utf8"
+  });
+  assert.equal(dashboardHelpAfterCommand.status, 0, dashboardHelpAfterCommand.stderr || dashboardHelpAfterCommand.stdout);
+  assert.match(dashboardHelpAfterCommand.stdout, /pbq dashboard/);
+  assert.match(dashboardHelpAfterCommand.stdout, /--serve/);
+
+  const sensorHelpAfterCommand = spawnSync(process.execPath, [cli, "sensor", "--help"], {
+    encoding: "utf8"
+  });
+  assert.equal(sensorHelpAfterCommand.status, 0, sensorHelpAfterCommand.stderr || sensorHelpAfterCommand.stdout);
+  assert.match(sensorHelpAfterCommand.stdout, /pbq sensor add/);
+
   const result = spawnSync(process.execPath, [cli, "init", root], {
     encoding: "utf8"
   });
