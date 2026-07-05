@@ -1,5 +1,7 @@
 # Spec: <nome>
 
+Spec ID: <YYMMDD-hex>
+
 ## Objetivo
 
 ## Contexto

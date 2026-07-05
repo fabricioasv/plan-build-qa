@@ -6,7 +6,7 @@ Voce esta implementando um package dentro do Harness Engineering System.
 > **NUNCA** implemente fora do contrato. **PARE** se o contrato estiver ambiguo, amplo demais ou sem sensores obrigatorios.
 
 1. Carregue as regras relevantes em `.plan-build-qa/constitution/`.
-2. Carregue a spec ativa em `.plan-build-qa/specs/spec-XXX-nome/spec.md`.
+2. Carregue a spec ativa em `.plan-build-qa/specs/<spec>/spec.md` (novo padrao: `spec-YYMMDD-hex-nome`; legado compativel: `spec-NNN-nome`).
 3. Carregue `.plan-build-qa/roadmap.md`.
 4. Carregue `progress.md`.
 5. Carregue o contrato do package em `contracts/package-N.md`.

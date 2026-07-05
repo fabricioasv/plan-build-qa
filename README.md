@@ -64,7 +64,7 @@ Para Codex, o init cria as mesmas skills repo-scoped em `.agents/skills/`. A doc
     templates/
   roadmap.md
   specs/
-    spec-XXX-nome/
+    spec-YYMMDD-hex-nome/
       evaluations/
   sensors.json
 .claude/
@@ -115,6 +115,8 @@ O update usa `.plan-build-qa/manifest.json` para distinguir arquivos ainda iguai
 - `--force`: sobrescreve mesmo arquivos customizados
 
 `sensors.json` nao e sobrescrito pelo update, porque sensores sao configuracao local do projeto.
+
+Durante o update, specs materializadas no formato legado `spec-NNN-nome` sao migradas para `spec-YYMMDD-hex-nome`, usando a data de criacao de `spec.md` para `YYMMDD`. O roadmap e atualizado com o novo nome quando a migracao acontece.
 
 Os scripts gerados rodam a partir da raiz do repositorio alvo:
 
@@ -219,7 +221,7 @@ Se um sensor obrigatorio estiver ausente, `pendente` ou `falhou`, o `Score` deve
 Para fechamento com execucao real dos sensores:
 
 ```powershell
-pbq package close C:\caminho\do\repo --spec spec-001-exemplo --package 1 --tiers fast,medium
+pbq package close C:\caminho\do\repo --spec spec-260704-a7f3-exemplo --package 1 --tiers fast,medium
 ```
 
 Esse comando executa os sensores cadastrados nos tiers informados, gera `.plan-build-qa/specs/<spec>/evaluations/package-N.md`, preenche a tabela de sensores e retorna exit code diferente de zero se algum sensor falhar ou estiver pendente.
@@ -227,7 +229,7 @@ Esse comando executa os sensores cadastrados nos tiers informados, gera `.plan-b
 As evaluations pertencem sempre a uma spec:
 
 ```text
-.plan-build-qa/specs/spec-XXX-nome/evaluations/package-N.md
+.plan-build-qa/specs/spec-YYMMDD-hex-nome/evaluations/package-N.md
 ```
 
 Nao existe evaluation global em `.plan-build-qa/harness/`.
@@ -236,7 +238,7 @@ Nao existe evaluation global em `.plan-build-qa/harness/`.
 
 - Guias permanentes ficam em `.plan-build-qa/constitution/`.
 - Sensores computacionais ficam em `.plan-build-qa/harness/scripts/`.
-- Iniciativas medias ou grandes ficam em `.plan-build-qa/specs/spec-XXX-nome/`.
+- Iniciativas medias ou grandes ficam em `.plan-build-qa/specs/spec-YYMMDD-hex-nome/`; specs `spec-NNN-nome` sao legado compativel.
 - Cada package deve ser pequeno, reversivel e validavel.
 - O agente nao deve declarar conclusao apenas por julgamento subjetivo.
 

@@ -10,7 +10,8 @@ Referencias:
 ## Quando Usar Spec
 
 - Mudanca pequena: contrato inline e sensores fast podem ser suficientes.
-- Mudanca media: crie uma spec em `.plan-build-qa/specs/spec-XXX-nome/` e um contrato em `contracts/package-N.md`.
+- Mudanca media: crie uma spec em `.plan-build-qa/specs/spec-YYMMDD-hex-nome/` e um contrato em `contracts/package-N.md`.
+- Specs legadas `spec-NNN-nome` continuam compativeis; `pbq update` migra specs materializadas usando a data de criacao de `spec.md`.
 - Mudanca grande: divida em varios packages pequenos, reversiveis e validaveis.
 
 ## Quando Usar Contrato Formal
@@ -67,8 +68,8 @@ O roadmap em `.plan-build-qa/roadmap.md` e o indice consolidado das specs:
 
 ## Nova Spec
 
-1. Copie `.plan-build-qa/harness/templates/spec.md` para `.plan-build-qa/specs/spec-XXX-nome/spec.md`.
-2. Copie `.plan-build-qa/harness/templates/progress.md` para `.plan-build-qa/specs/spec-XXX-nome/progress.md`.
+1. Copie `.plan-build-qa/harness/templates/spec.md` para `.plan-build-qa/specs/spec-YYMMDD-hex-nome/spec.md`.
+2. Copie `.plan-build-qa/harness/templates/progress.md` para `.plan-build-qa/specs/spec-YYMMDD-hex-nome/progress.md`.
 3. Crie `contracts/package-N.md` a partir de `.plan-build-qa/harness/templates/contract.md`.
 4. Liste sensores obrigatorios antes da implementacao.
 

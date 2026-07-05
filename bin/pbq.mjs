@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -13,6 +13,10 @@ const HARNESS_DIR = ".plan-build-qa";
 const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement", "test", "analyze", "bug"];
 const PBQ_TEMPLATE_VERSION = 2;
 const ALLOWED_SPEC_STATUS = new Set(["planejado", "em andamento", "bloqueado", "concluido", "cancelado"]);
+const MODERN_SPEC_NAME_RE = /^spec-\d{6}-[0-9a-f]{4}-[a-z0-9][a-z0-9-]*$/i;
+const LEGACY_SPEC_NAME_RE = /^spec-\d{3}-[a-z0-9][a-z0-9-]*$/i;
+const MODERN_BUG_NAME_RE = /^bug-\d{6}-[0-9a-f]{4}-[a-z0-9][a-z0-9-]*$/i;
+const LEGACY_BUG_NAME_RE = /^bug-\d{3}-[a-z0-9][a-z0-9-]*$/i;
 
 const ALWAYS_REPLACE_FILES = new Set([`${HARNESS_DIR}/OVERVIEW.md`]);
 
@@ -162,6 +166,7 @@ async function runSensorCommand(args) {
     const sensors = await readSensors(targetRoot);
     const nextSensor = {
       name: options.name,
+      scope: "global",
       command: options.command,
       reason: options.reason || "Sensor adicionado manualmente",
       source: "manual",
@@ -217,7 +222,7 @@ async function runSensorCommand(args) {
     }
     for (const sensor of sensors) {
       const onStr = sensor.on ? sensor.on.join(",") : "(sem on)";
-      console.log(`${sensor.enabled === false ? "disabled" : "enabled"}\t${sensor.tier || "-"}\t${sensor.name}\t${onStr}\t${sensor.command}`);
+      console.log(`${sensor.enabled === false ? "disabled" : "enabled"}\t${sensor.scope || "global"}\t${sensor.tier || "-"}\t${sensor.name}\t${onStr}\t${sensor.command}`);
     }
     return;
   }
@@ -282,6 +287,7 @@ async function runSensorAddFromCatalog(args) {
 
   const nextSensor = {
     name: entry.name,
+    scope: "global",
     command: entry.command,
     reason: entry.reason,
     source: "catalog",
@@ -347,10 +353,22 @@ function parseOnOption(value) {
   return [...new Set(parts)];
 }
 
+function parseScopeOption(value) {
+  const scope = normalizeSensorScope(value);
+  if (!["global", "local", "package"].includes(String(value || "").trim().toLowerCase())) {
+    throw new Error("--scope deve ser global, local ou package.");
+  }
+  if (scope !== "global") {
+    throw new Error("Sensores locais devem ser declarados no contrato do package; use --scope global para gravar em sensors.json.");
+  }
+  return scope;
+}
+
 function parseSensorAddArgs(args) {
   const options = {
     targetPath: ".",
     name: "",
+    scope: "global",
     tier: "",
     command: "",
     reason: "",
@@ -365,6 +383,7 @@ function parseSensorAddArgs(args) {
     else if (arg === "--command") options.command = readOptionValue(args, ++index, "--command");
     else if (arg === "--reason") options.reason = readOptionValue(args, ++index, "--reason");
     else if (arg === "--phase") options.phase = readOptionValue(args, ++index, "--phase");
+    else if (arg === "--scope") options.scope = parseScopeOption(readOptionValue(args, ++index, "--scope"));
     else if (arg === "--on") options.on = parseOnOption(readOptionValue(args, ++index, "--on"));
     else if (arg.startsWith("--")) throw new Error(`Opcao desconhecida: ${arg}`);
     else options.targetPath = arg;
@@ -413,7 +432,21 @@ async function readSensors(root) {
     throw new Error(`Arquivo de sensores nao encontrado: ${path.join(HARNESS_DIR, "sensors.json")}. Rode pbq init primeiro.`);
   }
   const parsed = JSON.parse(await readFile(sensorsPath, "utf8"));
-  return Array.isArray(parsed.sensors) ? parsed.sensors : [];
+  return Array.isArray(parsed.sensors) ? parsed.sensors.map(normalizeSensorRecord) : [];
+}
+
+function normalizeSensorRecord(sensor) {
+  return {
+    ...sensor,
+    scope: normalizeSensorScope(sensor.scope)
+  };
+}
+
+function normalizeSensorScope(scope) {
+  const value = String(scope || "global").trim().toLowerCase();
+  if (value === "package") return "local";
+  if (value === "local" || value === "global") return value;
+  return "global";
 }
 
 // --- pbq guard ---
@@ -636,10 +669,11 @@ async function migrateSensorsV1ToV2(root) {
 
 async function writeSensors(root, sensors) {
   const normalized = sensors.map((sensor) => {
-    if (sensor.on && sensor.on.length > 0) return sensor;
+    const scopedSensor = { ...sensor, scope: "global" };
+    if (scopedSensor.on && scopedSensor.on.length > 0) return scopedSensor;
     const phase = normalizePhaseList(sensor.phase);
     const on = phase.length > 0 ? legacyPhaseToOn(phase.join(",")) : legacyTierToOn(sensor.tier);
-    return phase.length > 0 ? { ...sensor, phase, on } : { ...sensor, on };
+    return phase.length > 0 ? { ...scopedSensor, phase, on } : { ...scopedSensor, on };
   });
   const sensorsPath = path.join(root, HARNESS_DIR, "sensors.json");
   await writeFile(sensorsPath, JSON.stringify({ version: 2, sensors: normalized }, null, 2) + "\n", "utf8");
@@ -1045,6 +1079,10 @@ async function analyzeHarness(root) {
         for (const entry of parseContractRequiredSensors(contractText)) {
           if (!entry.hasName) {
             warnings.push(`${spec.name}/${file}: sensor obrigatorio citado sem nome cadastrado em sensors.json`);
+          } else if (entry.scope === "local") {
+            if (!entry.hasCommand) {
+              violations.push(`${spec.name}/${file}: sensor local obrigatorio "${entry.name}" sem comando no contrato`);
+            }
           } else if (!sensorNames.has(entry.name)) {
             violations.push(`${spec.name}/${file}: sensor obrigatorio "${entry.name}" nao cadastrado em sensors.json`);
           }
@@ -1254,6 +1292,10 @@ function parseContractRequiredSensors(contract) {
   const entries = [];
   let inTable = false;
   let nameCol = 0;
+  let scopeCol = -1;
+  let tierCol = -1;
+  let commandCol = -1;
+  let reasonCol = -1;
   for (const rawLine of sectionMatch[1].split(/\r?\n/)) {
     const trimmed = rawLine.trim();
     if (trimmed.startsWith("- ")) {
@@ -1262,32 +1304,64 @@ function parseContractRequiredSensors(contract) {
       const body = trimmed.slice(2).trim();
       const parts = body.split("|").map((part) => part.trim());
       if (parts.length >= 2) {
-        const name = parts[1].replace(/^`|`$/g, "").trim();
+        const name = cleanMarkdownCell(parts[1]);
         if (name) {
-          entries.push({ name, hasName: true });
+          entries.push(contractSensorEntry({ name }));
           continue;
         }
       }
-      entries.push({ name: null, hasName: false });
+      entries.push(contractSensorEntry({ name: null }));
     } else if (trimmed.startsWith("|")) {
       const cells = splitTableRow(trimmed);
       if (cells.every((c) => /^-+$/.test(c))) continue; // separador
-      const isHeader = cells.some((c) => /^sensor$/i.test(c));
+      const isHeader = cells.some((c) => /^sensor$/i.test(c) || /^nome$/i.test(c) || /nome em sensors\.json/i.test(c));
       if (isHeader) {
         inTable = true;
-        const nomeIdx = cells.findIndex((c) => /nome/i.test(c));
+        const nomeIdx = cells.findIndex((c) => /^nome$/i.test(c) || /nome em sensors\.json/i.test(c));
         const sensorIdx = cells.findIndex((c) => /^sensor$/i.test(c));
         nameCol = nomeIdx >= 0 ? nomeIdx : sensorIdx >= 0 ? sensorIdx : 0;
+        scopeCol = cells.findIndex((c) => /^(scope|escopo)$/i.test(c));
+        tierCol = cells.findIndex((c) => /^tier$/i.test(c));
+        commandCol = cells.findIndex((c) => /^(comando|command)$/i.test(c));
+        reasonCol = cells.findIndex((c) => /^(motivo|reason)$/i.test(c));
         continue;
       }
       if (!inTable) continue;
-      const name = (cells[nameCol] || cells[0] || "").replace(/`/g, "").trim();
-      if (name) entries.push({ name, hasName: true });
+      const name = cleanMarkdownCell(cells[nameCol] || cells[0] || "");
+      if (name) {
+        entries.push(contractSensorEntry({
+          name,
+          scope: scopeCol >= 0 ? cells[scopeCol] : "",
+          tier: tierCol >= 0 ? cells[tierCol] : "",
+          command: commandCol >= 0 ? cells[commandCol] : "",
+          reason: reasonCol >= 0 ? cells[reasonCol] : ""
+        }));
+      }
     } else if (trimmed.length > 0 && !trimmed.startsWith(">")) {
       inTable = false;
     }
   }
   return entries;
+}
+
+function contractSensorEntry({ name, scope = "", tier = "", command = "", reason = "" }) {
+  const normalizedScope = normalizeSensorScope(cleanMarkdownCell(scope));
+  const cleanedCommand = cleanMarkdownCell(command);
+  const local = normalizedScope === "local" && cleanedCommand.length > 0;
+  return {
+    name,
+    hasName: Boolean(name),
+    scope: normalizedScope,
+    local,
+    tier: cleanMarkdownCell(tier),
+    command: cleanedCommand,
+    hasCommand: cleanedCommand.length > 0,
+    reason: cleanMarkdownCell(reason)
+  };
+}
+
+function cleanMarkdownCell(value) {
+  return String(value || "").replace(/^`|`$/g, "").trim();
 }
 
 function splitTableRow(line) {
@@ -1395,7 +1469,11 @@ function parseRoadmapSpecRows(roadmap) {
       currentPackage: parsePackageNumber(cells[3] || ""),
       updatedAt: parseRoadmapUpdatedAt(cells[4] || "")
     }))
-    .filter((row) => /^spec-\d+/i.test(row.name));
+    .filter((row) => isRecognizedSpecName(row.name));
+}
+
+function isRecognizedSpecName(name) {
+  return MODERN_SPEC_NAME_RE.test(name) || LEGACY_SPEC_NAME_RE.test(name);
 }
 
 function stripCellDecoration(value) {
@@ -1451,6 +1529,8 @@ async function runUpdateCommand(args) {
     await updateManagedFile(targetRoot, relativePath, latest, previousManifest, effectiveOptions, events);
   }
 
+  await migrateLegacySpecDirectories(targetRoot, options, events);
+  await migrateLegacyBugDirectories(targetRoot, options, events);
   await migrateSensorsV1ToV2(targetRoot);
   await mergeGuardHookInSettings(targetRoot, options, events);
   const catalog = await loadSensorCatalog();
@@ -1472,6 +1552,141 @@ function parseUpdateArgs(args) {
   }
 
   return options;
+}
+
+async function migrateLegacySpecDirectories(root, options, events) {
+  const specsRoot = path.join(root, HARNESS_DIR, "specs");
+  if (!existsSync(specsRoot)) return;
+
+  const entries = await readdir(specsRoot, { withFileTypes: true });
+  const renames = [];
+  const occupiedNames = new Set(entries.map((entry) => entry.name));
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (MODERN_SPEC_NAME_RE.test(entry.name) || !LEGACY_SPEC_NAME_RE.test(entry.name)) continue;
+
+    const oldName = entry.name;
+    const specPath = path.join(specsRoot, oldName, "spec.md");
+    if (!existsSync(specPath)) continue;
+
+    const newName = await buildMigratedSpecName(specPath, oldName, occupiedNames);
+    if (newName === oldName) continue;
+
+    occupiedNames.delete(oldName);
+    occupiedNames.add(newName);
+    renames.push({ oldName, newName });
+  }
+
+  if (renames.length === 0) return;
+
+  for (const item of renames) {
+    if (!options.dryRun) {
+      await rename(path.join(specsRoot, item.oldName), path.join(specsRoot, item.newName));
+    }
+    events.push({ type: "spec-migrate", path: `${HARNESS_DIR}/specs/${item.oldName}`, oldName: item.oldName, newName: item.newName });
+  }
+
+  await updateRoadmapSpecNames(root, renames, options, events);
+}
+
+async function migrateLegacyBugDirectories(root, options, events) {
+  const bugsRoot = path.join(root, HARNESS_DIR, "bugs");
+  if (!existsSync(bugsRoot)) return;
+
+  const entries = await readdir(bugsRoot, { withFileTypes: true });
+  const renames = [];
+  const occupiedNames = new Set(entries.map((entry) => entry.name));
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (MODERN_BUG_NAME_RE.test(entry.name) || !LEGACY_BUG_NAME_RE.test(entry.name)) continue;
+
+    const oldName = entry.name;
+    const bugPath = path.join(bugsRoot, oldName, "bug.md");
+    if (!existsSync(bugPath)) continue;
+
+    const newName = await buildMigratedBugName(bugPath, oldName, occupiedNames);
+    if (newName === oldName) continue;
+
+    occupiedNames.delete(oldName);
+    occupiedNames.add(newName);
+    renames.push({ oldName, newName });
+  }
+
+  for (const item of renames) {
+    if (!options.dryRun) {
+      await rename(path.join(bugsRoot, item.oldName), path.join(bugsRoot, item.newName));
+    }
+    events.push({ type: "bug-migrate", path: `${HARNESS_DIR}/bugs/${item.oldName}`, oldName: item.oldName, newName: item.newName });
+  }
+}
+
+async function buildMigratedSpecName(specPath, oldName, occupiedNames) {
+  const fileStat = await stat(specPath);
+  const createdAt = fileStat.birthtimeMs > 0 ? fileStat.birthtime : fileStat.mtime;
+  const dateId = formatSpecDateId(createdAt);
+  const slug = normalizeSpecSlug(oldName.replace(/^spec-\d+-/i, ""));
+
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const hex = specMigrationHex(dateId, oldName, attempt);
+    const candidate = `spec-${dateId}-${hex}-${slug}`;
+    if (!occupiedNames.has(candidate)) return candidate;
+  }
+
+  throw new Error(`Nao foi possivel gerar nome unico para ${oldName}.`);
+}
+
+async function buildMigratedBugName(bugPath, oldName, occupiedNames) {
+  const fileStat = await stat(bugPath);
+  const createdAt = fileStat.birthtimeMs > 0 ? fileStat.birthtime : fileStat.mtime;
+  const dateId = formatSpecDateId(createdAt);
+  const slug = normalizeSpecSlug(oldName.replace(/^bug-\d{3}-/i, ""));
+
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const hex = specMigrationHex(dateId, oldName, attempt);
+    const candidate = `bug-${dateId}-${hex}-${slug}`;
+    if (!occupiedNames.has(candidate)) return candidate;
+  }
+
+  throw new Error(`Nao foi possivel gerar nome unico para ${oldName}.`);
+}
+
+function formatSpecDateId(date) {
+  const year = String(date.getFullYear()).slice(-2).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function specMigrationHex(dateId, oldName, attempt) {
+  return createHash("sha256").update(`${dateId}:${oldName}:${attempt}`, "utf8").digest("hex").slice(0, 4);
+}
+
+function normalizeSpecSlug(slug) {
+  return String(slug || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "spec";
+}
+
+async function updateRoadmapSpecNames(root, renames, options, events) {
+  const roadmapPath = path.join(root, HARNESS_DIR, "roadmap.md");
+  if (!existsSync(roadmapPath)) return;
+
+  const roadmap = await readFile(roadmapPath, "utf8");
+  let nextRoadmap = roadmap;
+  for (const { oldName, newName } of renames) {
+    nextRoadmap = replaceAllLiteral(nextRoadmap, oldName, newName);
+  }
+
+  if (nextRoadmap === roadmap) return;
+  if (!options.dryRun) await writeFile(roadmapPath, nextRoadmap, "utf8");
+  events.push({ type: "roadmap-spec-migrate", path: `${HARNESS_DIR}/roadmap.md` });
+}
+
+function replaceAllLiteral(value, search, replacement) {
+  return value.split(search).join(replacement);
 }
 
 async function readManifest(root) {
@@ -1529,6 +1744,15 @@ function printUpdateSummary(targetRoot, events, options, catalogCount = 0) {
   console.log(`[pbq] Force updated: ${(grouped["force-update"] || []).length}`);
   console.log(`[pbq] Candidates written: ${(grouped.candidate || []).length}`);
   console.log(`[pbq] Already current: ${(grouped.ok || []).length}`);
+  for (const event of grouped["spec-migrate"] || []) {
+    console.log(`[pbq] Spec migrated: ${event.oldName} -> ${event.newName}`);
+  }
+  for (const event of grouped["bug-migrate"] || []) {
+    console.log(`[pbq] Bug migrated: ${event.oldName} -> ${event.newName}`);
+  }
+  if ((grouped["roadmap-spec-migrate"] || []).length > 0) {
+    console.log("[pbq] Roadmap spec references updated.");
+  }
   if ((grouped.candidate || []).length > 0) {
     console.log("[pbq] Review .pbq-new files and merge manually; existing custom files were preserved.");
   }
@@ -1546,12 +1770,15 @@ async function runPackageCommand(args) {
   const options = parsePackageCloseArgs(args);
   const targetRoot = path.resolve(options.targetPath);
   const event = options.phase === "before" ? "edit" : "close";
-  const sensors = (await readSensors(targetRoot)).filter(
+  const allSensors = await readSensors(targetRoot);
+  const selectedSensors = allSensors.filter(
     (sensor) =>
       sensor.enabled !== false &&
       (sensor.tier === undefined || options.tiers.includes(sensor.tier)) &&
       isSensorEligibleForEvent(sensor, event)
   );
+  const requiredSensors = await readPackageRequiredSensors(targetRoot, options);
+  const sensors = resolvePackageSensors(selectedSensors, allSensors, requiredSensors);
   const result = executePackageSensors(targetRoot, sensors);
   await writePackageEvaluation(targetRoot, options, result);
 
@@ -1592,6 +1819,70 @@ function parsePackageCloseArgs(args) {
   return options;
 }
 
+async function readPackageRequiredSensors(root, options) {
+  const contractPath = path.join(root, HARNESS_DIR, "specs", options.spec, "contracts", `package-${options.packageNumber}.md`);
+  if (!existsSync(contractPath)) return [];
+  return parseContractRequiredSensors(await readFile(contractPath, "utf8")).filter((sensor) => sensor.hasName);
+}
+
+function resolvePackageSensors(selectedSensors, allSensors, requiredSensors) {
+  const resolved = [];
+  const byName = new Map(allSensors.map((sensor) => [sensor.name, sensor]));
+  const added = new Set();
+
+  function addSensor(sensor, required = "sim") {
+    if (!sensor?.name || added.has(sensor.name)) return;
+    resolved.push({ ...sensor, required });
+    added.add(sensor.name);
+  }
+
+  for (const sensor of selectedSensors) addSensor(sensor, "sim");
+
+  for (const required of requiredSensors) {
+    if (added.has(required.name)) continue;
+
+    if (required.local) {
+      addSensor({
+        name: required.name,
+        tier: required.tier || "-",
+        command: required.command,
+        source: "contract-local",
+        scope: "local"
+      }, "sim");
+      continue;
+    }
+
+    if (required.scope === "local") {
+      addSensor(pendingSensor(required.name, required.tier, "-", "Sensor local obrigatorio sem comando no contrato."));
+      continue;
+    }
+
+    const registered = byName.get(required.name);
+    if (registered && registered.enabled !== false) {
+      addSensor(registered, "sim");
+      continue;
+    }
+
+    const evidence = registered
+      ? "Sensor obrigatorio do contrato esta disabled em sensors.json."
+      : "Sensor obrigatorio do contrato nao registrado em sensors.json.";
+    addSensor(pendingSensor(required.name, required.tier || registered?.tier, registered?.command || "-", evidence));
+  }
+
+  return resolved;
+}
+
+function pendingSensor(name, tier = "-", command = "-", evidence = "Sensor obrigatorio pendente.") {
+  return {
+    name,
+    tier: tier || "-",
+    command: command || "-",
+    required: "sim",
+    pending: true,
+    pendingEvidence: evidence
+  };
+}
+
 function buildSensorEvidence(rawOutput, startedAt) {
   if (!rawOutput) return `Executado em ${startedAt}`;
   const MAX_CHARS = 500;
@@ -1599,6 +1890,17 @@ function buildSensorEvidence(rawOutput, startedAt) {
 }
 
 function runSensor(root, sensor) {
+  if (sensor.pending) {
+    return {
+      sensor: sensor.name,
+      tier: sensor.tier || "-",
+      required: sensor.required || "sim",
+      status: "pendente",
+      command: sensor.command || "-",
+      exitCode: "-",
+      evidence: sensor.pendingEvidence || "Sensor obrigatorio pendente."
+    };
+  }
   const startedAt = new Date().toISOString();
   const result = spawnSync(sensor.command, {
     cwd: root,
@@ -1611,7 +1913,7 @@ function runSensor(root, sensor) {
   return {
     sensor: sensor.name,
     tier: sensor.tier || "-",
-    required: "sim",
+    required: sensor.required || "sim",
     status: exitCode === 0 ? "passou" : "falhou",
     command: sensor.command,
     exitCode,
@@ -1963,7 +2265,14 @@ async function buildDashboardSpecEntry({ root, spec, roadmap, sensors }) {
           .filter((sensor) => sensor.hasName)
           .map((sensor) => {
             const known = sensors.find((item) => item.name === sensor.name);
-            return { name: sensor.name, registered: Boolean(known), tier: known?.tier || "-" };
+            return {
+              name: sensor.name,
+              registered: Boolean(known),
+              tier: sensor.tier || known?.tier || "-",
+              scope: sensor.scope || "global",
+              local: sensor.local === true,
+              command: sensor.command || ""
+            };
           })
       : [];
     const evaluationSensors = evaluationExists
@@ -1988,8 +2297,11 @@ async function buildDashboardSpecEntry({ root, spec, roadmap, sensors }) {
       entry.warnings.push(`Package ${packageNumber} declarado na spec sem contract.`);
     }
     for (const required of requiredSensors) {
-      if (!required.registered) {
+      if (!required.registered && required.scope !== "local") {
         entry.warnings.push(`Package ${packageNumber} exige sensor "${required.name}" ausente de sensors.json.`);
+      }
+      if (required.scope === "local" && !required.command) {
+        entry.warnings.push(`Package ${packageNumber} exige sensor local "${required.name}" sem comando no contract.`);
       }
     }
   }
@@ -2145,6 +2457,7 @@ function sanitizeDashboardForJson(dashboard) {
     schemaVersion: dashboard.schemaVersion,
     generatedAt: dashboard.generatedAt,
     root: dashboard.root,
+    sensors: dashboard.sensors,
     summary: dashboard.summary,
     specs: dashboard.specs
   };
@@ -3759,7 +4072,14 @@ function constitutionTesting(project) {
 - Sensores computacionais valem mais que julgamento subjetivo do agente.
 - Todo package deve listar sensores obrigatorios antes da implementacao.
 - Se um sensor nao puder rodar, registre motivo, evidencia e risco residual em \`progress.md\` e na evaluation.
-- Sensores cadastrados ficam em \`${HARNESS_DIR}/sensors.json\`.
+- \`${HARNESS_DIR}/sensors.json\` e o registry de sensores globais reutilizaveis.
+
+## Escopo local/global
+
+- Sensor global: fica em \`${HARNESS_DIR}/sensors.json\`, pode ser reutilizado por qualquer contrato e deve ser adicionado com \`pbq sensor add --scope global\` ou edicao equivalente.
+- Sensor local: vive no \`contracts/package-N.md\` e na \`evaluations/package-N.md\` do package, com \`Scope: local\` ou \`Scope: package\`, comando preenchido e motivo objetivo.
+- Sensor local obrigatorio tambem passa pelo gate: ele deve aparecer na evaluation e precisa ter status \`passou\` para \`Score: 1\`.
+- Promocao local -> global e decisao explicita. Nao promova checks historicos, temporarios ou especificos de um package para o registry global sem novo motivo reutilizavel.
 
 ## Modelo de Gatilho-por-Evento (campo \`on\`)
 
@@ -3904,7 +4224,8 @@ Referencias:
 ## Quando Usar Spec
 
 - Mudanca pequena: contrato inline e sensores fast podem ser suficientes.
-- Mudanca media: crie uma spec em \`${HARNESS_DIR}/specs/spec-XXX-nome/\` e um contrato em \`contracts/package-N.md\`.
+- Mudanca media: crie uma spec em \`${HARNESS_DIR}/specs/spec-YYMMDD-hex-nome/\` e um contrato em \`contracts/package-N.md\`.
+- Specs legadas \`spec-NNN-nome\` continuam compativeis; \`pbq update\` migra specs materializadas usando a data de criacao de \`spec.md\`.
 - Mudanca grande: divida em varios packages pequenos, reversiveis e validaveis.
 
 ## Quando Usar Contrato Formal
@@ -3961,8 +4282,8 @@ O roadmap em \`${HARNESS_DIR}/roadmap.md\` e o indice consolidado das specs:
 
 ## Nova Spec
 
-1. Copie \`${HARNESS_DIR}/harness/templates/spec.md\` para \`${HARNESS_DIR}/specs/spec-XXX-nome/spec.md\`.
-2. Copie \`${HARNESS_DIR}/harness/templates/progress.md\` para \`${HARNESS_DIR}/specs/spec-XXX-nome/progress.md\`.
+1. Copie \`${HARNESS_DIR}/harness/templates/spec.md\` para \`${HARNESS_DIR}/specs/spec-YYMMDD-hex-nome/spec.md\`.
+2. Copie \`${HARNESS_DIR}/harness/templates/progress.md\` para \`${HARNESS_DIR}/specs/spec-YYMMDD-hex-nome/progress.md\`.
 3. Crie \`contracts/package-N.md\` a partir de \`${HARNESS_DIR}/harness/templates/contract.md\`.
 4. Liste sensores obrigatorios antes da implementacao.
 

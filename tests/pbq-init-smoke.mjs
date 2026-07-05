@@ -1,11 +1,26 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 
 const root = await mkdtemp(path.join(tmpdir(), "pbq-init-"));
+
+function formatTestSpecDateId(date) {
+  const year = String(date.getFullYear()).slice(-2).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+async function readDirNames(dir) {
+  return readdir(dir);
+}
+
+async function renameForTest(oldPath, newPath) {
+  await rename(oldPath, newPath);
+}
 
 try {
   await writeFile(
@@ -123,6 +138,7 @@ try {
   const roadmap = await readFile(path.join(root, ".plan-build-qa/roadmap.md"), "utf8");
   assert.match(roadmap, /em andamento/);
   assert.match(roadmap, /concluido/);
+  const cliDir = path.resolve(path.dirname(cli), "..");
 
   const analyzeInvalid = spawnSync(process.execPath, [cli, "analyze", root], {
     encoding: "utf8"
@@ -133,6 +149,16 @@ try {
 
   const specSkill = await readFile(path.join(root, ".claude/skills/spec/SKILL.md"), "utf8");
   assert.match(specSkill, /roadmap\.md/);
+  const codexSpecSkill = await readFile(path.join(root, ".agents/skills/spec/SKILL.md"), "utf8");
+  const templateSpecSkill = await readFile(path.join(cliDir, "templates/adapters/skills/spec/SKILL.md"), "utf8");
+  for (const content of [specSkill, codexSpecSkill, templateSpecSkill]) {
+    assert.match(content, /spec-YYMMDD-hex-name/, "spec skill deve orientar o novo padrao de ID");
+    assert.match(content, /Legacy `spec-NNN-name`/, "spec skill deve documentar compatibilidade legado");
+    assert.match(content, /Sensor scope in contracts/, "spec skill deve orientar scope local/global");
+    assert.match(content, /Scope: global/, "spec skill deve orientar sensor global");
+    assert.match(content, /Scope: local.*Scope: package/s, "spec skill deve orientar sensor local/package");
+    assert.match(content, /Comando.*Motivo/s, "spec skill deve exigir comando e motivo para local");
+  }
 
   // spec-011 package-2: implement delega verificacao a test (nao roda pbq package close direto)
   const codexImplementSkill = await readFile(path.join(root, ".agents/skills/implement/SKILL.md"), "utf8");
@@ -144,6 +170,13 @@ try {
   // spec-011 package-2: test skill expoe os dois modos do gate independente
   assert.match(claudeTestSkill, /contract-check/, "test skill deve documentar o modo contract-check");
   assert.match(claudeTestSkill, /acceptance-check/, "test skill deve documentar o modo acceptance-check");
+  const codexTestSkill = await readFile(path.join(root, ".agents/skills/test/SKILL.md"), "utf8");
+  const templateTestSkill = await readFile(path.join(cliDir, "templates/adapters/skills/test/SKILL.md"), "utf8");
+  for (const content of [claudeTestSkill, codexTestSkill, templateTestSkill]) {
+    assert.match(content, /required global sensor/, "test skill deve exigir registry para global");
+    assert.match(content, /Scope: local.*Scope: package/s, "test skill deve aceitar local/package sem registry global");
+    assert.match(content, /Local required sensors must be enforced by name/, "test skill deve manter enforcement por nome para local");
+  }
 
   // spec-014 package-3: sensor skill deve documentar fluxo recomendado e exemplos
   const claudeSensorSkill = await readFile(path.join(root, ".claude/skills/sensor/SKILL.md"), "utf8");
@@ -163,7 +196,6 @@ try {
   assert.match(codexSensorSkill, /pbq sensor catalog/, "codex sensor skill deve citar pbq sensor catalog");
   assert.match(codexSensorSkill, /--from-catalog/, "codex sensor skill deve citar --from-catalog");
 
-  const cliDir = path.resolve(path.dirname(cli), "..");
   const templateSensorSkill = await readFile(path.join(cliDir, "templates/adapters/skills/sensor/SKILL.md"), "utf8");
   assert.match(templateSensorSkill, /pbq sensor suggest/, "template sensor skill deve citar pbq sensor suggest");
   assert.match(templateSensorSkill, /sonar|Makefile|scripts\//, "template sensor skill deve citar exemplo concreto");
@@ -171,6 +203,12 @@ try {
   // spec-017 package-3
   assert.match(templateSensorSkill, /pbq sensor catalog/, "template sensor skill deve citar pbq sensor catalog");
   assert.match(templateSensorSkill, /--from-catalog/, "template sensor skill deve citar --from-catalog");
+  for (const content of [claudeSensorSkill, codexSensorSkill, templateSensorSkill]) {
+    assert.match(content, /registry for .*global.* reusable sensors/i, "sensor skill deve declarar registry global");
+    assert.match(content, /pbq sensor add --scope global/, "sensor skill deve orientar --scope global");
+    assert.match(content, /Do not create local\/package sensors in `sensors\.json`/, "sensor skill nao deve criar local no registry");
+    assert.match(content, /Promotion local -> global must be an explicit decision/, "sensor skill deve orientar promocao explicita");
+  }
 
   // spec-015 package-1: analyze skill deve ser instalada e conter termos-chave
   const claudeAnalyzeSkill = await readFile(path.join(root, ".claude/skills/analyze/SKILL.md"), "utf8");
@@ -189,31 +227,56 @@ try {
   // spec-023 package-1: bug skill e templates devem ser instalados
   const claudeBugSkill = await readFile(path.join(root, ".claude/skills/bug/SKILL.md"), "utf8");
   assert.match(claudeBugSkill, /\/bug/, "claude bug skill deve mencionar /bug");
-  assert.match(claudeBugSkill, /\.plan-build-qa\/bugs\/bug-XXX-slug\/bug\.md/, "claude bug skill deve orientar bug.md");
+  assert.match(claudeBugSkill, /\.plan-build-qa\/bugs\/bug-YYMMDD-hex-slug\/bug\.md/, "claude bug skill deve orientar bug.md");
+  assert.match(claudeBugSkill, /Legacy `bug-NNN-slug`/, "claude bug skill deve documentar compatibilidade legado");
   assert.match(claudeBugSkill, /progress\.md/, "claude bug skill deve orientar progress.md");
   assert.match(claudeBugSkill, /Investigacao/, "claude bug skill deve exigir Investigacao");
-  assert.match(claudeBugSkill, /Correcao/, "claude bug skill deve exigir Correcao");
-  assert.match(claudeBugSkill, /Teste/, "claude bug skill deve exigir Teste");
+  assert.match(claudeBugSkill, /Do not edit product code/, "claude bug skill nao deve implementar correcao");
+  assert.match(claudeBugSkill, /apply patches/, "claude bug skill deve proibir patches");
+  assert.match(claudeBugSkill, /\/implement/, "claude bug skill deve encaminhar correcao para implement");
+  assert.match(claudeBugSkill, /\/test/, "claude bug skill deve encaminhar validacao para test");
+  assert.match(claudeBugSkill, /offer to open a spec\/package/, "claude bug skill nao deve oferecer abertura de spec");
+  assert.match(claudeBugSkill, /Do not end with a question offering to open a spec\/package, forward to `\/implement`, run `\/test`, or continue the workflow/, "claude bug skill nao deve perguntar continuidade para implement/test");
+  assert.doesNotMatch(claudeBugSkill, /Fill the three required sections/, "claude bug skill nao deve executar Correcao/Teste");
+  assert.doesNotMatch(claudeBugSkill, /create or link a spec\/package/, "claude bug skill nao deve criar spec/package durante /bug");
 
   const codexBugSkill = await readFile(path.join(root, ".agents/skills/bug/SKILL.md"), "utf8");
-  assert.match(codexBugSkill, /\.plan-build-qa\/bugs\/bug-XXX-slug\/bug\.md/, "codex bug skill deve orientar bug.md");
+  assert.match(codexBugSkill, /\.plan-build-qa\/bugs\/bug-YYMMDD-hex-slug\/bug\.md/, "codex bug skill deve orientar bug.md");
+  assert.match(codexBugSkill, /Legacy `bug-NNN-slug`/, "codex bug skill deve documentar compatibilidade legado");
   assert.match(codexBugSkill, /progress\.md/, "codex bug skill deve orientar progress.md");
+  assert.match(codexBugSkill, /Do not edit product code/, "codex bug skill nao deve implementar correcao");
+  assert.match(codexBugSkill, /\/implement/, "codex bug skill deve encaminhar correcao para implement");
+  assert.match(codexBugSkill, /\/test/, "codex bug skill deve encaminhar validacao para test");
+  assert.match(codexBugSkill, /offer to open a spec\/package/, "codex bug skill nao deve oferecer abertura de spec");
+  assert.match(codexBugSkill, /Do not end with a question offering to open a spec\/package, forward to `\/implement`, run `\/test`, or continue the workflow/, "codex bug skill nao deve perguntar continuidade para implement/test");
 
   const templateBugSkill = await readFile(path.join(cliDir, "templates/adapters/skills/bug/SKILL.md"), "utf8");
-  assert.match(templateBugSkill, /\.plan-build-qa\/bugs\/bug-XXX-slug\/bug\.md/, "template bug skill deve orientar bug.md");
+  assert.match(templateBugSkill, /\.plan-build-qa\/bugs\/bug-YYMMDD-hex-slug\/bug\.md/, "template bug skill deve orientar bug.md");
+  assert.match(templateBugSkill, /Legacy `bug-NNN-slug`/, "template bug skill deve documentar compatibilidade legado");
   assert.match(templateBugSkill, /Investigacao/, "template bug skill deve exigir Investigacao");
+  assert.match(templateBugSkill, /Do not edit product code/, "template bug skill nao deve implementar correcao");
+  assert.match(templateBugSkill, /\/implement/, "template bug skill deve encaminhar correcao para implement");
+  assert.match(templateBugSkill, /\/test/, "template bug skill deve encaminhar validacao para test");
+  assert.match(templateBugSkill, /offer to open a spec\/package/, "template bug skill nao deve oferecer abertura de spec");
+  assert.match(templateBugSkill, /Do not end with a question offering to open a spec\/package, forward to `\/implement`, run `\/test`, or continue the workflow/, "template bug skill nao deve perguntar continuidade para implement/test");
 
   const bugTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/bug.md"), "utf8");
   assert.match(bugTemplate, /^## Investigacao$/m, "bug.md deve conter secao Investigacao");
   assert.match(bugTemplate, /^## Correcao$/m, "bug.md deve conter secao Correcao");
   assert.match(bugTemplate, /^## Teste$/m, "bug.md deve conter secao Teste");
   assert.match(bugTemplate, /passos objetivos para reproduzir/, "bug.md deve exigir reproducao objetiva");
+  assert.match(bugTemplate, /preenchido a partir de `\/implement`/, "bug.md deve tratar Correcao como registro externo");
+  assert.match(bugTemplate, /preenchido a partir de `\/test`/, "bug.md deve tratar Teste como registro externo");
   assert.match(bugTemplate, /rollback/, "bug.md deve exigir rollback");
 
   const bugProgressTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/bug-progress.md"), "utf8");
   assert.match(bugProgressTemplate, /1\. Investigacao/, "bug-progress deve conter etapa Investigacao");
-  assert.match(bugProgressTemplate, /2\. Correcao/, "bug-progress deve conter etapa Correcao");
-  assert.match(bugProgressTemplate, /3\. Teste/, "bug-progress deve conter etapa Teste");
+  assert.match(bugProgressTemplate, /2\. Encaminhamento para implement/, "bug-progress deve encaminhar para implement");
+  assert.match(bugProgressTemplate, /3\. Evidencia de test/, "bug-progress deve registrar evidencia de test");
+  assert.doesNotMatch(bugProgressTemplate, /corrigindo|em teste/, "bug-progress nao deve usar estados de execucao direta");
+  const bugsReadme = await readFile(path.join(root, ".plan-build-qa/bugs/README.md"), "utf8");
+  assert.match(bugsReadme, /bug-YYMMDD-hex-slug/, "bugs README deve orientar novo padrao");
+  assert.match(bugsReadme, /bug-NNN-slug/, "bugs README deve mencionar legado");
 
   // OVERVIEW.md deve ser instalado pelo init e conter os diagramas Mermaid
   const overview = await readFile(path.join(root, ".plan-build-qa/OVERVIEW.md"), "utf8");
@@ -225,9 +288,23 @@ try {
   assert.match(architecture, /Use a estrutura atual como evidencia/);
   assert.match(architecture, /NUNCA.*arquitetura atual/);
 
+  const testingConstitution = await readFile(path.join(root, ".plan-build-qa/constitution/testing.md"), "utf8");
+  assert.match(testingConstitution, /registry de sensores globais reutilizaveis/, "testing constitution deve declarar registry global");
+  assert.match(testingConstitution, /Sensor local: vive no `contracts\/package-N\.md`/, "testing constitution deve declarar sensor local em contrato");
+  assert.match(testingConstitution, /Promocao local -> global e decisao explicita/, "testing constitution deve orientar promocao explicita");
+
+  const contractTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/contract.md"), "utf8");
+  assert.match(contractTemplate, /\| Sensor \| Scope \| Tier \| Comando \| Motivo \|/, "contract template deve conter colunas local/global");
+  assert.match(contractTemplate, /Scope: global/, "contract template deve orientar global");
+  assert.match(contractTemplate, /Scope: local.*Scope: package/s, "contract template deve orientar local/package");
+  assert.match(contractTemplate, /pbq sensor add --scope global/, "contract template deve orientar criacao global");
+  assert.match(contractTemplate, /Nao cadastre sensor local/, "contract template nao deve orientar local no registry");
+
   const evaluationTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/evaluation.md"), "utf8");
   assert.match(evaluationTemplate, /Resumo De Sensores/);
   assert.match(evaluationTemplate, /\| Sensor \| Tier \| Obrigatorio \| Status \| Comando \| Exit Code \| Evidencia \|/);
+  assert.match(evaluationTemplate, /sensor local obrigatorio tambem deve aparecer/, "evaluation template deve exigir local na tabela");
+  assert.match(evaluationTemplate, /promocao local -> global deve ser decisao explicita/, "evaluation template deve orientar promocao explicita");
 
   const fast = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-fast.ps1"), "utf8");
   assert.match(fast, /npm run lint/);
@@ -619,6 +696,31 @@ Nenhum.
     assert.doesNotMatch(valid.stdout, /status invalido no roadmap/);
   } finally {
     await rm(analyzeStatusValidRoot, { recursive: true, force: true });
+  }
+
+  const analyzeModernSpecRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-modern-spec-"));
+  try {
+    const modernName = "spec-260704-a7f3-demo";
+    await buildAnalyzeFixture(analyzeModernSpecRoot, {
+      roadmap: `# Roadmap
+
+## Specs
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| ${modernName} | em andamento | 1 | 2026-07-04 | - | Implementar package 1 |
+`
+    });
+    const oldDir = path.join(analyzeModernSpecRoot, ".plan-build-qa", "specs", "spec-001-demo");
+    const modernDir = path.join(analyzeModernSpecRoot, ".plan-build-qa", "specs", modernName);
+    await rm(modernDir, { recursive: true, force: true });
+    await renameForTest(oldDir, modernDir);
+    const modern = spawnSync(process.execPath, [cli, "analyze", analyzeModernSpecRoot], { encoding: "utf8" });
+    assert.equal(modern.status, 0, modern.stderr || modern.stdout);
+    assert.match(modern.stdout, /em 1 specs/, "spec-YYMMDD-hex deve ser contada pelo analyze");
+    assert.doesNotMatch(modern.stdout, /Nenhuma spec encontrada/, "novo padrao nao deve ser ignorado");
+  } finally {
+    await rm(analyzeModernSpecRoot, { recursive: true, force: true });
   }
 
   // spec-016 package-1: nome entre crases e status com emoji devem ser tolerados
@@ -1204,6 +1306,67 @@ Nenhum.
   assert.match(overviewAfterUpdate, /mermaid/, "OVERVIEW.md deve ter sido substituido pelo update, nao preservado");
   assert.doesNotMatch(overviewAfterUpdate, /conteudo customizado/, "OVERVIEW.md customizado nao deve sobreviver ao update");
 
+  const updateMigrationRoot = await mkdtemp(path.join(tmpdir(), "pbq-update-spec-migration-"));
+  try {
+    const initMigration = spawnSync(process.execPath, [cli, "init", updateMigrationRoot], { encoding: "utf8" });
+    assert.equal(initMigration.status, 0, initMigration.stderr || initMigration.stdout);
+    const legacySpecDir = path.join(updateMigrationRoot, ".plan-build-qa", "specs", "spec-001-legacy-demo");
+    await mkdir(legacySpecDir, { recursive: true });
+    const legacySpecPath = path.join(legacySpecDir, "spec.md");
+    await writeFile(legacySpecPath, "# Spec: Legacy Demo\n\n## Objetivo\n\nMigrar.\n");
+    await writeFile(
+      path.join(updateMigrationRoot, ".plan-build-qa", "roadmap.md"),
+      `# Roadmap
+
+## Specs
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-001-legacy-demo | em andamento | 1 | 2026-07-04 | - | Implementar package 1 |
+`
+    );
+    const legacySpecStat = await stat(legacySpecPath);
+    const expectedDateId = formatTestSpecDateId(legacySpecStat.birthtimeMs > 0 ? legacySpecStat.birthtime : legacySpecStat.mtime);
+    const updateMigration = spawnSync(process.execPath, [cli, "update", updateMigrationRoot], { encoding: "utf8" });
+    assert.equal(updateMigration.status, 0, updateMigration.stderr || updateMigration.stdout);
+    assert.match(updateMigration.stdout, /Spec migrated: spec-001-legacy-demo -> spec-\d{6}-[0-9a-f]{4}-legacy-demo/);
+    assert.match(updateMigration.stdout, /Roadmap spec references updated/);
+    assert.equal(existsSync(legacySpecDir), false, "diretorio legado deve ser renomeado");
+    const migratedNames = (await readDirNames(path.join(updateMigrationRoot, ".plan-build-qa", "specs")))
+      .filter((name) => name.includes("legacy-demo"));
+    assert.equal(migratedNames.length, 1, "deve existir exatamente uma spec migrada");
+    assert.match(migratedNames[0], new RegExp(`^spec-${expectedDateId}-[0-9a-f]{4}-legacy-demo$`), "YYMMDD deve vir da criacao de spec.md");
+    const migratedRoadmap = await readFile(path.join(updateMigrationRoot, ".plan-build-qa", "roadmap.md"), "utf8");
+    assert.match(migratedRoadmap, new RegExp(`\\| ${migratedNames[0]} \\| em andamento \\|`), "roadmap deve apontar para o novo nome");
+    assert.doesNotMatch(migratedRoadmap, /spec-001-legacy-demo/, "roadmap nao deve manter referencia antiga");
+  } finally {
+    await rm(updateMigrationRoot, { recursive: true, force: true });
+  }
+
+  const bugUpdateMigrationRoot = await mkdtemp(path.join(tmpdir(), "pbq-update-bug-migration-"));
+  try {
+    const initBugMigration = spawnSync(process.execPath, [cli, "init", bugUpdateMigrationRoot], { encoding: "utf8" });
+    assert.equal(initBugMigration.status, 0, initBugMigration.stderr || initBugMigration.stdout);
+    const legacyBugDir = path.join(bugUpdateMigrationRoot, ".plan-build-qa", "bugs", "bug-001-legacy-demo");
+    await mkdir(legacyBugDir, { recursive: true });
+    const legacyBugPath = path.join(legacyBugDir, "bug.md");
+    await writeFile(legacyBugPath, "# Bug: Legacy Demo\n\n## Investigacao\n\nMigrar.\n");
+    await writeFile(path.join(legacyBugDir, "progress.md"), "# Progress\n");
+    const legacyBugStat = await stat(legacyBugPath);
+    const expectedBugDateId = formatTestSpecDateId(legacyBugStat.birthtimeMs > 0 ? legacyBugStat.birthtime : legacyBugStat.mtime);
+    const updateBugMigration = spawnSync(process.execPath, [cli, "update", bugUpdateMigrationRoot], { encoding: "utf8" });
+    assert.equal(updateBugMigration.status, 0, updateBugMigration.stderr || updateBugMigration.stdout);
+    assert.match(updateBugMigration.stdout, /Bug migrated: bug-001-legacy-demo -> bug-\d{6}-[0-9a-f]{4}-legacy-demo/);
+    assert.equal(existsSync(legacyBugDir), false, "diretorio legado de bug deve ser renomeado");
+    const migratedBugNames = (await readDirNames(path.join(bugUpdateMigrationRoot, ".plan-build-qa", "bugs")))
+      .filter((name) => name.includes("legacy-demo"));
+    assert.equal(migratedBugNames.length, 1, "deve existir exatamente um bug migrado");
+    assert.match(migratedBugNames[0], new RegExp(`^bug-${expectedBugDateId}-[0-9a-f]{4}-legacy-demo$`), "YYMMDD do bug deve vir da criacao de bug.md");
+    assert.ok(existsSync(path.join(bugUpdateMigrationRoot, ".plan-build-qa", "bugs", migratedBugNames[0], "bug.md")), "bug.md deve permanecer no diretorio migrado");
+  } finally {
+    await rm(bugUpdateMigrationRoot, { recursive: true, force: true });
+  }
+
   const second = spawnSync(process.execPath, [cli, "init", root], {
     encoding: "utf8"
   });
@@ -1461,6 +1624,501 @@ Nenhum.
     assert.deepEqual(sensor.on, ["edit", "close"], "phase string deve gerar on coerente");
   } finally {
     await rm(migratePhaseStringRoot, { recursive: true, force: true });
+  }
+
+  // spec-025 package-1: sensor scope local/global foundation
+  const scopeRoot = await mkdtemp(path.join(tmpdir(), "pbq-sensor-scope-"));
+  try {
+    const initScope = spawnSync(process.execPath, [cli, "init", scopeRoot], { encoding: "utf8" });
+    assert.equal(initScope.status, 0, initScope.stderr || initScope.stdout);
+
+    await writeFile(
+      path.join(scopeRoot, ".plan-build-qa/sensors.json"),
+      JSON.stringify(
+        {
+          version: 2,
+          sensors: [
+            { name: "legacy-global", tier: "fast", command: "echo legacy", enabled: true, on: ["close"] },
+            { name: "explicit-global", scope: "global", tier: "medium", command: "echo explicit", enabled: true, on: ["close"] }
+          ]
+        },
+        null,
+        2
+      )
+    );
+    await mkdir(path.join(scopeRoot, ".plan-build-qa/specs/spec-025-scope/contracts"), { recursive: true });
+    await writeFile(
+      path.join(scopeRoot, ".plan-build-qa/roadmap.md"),
+      `# Roadmap
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-025-scope | em andamento | 1 | 2026-06-28 | teste | implementar |
+`
+    );
+    await writeFile(
+      path.join(scopeRoot, ".plan-build-qa/specs/spec-025-scope/spec.md"),
+      `# Spec: spec-025-scope
+
+## Packages
+
+| Package | Objetivo | Estado | Sensores |
+| --- | --- | --- | --- |
+| 1 | Scope | planejado | legacy-global, explicit-global, local-check |
+`
+    );
+    await writeFile(
+      path.join(scopeRoot, ".plan-build-qa/specs/spec-025-scope/progress.md"),
+      "# Progress\n\n## Package Atual\n\nPackage 1\n\n## Packages Concluidos\n\n_(nenhum)_\n"
+    );
+    await writeFile(
+      path.join(scopeRoot, ".plan-build-qa/specs/spec-025-scope/contracts/package-1.md"),
+      `# Contract: Package 1
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando | Motivo |
+| --- | --- | --- | --- | --- |
+| legacy-global | global | fast |  | referencia global sem scope no registry |
+| explicit-global | global | medium | echo explicit | referencia global explicita |
+| local-check | local | fast | echo local | sensor local inline |
+| local-sem-comando | local | fast |  | invalido como local executavel |
+
+## Rollback
+
+Reverter fixture.
+`
+    );
+
+    const dashboardScope = spawnSync(process.execPath, [cli, "dashboard", scopeRoot, "--json"], { encoding: "utf8" });
+    assert.equal(dashboardScope.status, 0, dashboardScope.stderr || dashboardScope.stdout);
+    const scopeData = JSON.parse(dashboardScope.stdout);
+    const legacyGlobal = scopeData.sensors.find((sensor) => sensor.name === "legacy-global");
+    const explicitGlobal = scopeData.sensors.find((sensor) => sensor.name === "explicit-global");
+    assert.equal(legacyGlobal.scope, "global", "AC1: sensor sem scope deve normalizar para global em memoria");
+    assert.equal(explicitGlobal.scope, "global", "AC2: sensor com scope global deve continuar aceito");
+
+    const packageOne = scopeData.specs.find((spec) => spec.name === "spec-025-scope").packages.find((pkg) => pkg.number === 1);
+    const legacyRequired = packageOne.requiredSensors.find((sensor) => sensor.name === "legacy-global");
+    const localRequired = packageOne.requiredSensors.find((sensor) => sensor.name === "local-check");
+    const legacyLocal = packageOne.requiredSensors.find((sensor) => sensor.name === "local-sem-comando");
+    assert.equal(legacyRequired.scope, "global", "AC4: contrato legado/global deve continuar como referencia global");
+    assert.equal(legacyRequired.registered, true, "AC4: referencia global registrada deve ser reconhecida");
+    assert.equal(localRequired.scope, "local", "AC3: sensor local deve preservar scope");
+    assert.equal(localRequired.local, true, "AC3: sensor local com comando deve ser classificado como local executavel futuramente");
+    assert.equal(localRequired.command, "echo local", "AC3: comando local deve ser parseado");
+    assert.equal(localRequired.tier, "fast", "AC3: tier local deve ser parseado");
+    assert.equal(legacyLocal.scope, "local", "AC5: linha local sem comando preserva escopo declarado");
+    assert.equal(legacyLocal.local, false, "AC5: linha local sem comando nao deve virar local valido");
+  } finally {
+    await rm(scopeRoot, { recursive: true, force: true });
+  }
+
+  // spec-025 package-2: package close executes contract-required global and local sensors
+  const packageScopeRoot = await mkdtemp(path.join(tmpdir(), "pbq-package-scope-"));
+  try {
+    const initPackageScope = spawnSync(process.execPath, [cli, "init", packageScopeRoot], { encoding: "utf8" });
+    assert.equal(initPackageScope.status, 0, initPackageScope.stderr || initPackageScope.stdout);
+
+    const packageScopeSensorsPath = path.join(packageScopeRoot, ".plan-build-qa/sensors.json");
+    await writeFile(
+      packageScopeSensorsPath,
+      JSON.stringify(
+        {
+          version: 2,
+          sensors: [
+            { name: "selected-global", tier: "fast", command: "node -e \"console.log('selected-ok')\"", enabled: true, on: ["close"] },
+            { name: "required-commit", tier: "slow", command: "node -e \"console.log('required-ok')\"", enabled: true, on: ["commit"] }
+          ]
+        },
+        null,
+        2
+      )
+    );
+    const packageScopeSensorsBefore = await readFile(packageScopeSensorsPath, "utf8");
+    await mkdir(path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/contracts"), { recursive: true });
+
+    await writeFile(
+      path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/contracts/package-1.md"),
+      `# Contract: Package 1
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando |
+| --- | --- | --- | --- |
+| selected-global | global | fast |  |
+| required-commit | global | slow |  |
+| local-ok | local | fast | node -e "console.log('local-ok')" |
+`
+    );
+    const closeScopeOk = spawnSync(
+      process.execPath,
+      [cli, "package", "close", packageScopeRoot, "--spec", "spec-025-package-scope", "--package", "1", "--tiers", "fast"],
+      { encoding: "utf8" }
+    );
+    assert.equal(closeScopeOk.status, 0, closeScopeOk.stderr || closeScopeOk.stdout);
+    const evalScopeOk = await readFile(path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/evaluations/package-1.md"), "utf8");
+    assert.match(evalScopeOk, /Score: 1/, "AC2: sensor local ok deve permitir Score 1");
+    assert.match(evalScopeOk, /required-commit[\s\S]*passou/, "AC1: sensor global obrigatorio fora do filtro deve executar");
+    assert.match(evalScopeOk, /local-ok[\s\S]*passou[\s\S]*local-ok/, "AC2: sensor local inline deve executar e registrar evidencia");
+    assert.equal((evalScopeOk.match(/selected-global/g) || []).length, 1, "AC6: sensor selecionado e obrigatorio deve aparecer uma vez");
+    assert.equal(await readFile(packageScopeSensorsPath, "utf8"), packageScopeSensorsBefore, "AC8: sensor local nao deve persistir em sensors.json");
+
+    await writeFile(
+      path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/contracts/package-2.md"),
+      `# Contract: Package 2
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando |
+| --- | --- | --- | --- |
+| local-fail | local | fast | node -e "process.exit(1)" |
+`
+    );
+    const closeLocalFail = spawnSync(
+      process.execPath,
+      [cli, "package", "close", packageScopeRoot, "--spec", "spec-025-package-scope", "--package", "2", "--tiers", "fast"],
+      { encoding: "utf8" }
+    );
+    assert.equal(closeLocalFail.status, 1, "AC3: sensor local falho deve retornar exit 1");
+    const evalLocalFail = await readFile(path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/evaluations/package-2.md"), "utf8");
+    assert.match(evalLocalFail, /Score: 0/, "AC3: sensor local falho deve gerar Score 0");
+    assert.match(evalLocalFail, /local-fail[\s\S]*falhou/, "AC3: sensor local falho deve aparecer como falhou");
+
+    await writeFile(
+      path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/contracts/package-3.md"),
+      `# Contract: Package 3
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando |
+| --- | --- | --- | --- |
+| local-sem-comando | local | fast |  |
+`
+    );
+    const closeLocalPending = spawnSync(
+      process.execPath,
+      [cli, "package", "close", packageScopeRoot, "--spec", "spec-025-package-scope", "--package", "3", "--tiers", "fast"],
+      { encoding: "utf8" }
+    );
+    assert.equal(closeLocalPending.status, 1, "AC4: sensor local sem comando deve retornar exit 1");
+    const evalLocalPending = await readFile(path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/evaluations/package-3.md"), "utf8");
+    assert.match(evalLocalPending, /Score: 0/, "AC4: sensor local sem comando deve gerar Score 0");
+    assert.match(evalLocalPending, /local-sem-comando[\s\S]*pendente/, "AC4: sensor local sem comando deve aparecer como pendente");
+
+    await writeFile(
+      path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/contracts/package-4.md"),
+      `# Contract: Package 4
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando |
+| --- | --- | --- | --- |
+| missing-global | global | fast |  |
+`
+    );
+    const closeMissingGlobal = spawnSync(
+      process.execPath,
+      [cli, "package", "close", packageScopeRoot, "--spec", "spec-025-package-scope", "--package", "4", "--tiers", "fast"],
+      { encoding: "utf8" }
+    );
+    assert.equal(closeMissingGlobal.status, 1, "AC5: sensor global ausente deve retornar exit 1");
+    const evalMissingGlobal = await readFile(path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/evaluations/package-4.md"), "utf8");
+    assert.match(evalMissingGlobal, /Score: 0/, "AC5: sensor global ausente deve gerar Score 0");
+    assert.match(evalMissingGlobal, /missing-global[\s\S]*pendente/, "AC5: sensor global ausente deve aparecer como pendente");
+
+    await writeFile(
+      path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/contracts/package-5.md"),
+      `# Contract: Package 5
+
+## Objetivo
+
+Sem secao de sensores obrigatorios.
+`
+    );
+    const closeNoRequired = spawnSync(
+      process.execPath,
+      [cli, "package", "close", packageScopeRoot, "--spec", "spec-025-package-scope", "--package", "5", "--tiers", "fast"],
+      { encoding: "utf8" }
+    );
+    assert.equal(closeNoRequired.status, 0, closeNoRequired.stderr || closeNoRequired.stdout);
+    const evalNoRequired = await readFile(path.join(packageScopeRoot, ".plan-build-qa/specs/spec-025-package-scope/evaluations/package-5.md"), "utf8");
+    assert.match(evalNoRequired, /selected-global/, "AC7: sem secao obrigatoria deve rodar selecionados por tier/evento");
+    assert.doesNotMatch(evalNoRequired, /required-commit/, "AC7: sem secao obrigatoria nao deve incluir sensor fora do filtro");
+  } finally {
+    await rm(packageScopeRoot, { recursive: true, force: true });
+  }
+
+  // spec-025 package-3: sensor add/list --scope and analyze local/global validation
+  const sensorCliScopeRoot = await mkdtemp(path.join(tmpdir(), "pbq-sensor-cli-scope-"));
+  try {
+    const initSensorCliScope = spawnSync(process.execPath, [cli, "init", sensorCliScopeRoot], { encoding: "utf8" });
+    assert.equal(initSensorCliScope.status, 0, initSensorCliScope.stderr || initSensorCliScope.stdout);
+    const sensorCliScopePath = path.join(sensorCliScopeRoot, ".plan-build-qa/sensors.json");
+
+    const addGlobalScope = spawnSync(
+      process.execPath,
+      [cli, "sensor", "add", sensorCliScopeRoot, "--name", "scoped-global", "--scope", "global", "--tier", "fast", "--command", "node -e \"console.log('scope')\""],
+      { encoding: "utf8" }
+    );
+    assert.equal(addGlobalScope.status, 0, addGlobalScope.stderr || addGlobalScope.stdout);
+    let sensorCliScopeData = JSON.parse(await readFile(sensorCliScopePath, "utf8"));
+    assert.equal(
+      sensorCliScopeData.sensors.find((sensor) => sensor.name === "scoped-global").scope,
+      "global",
+      "AC1: sensor add --scope global deve persistir scope global"
+    );
+
+    const addDefaultScope = spawnSync(
+      process.execPath,
+      [cli, "sensor", "add", sensorCliScopeRoot, "--name", "default-global", "--tier", "fast", "--command", "node -e \"console.log('default')\""],
+      { encoding: "utf8" }
+    );
+    assert.equal(addDefaultScope.status, 0, addDefaultScope.stderr || addDefaultScope.stdout);
+    sensorCliScopeData = JSON.parse(await readFile(sensorCliScopePath, "utf8"));
+    assert.equal(
+      sensorCliScopeData.sensors.find((sensor) => sensor.name === "default-global").scope,
+      "global",
+      "AC2: sensor add sem --scope deve persistir como global"
+    );
+
+    const beforeLocalReject = await readFile(sensorCliScopePath, "utf8");
+    const addLocalScope = spawnSync(
+      process.execPath,
+      [cli, "sensor", "add", sensorCliScopeRoot, "--name", "local-registry", "--scope", "local", "--tier", "fast", "--command", "echo local"],
+      { encoding: "utf8" }
+    );
+    assert.notEqual(addLocalScope.status, 0, "AC3: sensor add --scope local deve falhar");
+    assert.match(addLocalScope.stderr + addLocalScope.stdout, /Sensores locais devem ser declarados no contrato/, "AC3: rejeicao local deve orientar contrato");
+    assert.equal(await readFile(sensorCliScopePath, "utf8"), beforeLocalReject, "AC3: rejeicao local nao deve alterar sensors.json");
+
+    const addPackageScope = spawnSync(
+      process.execPath,
+      [cli, "sensor", "add", sensorCliScopeRoot, "--name", "package-registry", "--scope", "package", "--tier", "fast", "--command", "echo package"],
+      { encoding: "utf8" }
+    );
+    assert.notEqual(addPackageScope.status, 0, "AC3: sensor add --scope package deve falhar");
+    assert.match(addPackageScope.stderr + addPackageScope.stdout, /Sensores locais devem ser declarados no contrato/, "AC3: rejeicao package deve orientar contrato");
+    assert.equal(await readFile(sensorCliScopePath, "utf8"), beforeLocalReject, "AC3: rejeicao package nao deve alterar sensors.json");
+
+    const listScope = spawnSync(process.execPath, [cli, "sensor", "list", sensorCliScopeRoot], { encoding: "utf8" });
+    assert.equal(listScope.status, 0, listScope.stderr || listScope.stdout);
+    assert.match(listScope.stdout, /enabled\tglobal\tfast\tscoped-global/, "AC4: sensor list deve mostrar scope global");
+    assert.match(listScope.stdout, /enabled\tglobal\tfast\tdefault-global/, "AC4: sensor list deve mostrar default global");
+  } finally {
+    await rm(sensorCliScopeRoot, { recursive: true, force: true });
+  }
+
+  const analyzeLocalOkRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-local-ok-"));
+  try {
+    const initAnalyzeLocalOk = spawnSync(process.execPath, [cli, "init", analyzeLocalOkRoot], { encoding: "utf8" });
+    assert.equal(initAnalyzeLocalOk.status, 0, initAnalyzeLocalOk.stderr || initAnalyzeLocalOk.stdout);
+    await mkdir(path.join(analyzeLocalOkRoot, ".plan-build-qa/specs/spec-025-local-ok/contracts"), { recursive: true });
+    await writeFile(
+      path.join(analyzeLocalOkRoot, ".plan-build-qa/roadmap.md"),
+      `# Roadmap
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-025-local-ok | em andamento | 1 | 2026-06-28 | teste | validar |
+`
+    );
+    await writeFile(
+      path.join(analyzeLocalOkRoot, ".plan-build-qa/specs/spec-025-local-ok/spec.md"),
+      `# Spec: spec-025-local-ok
+
+## Packages
+
+| Package | Objetivo | Estado | Sensores |
+| --- | --- | --- | --- |
+| 1 | Local ok | planejado | local-ok |
+`
+    );
+    await writeFile(
+      path.join(analyzeLocalOkRoot, ".plan-build-qa/specs/spec-025-local-ok/progress.md"),
+      "# Progress\n\n## Package Atual\n\nPackage 1\n\n## Packages Concluidos\n\n_(nenhum)_\n"
+    );
+    await writeFile(
+      path.join(analyzeLocalOkRoot, ".plan-build-qa/specs/spec-025-local-ok/contracts/package-1.md"),
+      `# Contract: Package 1
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando |
+| --- | --- | --- | --- |
+| local-ok | local | fast | node -e "console.log('ok')" |
+`
+    );
+    const analyzeLocalOk = spawnSync(process.execPath, [cli, "analyze", analyzeLocalOkRoot], { encoding: "utf8" });
+    assert.equal(analyzeLocalOk.status, 0, analyzeLocalOk.stderr || analyzeLocalOk.stdout);
+    assert.doesNotMatch(analyzeLocalOk.stdout + analyzeLocalOk.stderr, /local-ok" nao cadastrado em sensors\.json/, "AC5: local com comando nao deve exigir registry global");
+  } finally {
+    await rm(analyzeLocalOkRoot, { recursive: true, force: true });
+  }
+
+  const analyzeLocalMissingRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-local-missing-"));
+  try {
+    const initAnalyzeLocalMissing = spawnSync(process.execPath, [cli, "init", analyzeLocalMissingRoot], { encoding: "utf8" });
+    assert.equal(initAnalyzeLocalMissing.status, 0, initAnalyzeLocalMissing.stderr || initAnalyzeLocalMissing.stdout);
+    await mkdir(path.join(analyzeLocalMissingRoot, ".plan-build-qa/specs/spec-025-local-missing/contracts"), { recursive: true });
+    await writeFile(
+      path.join(analyzeLocalMissingRoot, ".plan-build-qa/roadmap.md"),
+      `# Roadmap
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-025-local-missing | em andamento | 1 | 2026-06-28 | teste | validar |
+`
+    );
+    await writeFile(
+      path.join(analyzeLocalMissingRoot, ".plan-build-qa/specs/spec-025-local-missing/spec.md"),
+      `# Spec: spec-025-local-missing
+
+## Packages
+
+| Package | Objetivo | Estado | Sensores |
+| --- | --- | --- | --- |
+| 1 | Local missing | planejado | local-missing-command |
+`
+    );
+    await writeFile(
+      path.join(analyzeLocalMissingRoot, ".plan-build-qa/specs/spec-025-local-missing/progress.md"),
+      "# Progress\n\n## Package Atual\n\nPackage 1\n\n## Packages Concluidos\n\n_(nenhum)_\n"
+    );
+    await writeFile(
+      path.join(analyzeLocalMissingRoot, ".plan-build-qa/specs/spec-025-local-missing/contracts/package-1.md"),
+      `# Contract: Package 1
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando |
+| --- | --- | --- | --- |
+| local-missing-command | local | fast |  |
+`
+    );
+    const analyzeLocalMissing = spawnSync(process.execPath, [cli, "analyze", analyzeLocalMissingRoot], { encoding: "utf8" });
+    assert.notEqual(analyzeLocalMissing.status, 0, "AC6: local sem comando deve falhar no analyze");
+    assert.match(
+      analyzeLocalMissing.stdout + analyzeLocalMissing.stderr,
+      /sensor local obrigatorio "local-missing-command" sem comando no contrato/,
+      "AC6: local sem comando deve ter diagnostico proprio"
+    );
+  } finally {
+    await rm(analyzeLocalMissingRoot, { recursive: true, force: true });
+  }
+
+  const analyzeGlobalMissingRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-global-missing-"));
+  try {
+    const initAnalyzeGlobalMissing = spawnSync(process.execPath, [cli, "init", analyzeGlobalMissingRoot], { encoding: "utf8" });
+    assert.equal(initAnalyzeGlobalMissing.status, 0, initAnalyzeGlobalMissing.stderr || initAnalyzeGlobalMissing.stdout);
+    await mkdir(path.join(analyzeGlobalMissingRoot, ".plan-build-qa/specs/spec-025-global-missing/contracts"), { recursive: true });
+    await writeFile(
+      path.join(analyzeGlobalMissingRoot, ".plan-build-qa/roadmap.md"),
+      `# Roadmap
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-025-global-missing | em andamento | 1 | 2026-06-28 | teste | validar |
+`
+    );
+    await writeFile(
+      path.join(analyzeGlobalMissingRoot, ".plan-build-qa/specs/spec-025-global-missing/spec.md"),
+      `# Spec: spec-025-global-missing
+
+## Packages
+
+| Package | Objetivo | Estado | Sensores |
+| --- | --- | --- | --- |
+| 1 | Global missing | planejado | missing-global |
+`
+    );
+    await writeFile(
+      path.join(analyzeGlobalMissingRoot, ".plan-build-qa/specs/spec-025-global-missing/progress.md"),
+      "# Progress\n\n## Package Atual\n\nPackage 1\n\n## Packages Concluidos\n\n_(nenhum)_\n"
+    );
+    await writeFile(
+      path.join(analyzeGlobalMissingRoot, ".plan-build-qa/specs/spec-025-global-missing/contracts/package-1.md"),
+      `# Contract: Package 1
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando |
+| --- | --- | --- | --- |
+| missing-global | global | fast |  |
+`
+    );
+    const analyzeGlobalMissing = spawnSync(process.execPath, [cli, "analyze", analyzeGlobalMissingRoot], { encoding: "utf8" });
+    assert.notEqual(analyzeGlobalMissing.status, 0, "AC7: global ausente deve continuar falhando");
+    assert.match(
+      analyzeGlobalMissing.stdout + analyzeGlobalMissing.stderr,
+      /sensor obrigatorio "missing-global" nao cadastrado em sensors\.json/,
+      "AC7: global ausente deve manter diagnostico existente"
+    );
+  } finally {
+    await rm(analyzeGlobalMissingRoot, { recursive: true, force: true });
+  }
+
+  const analyzeLocalFailedRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-local-failed-"));
+  try {
+    const initAnalyzeLocalFailed = spawnSync(process.execPath, [cli, "init", analyzeLocalFailedRoot], { encoding: "utf8" });
+    assert.equal(initAnalyzeLocalFailed.status, 0, initAnalyzeLocalFailed.stderr || initAnalyzeLocalFailed.stdout);
+    await mkdir(path.join(analyzeLocalFailedRoot, ".plan-build-qa/specs/spec-025-local-failed/contracts"), { recursive: true });
+    await mkdir(path.join(analyzeLocalFailedRoot, ".plan-build-qa/specs/spec-025-local-failed/evaluations"), { recursive: true });
+    await writeFile(
+      path.join(analyzeLocalFailedRoot, ".plan-build-qa/roadmap.md"),
+      `# Roadmap
+
+| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-025-local-failed | em andamento | 1 | 2026-06-28 | teste | validar |
+`
+    );
+    await writeFile(
+      path.join(analyzeLocalFailedRoot, ".plan-build-qa/specs/spec-025-local-failed/spec.md"),
+      `# Spec: spec-025-local-failed
+
+## Packages
+
+| Package | Objetivo | Estado | Sensores |
+| --- | --- | --- | --- |
+| 1 | Local failed | planejado | local-fail |
+`
+    );
+    await writeFile(
+      path.join(analyzeLocalFailedRoot, ".plan-build-qa/specs/spec-025-local-failed/progress.md"),
+      "# Progress\n\n## Package Atual\n\nPackage 1\n\n## Packages Concluidos\n\n- Package 1\n"
+    );
+    await writeFile(
+      path.join(analyzeLocalFailedRoot, ".plan-build-qa/specs/spec-025-local-failed/contracts/package-1.md"),
+      `# Contract: Package 1
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando |
+| --- | --- | --- | --- |
+| local-fail | local | fast | node -e "process.exit(1)" |
+`
+    );
+    await writeFile(
+      path.join(analyzeLocalFailedRoot, ".plan-build-qa/specs/spec-025-local-failed/evaluations/package-1.md"),
+      `# Evaluation: Package 1
+
+Score: 1
+
+| Sensor | Tier | Obrigatorio | Status | Exit Code | Evidencia |
+| --- | --- | --- | --- | --- | --- |
+| local-fail | fast | sim | falhou | 1 | falhou |
+`
+    );
+    const analyzeLocalFailed = spawnSync(process.execPath, [cli, "analyze", analyzeLocalFailedRoot], { encoding: "utf8" });
+    assert.notEqual(analyzeLocalFailed.status, 0, "AC8: evaluation local falha deve violar enforcement");
+    assert.match(
+      analyzeLocalFailed.stdout + analyzeLocalFailed.stderr,
+      /sensor obrigat.rio "local-fail" n.o passou na evaluation/,
+      "AC8: enforcement por nome deve continuar para sensor local"
+    );
+  } finally {
+    await rm(analyzeLocalFailedRoot, { recursive: true, force: true });
   }
 } finally {
   await rm(root, { recursive: true, force: true });
