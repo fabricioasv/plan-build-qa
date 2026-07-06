@@ -43,6 +43,7 @@ Use estes valores:
 | spec-025-sensor-scope-local-global | concluido | 4 | 2026-06-29 | Packages 1, 2, 3 e 4 fechados com Score 1. P1: `scope` normalizado em memoria e parser de sensores locais em contrato. P2: `package close` executa a uniao entre sensores por tier/evento, globais obrigatorios e locais inline, com pendentes e deduplicacao. P3: `pbq sensor add/list --scope` e `pbq analyze` distinguem local/global sem exigir registry para local com comando. P4: constitution, templates e skills orientam registry global, sensores locais em contrato/evaluation e promocao local -> global explicita. | - |
 | spec-260704-a7f3-non-sequential-spec-ids | concluido | 1 | 2026-07-04 | Package 1 fechado com Score 1 (`evaluations/package-1.md`). `pbq update` migra specs legadas `spec-NNN-slug` para `spec-YYMMDD-hex-slug` usando a data de criacao de `spec.md`, atualiza roadmap, e analyze aceita novo padrao preservando legado. Sensores `pbq-analyze` e `npm-run-test` passaram. | - |
 | spec-260705-b9c1-non-sequential-bug-ids | concluido | 1 | 2026-07-05 | Package 1 fechado com Score 1 (`evaluations/package-1.md`). `pbq update` migra bugs legados `bug-NNN-slug` para `bug-YYMMDD-hex-slug` usando a data de criacao de `bug.md`; README de bugs e skills `/bug` orientam o novo padrao preservando legado. Sensores `pbq-analyze` e `npm-run-test` passaram. | - |
+| spec-260706-c1a9-update-migration-empty-duplicates | concluido | 1 | 2026-07-06 | Package 1 fechado com Score 1 (`evaluations/package-1.md`). `pbq update` agora remove somente diretorios modernos vazios com mesmo slug durante migracao de specs/bugs legados, preserva duplicatas populadas e emite warning por slug duplicado. | - |
 
 ## Sequenciamento Sugerido
 
@@ -75,6 +76,7 @@ Use estes valores:
 26. `spec-025-sensor-scope-local-global` (separa sensores globais permanentes de sensores locais de package; preparar saneamento posterior de repositorios como MAX)
 27. `spec-260704-a7f3-non-sequential-spec-ids` (substitui sequencial obrigatorio por `spec-YYMMDD-hex-slug`, com migracao no `pbq update`)
 28. `spec-260705-b9c1-non-sequential-bug-ids` (aplica `bug-YYMMDD-hex-slug` e migracao de bugs legados no `pbq update`)
+29. `spec-260706-c1a9-update-migration-empty-duplicates` (torna migracao do `pbq update` idempotente diante de diretorios modernos vazios por slug)
 
 ## Decisoes De Roadmap
 
@@ -94,3 +96,4 @@ Use estes valores:
 - 2026-06-28: Adicionar `spec-025-sensor-scope-local-global` apos observar em `C:\dti\netview\max` que o registry de sensores cresce misturando invariantes permanentes, matriz operacional e checks especificos de packages antigos. Decisao: evoluir primeiro o PBQ com escopo local/global; limpar o MAX somente depois, via spec propria no repositorio alvo.
 - 2026-07-04: Adicionar `spec-260704-a7f3-non-sequential-spec-ids` apos risco de conflito por numeracao sequencial em branches paralelos. Decisao: novo padrao `spec-YYMMDD-hex-slug`, com `pbq update` migrando specs legadas materializadas a partir da data de criacao de `spec.md`.
 - 2026-07-05: Adicionar `spec-260705-b9c1-non-sequential-bug-ids` apos observar que registros de bug sequenciais sofrem o mesmo conflito entre branches. Decisao: novo padrao `bug-YYMMDD-hex-slug`, com `pbq update` migrando bugs legados materializados a partir da data de criacao de `bug.md`.
+- 2026-07-06: Adicionar `spec-260706-c1a9-update-migration-empty-duplicates` apos observar em repositorio consumidor que `pbq update` deixava diretorios modernos vazios com mesmo slug e hash diferente durante migracao/reexecucao. Decisao: limpar somente tentativas modernas vazias e avisar duplicidade por slug.

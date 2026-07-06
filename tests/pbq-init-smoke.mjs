@@ -1340,11 +1340,15 @@ Nenhum.
     );
     const legacySpecStat = await stat(legacySpecPath);
     const expectedDateId = formatTestSpecDateId(legacySpecStat.birthtimeMs > 0 ? legacySpecStat.birthtime : legacySpecStat.mtime);
+    const emptyModernSpecDir = path.join(updateMigrationRoot, ".plan-build-qa", "specs", `spec-${expectedDateId}-0000-legacy-demo`);
+    await mkdir(emptyModernSpecDir, { recursive: true });
     const updateMigration = spawnSync(process.execPath, [cli, "update", updateMigrationRoot], { encoding: "utf8" });
     assert.equal(updateMigration.status, 0, updateMigration.stderr || updateMigration.stdout);
     assert.match(updateMigration.stdout, /Spec migrated: spec-001-legacy-demo -> spec-\d{6}-[0-9a-f]{4}-legacy-demo/);
+    assert.match(updateMigration.stdout, /Empty spec directory removed: spec-\d{6}-0000-legacy-demo/);
     assert.match(updateMigration.stdout, /Roadmap spec references updated/);
     assert.equal(existsSync(legacySpecDir), false, "diretorio legado deve ser renomeado");
+    assert.equal(existsSync(emptyModernSpecDir), false, "diretorio moderno vazio com mesmo slug deve ser limpo");
     const migratedNames = (await readDirNames(path.join(updateMigrationRoot, ".plan-build-qa", "specs")))
       .filter((name) => name.includes("legacy-demo"));
     assert.equal(migratedNames.length, 1, "deve existir exatamente uma spec migrada");
@@ -1367,10 +1371,14 @@ Nenhum.
     await writeFile(path.join(legacyBugDir, "progress.md"), "# Progress\n");
     const legacyBugStat = await stat(legacyBugPath);
     const expectedBugDateId = formatTestSpecDateId(legacyBugStat.birthtimeMs > 0 ? legacyBugStat.birthtime : legacyBugStat.mtime);
+    const emptyModernBugDir = path.join(bugUpdateMigrationRoot, ".plan-build-qa", "bugs", `bug-${expectedBugDateId}-0000-legacy-demo`);
+    await mkdir(emptyModernBugDir, { recursive: true });
     const updateBugMigration = spawnSync(process.execPath, [cli, "update", bugUpdateMigrationRoot], { encoding: "utf8" });
     assert.equal(updateBugMigration.status, 0, updateBugMigration.stderr || updateBugMigration.stdout);
     assert.match(updateBugMigration.stdout, /Bug migrated: bug-001-legacy-demo -> bug-\d{6}-[0-9a-f]{4}-legacy-demo/);
+    assert.match(updateBugMigration.stdout, /Empty bug directory removed: bug-\d{6}-0000-legacy-demo/);
     assert.equal(existsSync(legacyBugDir), false, "diretorio legado de bug deve ser renomeado");
+    assert.equal(existsSync(emptyModernBugDir), false, "diretorio moderno vazio de bug com mesmo slug deve ser limpo");
     const migratedBugNames = (await readDirNames(path.join(bugUpdateMigrationRoot, ".plan-build-qa", "bugs")))
       .filter((name) => name.includes("legacy-demo"));
     assert.equal(migratedBugNames.length, 1, "deve existir exatamente um bug migrado");
@@ -1378,6 +1386,40 @@ Nenhum.
     assert.ok(existsSync(path.join(bugUpdateMigrationRoot, ".plan-build-qa", "bugs", migratedBugNames[0], "bug.md")), "bug.md deve permanecer no diretorio migrado");
   } finally {
     await rm(bugUpdateMigrationRoot, { recursive: true, force: true });
+  }
+
+  const duplicateModernRoot = await mkdtemp(path.join(tmpdir(), "pbq-update-modern-duplicates-"));
+  try {
+    const initDuplicateModern = spawnSync(process.execPath, [cli, "init", duplicateModernRoot], { encoding: "utf8" });
+    assert.equal(initDuplicateModern.status, 0, initDuplicateModern.stderr || initDuplicateModern.stdout);
+    const specsRoot = path.join(duplicateModernRoot, ".plan-build-qa", "specs");
+    const bugsRoot = path.join(duplicateModernRoot, ".plan-build-qa", "bugs");
+    const firstSpecDuplicate = path.join(specsRoot, "spec-260706-1111-duplicate-demo");
+    const secondSpecDuplicate = path.join(specsRoot, "spec-260706-2222-duplicate-demo");
+    const firstBugDuplicate = path.join(bugsRoot, "bug-260706-1111-duplicate-demo");
+    const secondBugDuplicate = path.join(bugsRoot, "bug-260706-2222-duplicate-demo");
+    await mkdir(firstSpecDuplicate, { recursive: true });
+    await mkdir(secondSpecDuplicate, { recursive: true });
+    await mkdir(firstBugDuplicate, { recursive: true });
+    await mkdir(secondBugDuplicate, { recursive: true });
+    await writeFile(path.join(firstSpecDuplicate, "spec.md"), "# Spec: Duplicate Demo\n");
+    await writeFile(path.join(secondSpecDuplicate, "spec.md"), "# Spec: Duplicate Demo\n");
+    await writeFile(path.join(firstBugDuplicate, "bug.md"), "# Bug: Duplicate Demo\n");
+    await writeFile(path.join(secondBugDuplicate, "bug.md"), "# Bug: Duplicate Demo\n");
+    const duplicateUpdate = spawnSync(process.execPath, [cli, "update", duplicateModernRoot], { encoding: "utf8" });
+    assert.equal(duplicateUpdate.status, 0, duplicateUpdate.stderr || duplicateUpdate.stdout);
+    assert.match(
+      duplicateUpdate.stdout,
+      /Warning: duplicate spec slug "duplicate-demo": spec-260706-1111-duplicate-demo, spec-260706-2222-duplicate-demo/,
+      "update deve avisar duplicidade moderna populada por slug"
+    );
+    assert.match(
+      duplicateUpdate.stdout,
+      /Warning: duplicate bug slug "duplicate-demo": bug-260706-1111-duplicate-demo, bug-260706-2222-duplicate-demo/,
+      "update deve avisar duplicidade moderna populada por slug em bugs"
+    );
+  } finally {
+    await rm(duplicateModernRoot, { recursive: true, force: true });
   }
 
   const second = spawnSync(process.execPath, [cli, "init", root], {

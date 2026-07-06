@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rmdir, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -1567,7 +1567,10 @@ async function migrateLegacySpecDirectories(root, options, events) {
   const specsRoot = path.join(root, HARNESS_DIR, "specs");
   if (!existsSync(specsRoot)) return;
 
-  const entries = await readdir(specsRoot, { withFileTypes: true });
+  let entries = await readdir(specsRoot, { withFileTypes: true });
+  recordModernSlugDuplicateWarnings(entries, "spec", events);
+  await cleanupEmptyModernDuplicateDirectories(specsRoot, "spec", entries, options, events);
+  entries = await readdir(specsRoot, { withFileTypes: true });
   const renames = [];
   const occupiedNames = new Set(entries.map((entry) => entry.name));
 
@@ -1579,6 +1582,8 @@ async function migrateLegacySpecDirectories(root, options, events) {
     const specPath = path.join(specsRoot, oldName, "spec.md");
     if (!existsSync(specPath)) continue;
 
+    const slug = legacyDirectorySlug("spec", oldName);
+    await cleanupEmptyModernDirectoriesForSlug(specsRoot, "spec", slug, occupiedNames, options, events);
     const newName = await buildMigratedSpecName(specPath, oldName, occupiedNames);
     if (newName === oldName) continue;
 
@@ -1603,7 +1608,10 @@ async function migrateLegacyBugDirectories(root, options, events) {
   const bugsRoot = path.join(root, HARNESS_DIR, "bugs");
   if (!existsSync(bugsRoot)) return;
 
-  const entries = await readdir(bugsRoot, { withFileTypes: true });
+  let entries = await readdir(bugsRoot, { withFileTypes: true });
+  recordModernSlugDuplicateWarnings(entries, "bug", events);
+  await cleanupEmptyModernDuplicateDirectories(bugsRoot, "bug", entries, options, events);
+  entries = await readdir(bugsRoot, { withFileTypes: true });
   const renames = [];
   const occupiedNames = new Set(entries.map((entry) => entry.name));
 
@@ -1615,6 +1623,8 @@ async function migrateLegacyBugDirectories(root, options, events) {
     const bugPath = path.join(bugsRoot, oldName, "bug.md");
     if (!existsSync(bugPath)) continue;
 
+    const slug = legacyDirectorySlug("bug", oldName);
+    await cleanupEmptyModernDirectoriesForSlug(bugsRoot, "bug", slug, occupiedNames, options, events);
     const newName = await buildMigratedBugName(bugPath, oldName, occupiedNames);
     if (newName === oldName) continue;
 
@@ -1659,6 +1669,79 @@ async function buildMigratedBugName(bugPath, oldName, occupiedNames) {
   }
 
   throw new Error(`Nao foi possivel gerar nome unico para ${oldName}.`);
+}
+
+function recordModernSlugDuplicateWarnings(entries, prefix, events) {
+  for (const [slug, names] of modernDirectoriesBySlug(entries, prefix)) {
+    if (names.length > 1) {
+      events.push({ type: "modern-slug-duplicate", kind: prefix, slug, names });
+    }
+  }
+}
+
+async function cleanupEmptyModernDuplicateDirectories(root, prefix, entries, options, events) {
+  for (const [slug, names] of modernDirectoriesBySlug(entries, prefix)) {
+    if (names.length < 2) continue;
+
+    const emptyNames = [];
+    const populatedNames = [];
+    for (const name of names) {
+      if (await isEmptyDirectory(path.join(root, name))) emptyNames.push(name);
+      else populatedNames.push(name);
+    }
+
+    if (populatedNames.length === 0) continue;
+    for (const name of emptyNames) {
+      await cleanupEmptyModernDirectory(root, prefix, slug, name, options, events);
+    }
+  }
+}
+
+async function cleanupEmptyModernDirectoriesForSlug(root, prefix, slug, occupiedNames, options, events) {
+  for (const name of [...occupiedNames]) {
+    if (modernDirectorySlug(prefix, name) !== slug) continue;
+    if (!(await isEmptyDirectory(path.join(root, name)))) continue;
+    await cleanupEmptyModernDirectory(root, prefix, slug, name, options, events);
+    occupiedNames.delete(name);
+  }
+}
+
+async function cleanupEmptyModernDirectory(root, prefix, slug, name, options, events) {
+  if (!options.dryRun) {
+    await rmdir(path.join(root, name));
+  }
+  events.push({ type: "empty-modern-cleanup", kind: prefix, slug, name });
+}
+
+function modernDirectoriesBySlug(entries, prefix) {
+  const groups = new Map();
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const slug = modernDirectorySlug(prefix, entry.name);
+    if (!slug) continue;
+    const names = groups.get(slug) || [];
+    names.push(entry.name);
+    groups.set(slug, names);
+  }
+  return groups;
+}
+
+function modernDirectorySlug(prefix, name) {
+  const match = String(name || "").match(new RegExp(`^${prefix}-\\d{6}-[0-9a-f]{4}-(.+)$`, "i"));
+  return match ? normalizeSpecSlug(match[1]) : "";
+}
+
+function legacyDirectorySlug(prefix, name) {
+  const match = String(name || "").match(new RegExp(`^${prefix}-\\d{3}-(.+)$`, "i"));
+  return match ? normalizeSpecSlug(match[1]) : "";
+}
+
+async function isEmptyDirectory(dirPath) {
+  try {
+    return (await readdir(dirPath)).length === 0;
+  } catch {
+    return false;
+  }
 }
 
 function formatSpecDateId(date) {
@@ -1758,6 +1841,14 @@ function printUpdateSummary(targetRoot, events, options, catalogCount = 0) {
   }
   for (const event of grouped["bug-migrate"] || []) {
     console.log(`[pbq] Bug migrated: ${event.oldName} -> ${event.newName}`);
+  }
+  for (const event of grouped["empty-modern-cleanup"] || []) {
+    const action = options.dryRun ? "Would remove empty" : "Empty";
+    const suffix = options.dryRun ? "" : " removed";
+    console.log(`[pbq] ${action} ${event.kind} directory${suffix}: ${event.name}`);
+  }
+  for (const event of grouped["modern-slug-duplicate"] || []) {
+    console.log(`[pbq] Warning: duplicate ${event.kind} slug "${event.slug}": ${event.names.join(", ")}`);
   }
   if ((grouped["roadmap-spec-migrate"] || []).length > 0) {
     console.log("[pbq] Roadmap spec references updated.");
