@@ -7,6 +7,7 @@ Este arquivo consolida regras existentes detectadas no repositorio durante o boo
 - AGENTS.md
 - CLAUDE.md
 - README.md
+- templates/bugs/README.md
 - templates/specs/README.md
 
 ## Trechos Operacionais Extraidos
@@ -38,9 +39,17 @@ Este arquivo consolida regras existentes detectadas no repositorio durante o boo
   - .\.plan-build-qa\harness\scripts\run-medium.ps1
   - .\.plan-build-qa\harness\scripts\run-slow.ps1
 
+### templates/bugs/README.md
+
+  - Registros de bugs observados ficam em `.plan-build-qa/bugs/`.
+  - .plan-build-qa/bugs/bug-YYMMDD-hex-slug/
+  - Cada bug deve preservar evidencia suficiente para outro agente continuar sem depender da memoria da sessao anterior.
+  - 2. Correcao: mudanca aplicada, arquivos tocados, limites e rollback.
+  - Use os templates em `.plan-build-qa/harness/templates/bug.md` e `.plan-build-qa/harness/templates/bug-progress.md`.
+
 ### templates/specs/README.md
 
-  - .plan-build-qa/specs/spec-XXX-nome/
+  - .plan-build-qa/specs/spec-YYMMDD-hex-nome/
   - Cada package deve ser pequeno, reversivel e validavel.
   - Use os templates em `.plan-build-qa/harness/templates/`.
 

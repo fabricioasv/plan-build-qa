@@ -29,7 +29,7 @@ Top-level detectado:
 
 Sinais de camadas/modulos:
 
-- Infrastructure: templates/adapters/skills/analyze, templates/adapters/skills/constitution, templates/adapters/skills/implement, templates/adapters/skills/roadmap, templates/adapters/skills/sensor, templates/adapters/skills/spec, templates/adapters/skills/test
+- Infrastructure: templates/adapters/skills/analyze, templates/adapters/skills/bug, templates/adapters/skills/constitution, templates/adapters/skills/implement, templates/adapters/skills/roadmap, templates/adapters/skills/sensor, templates/adapters/skills/spec, templates/adapters/skills/test
 - Tests: .agents/skills/spec, .agents/skills/test, templates/adapters/skills/spec, templates/adapters/skills/test, templates/specs, tests
 
 Conectores e fronteiras tecnicas:
