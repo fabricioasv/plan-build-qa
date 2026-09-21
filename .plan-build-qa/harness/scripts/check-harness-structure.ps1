@@ -22,8 +22,11 @@ $Required = @(
   ".plan-build-qa\harness\templates\contract.md",
   ".plan-build-qa\harness\templates\progress.md",
   ".plan-build-qa\harness\templates\evaluation.md",
+  ".plan-build-qa\harness\templates\bug.md",
+  ".plan-build-qa\harness\templates\bug-progress.md",
   ".plan-build-qa\roadmap.md",
   ".plan-build-qa\specs\README.md",
+  ".plan-build-qa\bugs\README.md",
   ".plan-build-qa\sensors.json",
   ".plan-build-qa\manifest.json"
 )
