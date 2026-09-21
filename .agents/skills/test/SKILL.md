@@ -38,10 +38,13 @@ The harness flow is a pipeline of 5 stages: `1. spec` -> `2. contract (validacao
 Applies when a contract was just created or updated and there is no new code to verify yet. Validate that the contract is well-formed and verifiable:
 
 1. Read `.plan-build-qa/constitution/testing.md`.
-2. Read `contracts/package-N.md` for the active spec.
-3. Confirm objective acceptance criteria, allowed/forbidden files, rollback note, and required sensors are present.
-4. Confirm every required sensor named in the contract is registered in `.plan-build-qa/sensors.json`.
-5. Report gaps as blocking. Do not run code sensors in this mode (there is nothing new to execute).
+2. Prefer the lightweight mechanical gate:
+   `pbq contract check . --spec <spec> --package <N>`.
+3. If the contract path is known but the spec/package pair is not, use:
+   `pbq contract check . --contract <path>`.
+4. Treat any non-zero exit as blocking and report the command output directly.
+5. Only after the command passes, do a short contextual review for ambiguity or scope risk that a mechanical checker cannot decide.
+6. Do not read roadmap, progress, or evaluations for the mechanical checks. Do not run code sensors in this mode (there is nothing new to execute).
 
 ### acceptance-check (stage 4)
 
@@ -52,7 +55,9 @@ Applies after `implement` produces code against the contract. Verify the impleme
 3. Prefer `pbq package close . --spec <spec> --package <N> --tiers <tiers>` for enforced execution and evaluation generation. The evaluation's Evidence column is auto-populated with real stdout/stderr output.
 4. For exploratory validation, use `.plan-build-qa/harness/scripts/run-close.ps1` or `run-close.sh` (event-based runners).
 5. **REQUIRED**: record every required sensor in the evaluation table with status, command, exit code, and evidence.
-6. If a required sensor cannot run, mark it `pendente` and keep `Score: 0`.
+6. A required global sensor must exist in `.plan-build-qa/sensors.json`; `Scope: local` and `Scope: package` sensors are contract-local and do not require global registry entries.
+7. Local required sensors must be enforced by name just like global sensors: if a local sensor is absent, `falhou`, or `pendente`, keep `Score: 0`.
+8. If a required sensor cannot run, mark it `pendente` and keep `Score: 0`.
 
 ### Inferring the mode
 

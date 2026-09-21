@@ -6,7 +6,7 @@ Descreva o erro observado em uma frase verificavel.
 
 ## Estado
 
-Use um destes estados: `investigando`, `corrigindo`, `em teste`, `resolvido`, `bloqueado`, `cancelado`.
+Use um destes estados: `investigando`, `encaminhado`, `resolvido`, `bloqueado`, `cancelado`.
 
 ## Investigacao
 
@@ -21,19 +21,21 @@ Registre:
 
 ## Correcao
 
-Registre:
+Registro posterior, preenchido a partir de `/implement` quando houver correcao:
 
 - causa confirmada
 - arquivos alterados
-- mudanca aplicada
+- spec/package responsavel
+- mudanca aplicada por `/implement`
 - limites da correcao
 - rollback
 
 ## Teste
 
-Registre:
+Registro posterior, preenchido a partir de `/test` quando houver validacao:
 
-- sensores ou comandos executados
+- evaluation relacionada
+- sensores ou comandos executados por `/test`
 - resultado de cada sensor
 - evidencia objetiva do resultado
 - risco residual, se houver

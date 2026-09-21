@@ -11,6 +11,10 @@ Canonical sensor registry:
 
 - `.plan-build-qa/sensors.json`
 
+`sensors.json` is the registry for **global** reusable sensors only. Use `pbq sensor add --scope global` when a check should become a project invariant available to any package.
+
+Do not create local/package sensors in `sensors.json`. A local sensor belongs in `contracts/package-N.md` with `Scope: local` or `Scope: package`, a concrete command, and a reason; its evidence is recorded in `evaluations/package-N.md`. Promotion local -> global must be an explicit decision, not a side effect of one package.
+
 Generated sensor runners (by event):
 
 - `.plan-build-qa/harness/scripts/run-commit.ps1` / `.sh` — sensors with `on:commit`
@@ -47,17 +51,17 @@ pbq sensor add --from-catalog sonar-dotnet .
 
 ### 4. Adicionar sensor manualmente
 
-For sensors not in the catalog, use `--on` to specify when it runs:
+For global sensors not in the catalog, use `--scope global` and `--on` to specify when it runs:
 
 ```sh
 # run on commit (fast check) and at package close gate
-pbq sensor add . --name lint --on commit,close --command "npm run lint" --reason "Linting"
+pbq sensor add . --name lint --scope global --on commit,close --command "npm run lint" --reason "Linting"
 
 # run only at package close gate (slow or medium)
-pbq sensor add . --name e2e --on close --command "npx playwright test" --reason "E2E smoke"
+pbq sensor add . --name e2e --scope global --on close --command "npx playwright test" --reason "E2E smoke"
 
 # run only on edit (advisory preflight)
-pbq sensor add . --name sonar --on edit --command "sonar.bat" --reason "SonarQube preflight"
+pbq sensor add . --name sonar --scope global --on edit --command "sonar.bat" --reason "SonarQube preflight"
 ```
 
 If the `pbq` executable is not available in the target repository, update `.plan-build-qa/sensors.json` directly and regenerate the affected runner scripts consistently.
@@ -125,6 +129,8 @@ pbq sensor add . --name make-lint --on commit,close --command "make lint" --reas
 ## Regras
 
 - Do not add sensors that only print success without validating behavior.
+- Keep package-specific checks local in the package contract; do not add them to `sensors.json`.
+- Promote local -> global only when the check is a reusable invariant and record the reason.
 - Prefer `on:["commit","close"]` for fast lint/typecheck/unit checks.
 - Use `on:["close"]` for build and full unit/integration checks.
 - Use `on:["close"]` for E2E, browser, external-service, or long-running checks.

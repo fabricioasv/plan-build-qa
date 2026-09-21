@@ -8,7 +8,14 @@
 - Sensores computacionais valem mais que julgamento subjetivo do agente.
 - Todo package deve listar sensores obrigatorios antes da implementacao.
 - Se um sensor nao puder rodar, registre motivo, evidencia e risco residual em `progress.md` e na evaluation.
-- Sensores cadastrados ficam em `.plan-build-qa/sensors.json`.
+- `.plan-build-qa/sensors.json` e o registry de sensores globais reutilizaveis.
+
+## Escopo local/global
+
+- Sensor global: fica em `.plan-build-qa/sensors.json`, pode ser reutilizado por qualquer contrato e deve ser adicionado com `pbq sensor add --scope global` ou edicao equivalente.
+- Sensor local: vive no `contracts/package-N.md` e na `evaluations/package-N.md` do package, com `Scope: local` ou `Scope: package`, comando preenchido e motivo objetivo.
+- Sensor local obrigatorio tambem passa pelo gate: ele deve aparecer na evaluation e precisa ter status `passou` para `Score: 1`.
+- Promocao local -> global e decisao explicita. Nao promova checks historicos, temporarios ou especificos de um package para o registry global sem novo motivo reutilizavel.
 
 ## Modelo de Gatilho-por-Evento (campo `on`)
 

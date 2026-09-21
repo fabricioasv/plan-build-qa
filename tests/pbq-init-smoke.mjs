@@ -63,6 +63,13 @@ try {
   assert.match(analyzeHelp.stdout, /pbq analyze/);
   assert.match(analyzeHelp.stdout, /Status de saida/);
 
+  const contractHelp = spawnSync(process.execPath, [cli, "help", "contract"], {
+    encoding: "utf8"
+  });
+  assert.equal(contractHelp.status, 0, contractHelp.stderr || contractHelp.stdout);
+  assert.match(contractHelp.stdout, /pbq contract check/);
+  assert.match(contractHelp.stdout, /--contract/);
+
   const dashboardHelp = spawnSync(process.execPath, [cli, "help", "dashboard"], {
     encoding: "utf8"
   });
@@ -84,6 +91,105 @@ try {
   });
   assert.equal(sensorHelpAfterCommand.status, 0, sensorHelpAfterCommand.stderr || sensorHelpAfterCommand.stdout);
   assert.match(sensorHelpAfterCommand.stdout, /pbq sensor add/);
+
+  // spec-260716 package-1: lightweight contract-check does not need roadmap/progress/evaluations
+  const contractCheckRoot = await mkdtemp(path.join(tmpdir(), "pbq-contract-check-"));
+  try {
+    await mkdir(path.join(contractCheckRoot, ".plan-build-qa"), { recursive: true });
+    await writeFile(
+      path.join(contractCheckRoot, ".plan-build-qa/sensors.json"),
+      JSON.stringify(
+        {
+          version: 2,
+          sensors: [{ name: "known-sensor", tier: "fast", command: "echo ok", enabled: true, on: ["close"] }]
+        },
+        null,
+        2
+      )
+    );
+    await mkdir(path.join(contractCheckRoot, ".plan-build-qa/specs/spec-contract/contracts"), { recursive: true });
+
+    const validContract = `# Contract: Package 1
+
+## Objetivo
+
+Validar fixture.
+
+## Arquivos Permitidos
+
+| Caminho | Mudanca |
+| --- | --- |
+| \`fixture.txt\` | Alterar |
+
+## Mudancas Permitidas
+
+- Alterar fixture.
+
+## Criterios de Aceite
+
+1. Fixture valida passa.
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Tier | Comando | Motivo |
+| --- | --- | --- | --- | --- |
+| known-sensor | global | fast |  | Sensor global cadastrado |
+
+## Rollback
+
+Reverter fixture.
+`;
+    const validContractPath = path.join(contractCheckRoot, ".plan-build-qa/specs/spec-contract/contracts/package-1.md");
+    await writeFile(validContractPath, validContract);
+
+    const contractOk = spawnSync(process.execPath, [cli, "contract", "check", contractCheckRoot, "--contract", validContractPath], {
+      encoding: "utf8"
+    });
+    assert.equal(contractOk.status, 0, contractOk.stderr || contractOk.stdout);
+    assert.match(contractOk.stdout, /Contract OK/);
+    assert.ok(contractOk.stdout.trim().split(/\r?\n/).length <= 3, "contract check success output must stay short");
+
+    const contractOkJson = spawnSync(
+      process.execPath,
+      [cli, "contract", "check", contractCheckRoot, "--spec", "spec-contract", "--package", "1", "--json"],
+      { encoding: "utf8" }
+    );
+    assert.equal(contractOkJson.status, 0, contractOkJson.stderr || contractOkJson.stdout);
+    const contractOkData = JSON.parse(contractOkJson.stdout);
+    assert.equal(contractOkData.valid, true);
+    assert.equal(contractOkData.sensors[0].name, "known-sensor");
+
+    const missingAcceptancePath = path.join(contractCheckRoot, "missing-acceptance.md");
+    await writeFile(missingAcceptancePath, validContract.replace(/\n## Criterios de Aceite[\s\S]*?\n## Sensores Obrigatorios/, "\n## Sensores Obrigatorios"));
+    const missingAcceptance = spawnSync(process.execPath, [cli, "contract", "check", contractCheckRoot, "--contract", missingAcceptancePath], {
+      encoding: "utf8"
+    });
+    assert.equal(missingAcceptance.status, 1, "contract without acceptance criteria must fail");
+    assert.match(missingAcceptance.stdout, /Criterios de Aceite/);
+
+    const missingGlobalPath = path.join(contractCheckRoot, "missing-global.md");
+    await writeFile(missingGlobalPath, validContract.replace(/known-sensor/g, "ghost-sensor"));
+    const missingGlobal = spawnSync(process.execPath, [cli, "contract", "check", contractCheckRoot, "--contract", missingGlobalPath], {
+      encoding: "utf8"
+    });
+    assert.equal(missingGlobal.status, 1, "contract with missing global sensor must fail");
+    assert.match(missingGlobal.stdout, /ghost-sensor/);
+
+    const incompleteLocalPath = path.join(contractCheckRoot, "incomplete-local.md");
+    await writeFile(
+      incompleteLocalPath,
+      validContract.replace("| known-sensor | global | fast |  | Sensor global cadastrado |", "| local-check | local | fast |  |  |")
+    );
+    const incompleteLocal = spawnSync(process.execPath, [cli, "contract", "check", contractCheckRoot, "--contract", incompleteLocalPath], {
+      encoding: "utf8"
+    });
+    assert.equal(incompleteLocal.status, 1, "contract with incomplete local sensor must fail");
+    assert.match(incompleteLocal.stdout, /local-check/);
+    assert.match(incompleteLocal.stdout, /Comando/);
+    assert.match(incompleteLocal.stdout, /Motivo/);
+  } finally {
+    await rm(contractCheckRoot, { recursive: true, force: true });
+  }
 
   const result = spawnSync(process.execPath, [cli, "init", root], {
     encoding: "utf8"

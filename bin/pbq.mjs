@@ -84,6 +84,11 @@ async function main() {
     return;
   }
 
+  if (command === "contract") {
+    await runContractCommand(args);
+    return;
+  }
+
   if (command === "package") {
     await runPackageCommand(args);
     return;
@@ -856,6 +861,21 @@ Exemplos:
   pbq analyze . --strict
   pbq analyze C:\\repo\\app`,
 
+    contract: `pbq contract check [path] --contract <arquivo>
+pbq contract check [path] --spec <spec-name> --package <N> [--json]
+
+Valida mecanicamente um contrato sem executar sensores nem carregar roadmap/progress/evaluations.
+
+Flags:
+  --contract  caminho direto para contracts/package-N.md
+  --spec      nome da spec em .plan-build-qa/specs/
+  --package   numero do package quando usar --spec
+  --json      imprime resultado estruturado
+
+Exemplos:
+  pbq contract check . --contract .plan-build-qa/specs/spec-001/contracts/package-1.md
+  pbq contract check . --spec spec-001-login --package 1`,
+
     package: `pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow] [--phase before|after]
 
 Executa sensores cadastrados, gera evaluation em .plan-build-qa/specs/<spec>/evaluations/package-N.md e falha se sensor obrigatorio falhar.
@@ -956,6 +976,7 @@ Comandos:
   update     atualiza templates/skills sem sobrescrever customizacoes
   sensor     adiciona ou lista sensores computacionais
   analyze    valida coerencia minima entre artefatos do harness
+  contract   valida mecanicamente contratos de package
   package    fecha package executando sensores e gerando evaluation
   guard      roda sensores por evento (advisory por default)
   hooks      instala/verifica hook de pre-commit
@@ -969,6 +990,7 @@ Ajuda por comando:
   pbq help update
   pbq help sensor
   pbq help analyze
+  pbq help contract
   pbq help package
   pbq help guard
   pbq help hooks
@@ -980,6 +1002,7 @@ Exemplos:
   pbq update . --dry-run
   pbq sensor list .
   pbq analyze .
+  pbq contract check . --spec spec-001-exemplo --package 1
   pbq package close . --spec spec-001-exemplo --package 1 --tiers fast,medium
   pbq run . --resume`);
 }
@@ -1022,6 +1045,194 @@ async function runAnalyzeCommand(args) {
   if (failed) {
     process.exitCode = 1;
   }
+}
+
+// --- pbq contract ---
+
+async function runContractCommand(args) {
+  const action = args.shift();
+  if (action !== "check") {
+    throw new Error("Uso: pbq contract check [path] --contract <arquivo> OU --spec <spec-name> --package <N>");
+  }
+
+  const options = parseContractCheckArgs(args);
+  const targetRoot = path.resolve(options.targetPath);
+  const result = await checkContract(targetRoot, options);
+
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else if (result.valid) {
+    console.log(`[pbq] Contract OK: ${path.relative(targetRoot, result.contractPath) || result.contractPath} (${result.sensors.length} sensores)`);
+  } else {
+    console.log(`[pbq] Contract invalido: ${path.relative(targetRoot, result.contractPath) || result.contractPath}`);
+    for (const problem of result.problems) console.log(` - ${problem}`);
+  }
+
+  if (!result.valid) process.exitCode = 1;
+}
+
+function parseContractCheckArgs(args) {
+  const options = {
+    targetPath: ".",
+    contractPath: "",
+    spec: "",
+    packageNumber: "",
+    json: false
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--contract") options.contractPath = readOptionValue(args, ++index, "--contract");
+    else if (arg === "--spec") options.spec = readOptionValue(args, ++index, "--spec");
+    else if (arg === "--package") options.packageNumber = readOptionValue(args, ++index, "--package");
+    else if (arg === "--json") options.json = true;
+    else if (arg.startsWith("--")) throw new Error(`Opcao desconhecida: ${arg}`);
+    else options.targetPath = arg;
+  }
+
+  if (options.contractPath && (options.spec || options.packageNumber)) {
+    throw new Error("Use --contract ou --spec/--package, nao ambos.");
+  }
+  if (!options.contractPath && (!options.spec || !options.packageNumber)) {
+    throw new Error("Informe --contract ou --spec e --package.");
+  }
+
+  return options;
+}
+
+async function checkContract(root, options) {
+  const contractPath = resolveContractPath(root, options);
+  if (!existsSync(contractPath)) {
+    return {
+      valid: false,
+      contractPath,
+      problems: [`Contrato nao encontrado: ${contractPath}`],
+      sensors: []
+    };
+  }
+
+  const contract = await readFile(contractPath, "utf8");
+  const sensors = await readSensors(root);
+  const result = validateContractContent(contract, sensors);
+  return {
+    ...result,
+    contractPath
+  };
+}
+
+function resolveContractPath(root, options) {
+  if (options.contractPath) {
+    return path.isAbsolute(options.contractPath)
+      ? options.contractPath
+      : path.resolve(root, options.contractPath);
+  }
+  return path.join(root, HARNESS_DIR, "specs", options.spec, "contracts", `package-${options.packageNumber}.md`);
+}
+
+function validateContractContent(contract, registeredSensors) {
+  const problems = [];
+  const requiredSections = [
+    "Objetivo",
+    "Arquivos Permitidos",
+    "Mudancas Permitidas",
+    "Criterios de Aceite",
+    "Sensores Obrigatorios",
+    "Rollback"
+  ];
+  const sections = parseMarkdownSections(contract);
+
+  for (const section of requiredSections) {
+    const body = sections.get(normalizeHeading(section));
+    if (body === undefined) {
+      problems.push(`secao ausente: ${section}`);
+      continue;
+    }
+    if (sectionHasPlaceholder(body)) {
+      problems.push(`secao ${section} contem placeholder/TODO`);
+    }
+  }
+
+  const acceptance = sections.get(normalizeHeading("Criterios de Aceite"));
+  if (acceptance !== undefined && !hasNonEmptySectionContent(acceptance)) {
+    problems.push("secao Criterios de Aceite sem criterio objetivo");
+  }
+
+  const requiredSensors = parseContractRequiredSensors(contract).filter((sensor) => sensor.hasName);
+  if (requiredSensors.length === 0) {
+    problems.push("nenhum sensor obrigatorio declarado");
+  }
+
+  const registry = new Map(registeredSensors.map((sensor) => [sensor.name, sensor]));
+  const validatedSensors = [];
+  for (const sensor of requiredSensors) {
+    validatedSensors.push({
+      name: sensor.name,
+      scope: sensor.scope,
+      local: sensor.local,
+      registered: registry.has(sensor.name)
+    });
+
+    if (sensor.scope === "local") {
+      if (!sensor.hasCommand) problems.push(`sensor local sem Comando: ${sensor.name}`);
+      if (!sensor.reason) problems.push(`sensor local sem Motivo: ${sensor.name}`);
+      continue;
+    }
+
+    if (!registry.has(sensor.name)) {
+      problems.push(`sensor global nao cadastrado: ${sensor.name}`);
+    }
+  }
+
+  return {
+    valid: problems.length === 0,
+    problems,
+    sensors: validatedSensors
+  };
+}
+
+function parseMarkdownSections(markdown) {
+  const sections = new Map();
+  let current = "";
+  let buffer = [];
+  for (const line of markdown.split(/\r?\n/)) {
+    const match = line.match(/^##\s+(.+?)\s*$/);
+    if (match) {
+      if (current) sections.set(current, buffer.join("\n"));
+      current = normalizeHeading(match[1]);
+      buffer = [];
+      continue;
+    }
+    if (current) buffer.push(line);
+  }
+  if (current) sections.set(current, buffer.join("\n"));
+  return sections;
+}
+
+function normalizeHeading(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function sectionHasPlaceholder(body) {
+  return body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .some((line) =>
+      line
+        .split("|")
+        .map((cell) => cleanMarkdownCell(cell.trim().replace(/^-+\s*/, "")))
+        .some((cell) => /^<[^>]+>$/.test(cell) || /^todo[:\s-]*$/i.test(cell))
+    );
+}
+
+function hasNonEmptySectionContent(body) {
+  return body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .some((line) => line && !line.startsWith(">") && !/^\|?\s*-+\s*(\|\s*-+\s*)*$/.test(line));
 }
 
 async function analyzeHarness(root) {

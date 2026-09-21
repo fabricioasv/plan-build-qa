@@ -25,7 +25,18 @@
 
 ## Sensores Obrigatorios
 
-**OBRIGATORIO** listar sensores por nome/tier/comando esperado. Se um sensor ainda nao existir, registre como criar via `pbq sensor add`.
+**OBRIGATORIO** listar sensores por nome, escopo, tier, comando e motivo.
+
+Use `Scope: global` quando o sensor existir em `.plan-build-qa/sensors.json` e for reutilizavel por outros packages.
+Use `Scope: local` ou `Scope: package` quando o sensor for especifico deste package; nesse caso `Comando` e `Motivo` sao obrigatorios.
+
+| Sensor | Scope | Tier | Comando | Motivo |
+| --- | --- | --- | --- | --- |
+| <nome-global> | global | fast/medium/slow |  | Invariante reutilizavel ja cadastrado em sensors.json |
+| <nome-local> | local | fast/medium/slow | `<comando que falha com exit != 0>` | Check especifico deste package |
+
+Se um sensor global ainda nao existir, registre como criar via `pbq sensor add --scope global`.
+Nao cadastre sensor local em `.plan-build-qa/sensors.json`; mantenha-o neste contrato e na evaluation.
 
 ## Riscos
 

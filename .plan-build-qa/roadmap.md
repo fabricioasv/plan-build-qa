@@ -44,6 +44,7 @@ Use estes valores:
 | spec-260704-a7f3-non-sequential-spec-ids | concluido | 1 | 2026-07-04 | Package 1 fechado com Score 1 (`evaluations/package-1.md`). `pbq update` migra specs legadas `spec-NNN-slug` para `spec-YYMMDD-hex-slug` usando a data de criacao de `spec.md`, atualiza roadmap, e analyze aceita novo padrao preservando legado. Sensores `pbq-analyze` e `npm-run-test` passaram. | - |
 | spec-260705-b9c1-non-sequential-bug-ids | concluido | 1 | 2026-07-05 | Package 1 fechado com Score 1 (`evaluations/package-1.md`). `pbq update` migra bugs legados `bug-NNN-slug` para `bug-YYMMDD-hex-slug` usando a data de criacao de `bug.md`; README de bugs e skills `/bug` orientam o novo padrao preservando legado. Sensores `pbq-analyze` e `npm-run-test` passaram. | - |
 | spec-260706-c1a9-update-migration-empty-duplicates | concluido | 1 | 2026-07-06 | Package 1 fechado com Score 1 (`evaluations/package-1.md`). `pbq update` agora remove somente diretorios modernos vazios com mesmo slug durante migracao de specs/bugs legados, preserva duplicatas populadas e emite warning por slug duplicado. | - |
+| spec-260716-d3a1-pbq-compactacao-contract-check | em andamento | 1 | 2026-07-16 | Diagnostico de peso em repos consumidores: artefatos PBQ grandes, dashboard derivado versionado, subpackages decimais e contract-check lento. | Implementar Package 1: `pbq contract check` leve e skill `test` usando validacao computacional curta. |
 
 ## Sequenciamento Sugerido
 
@@ -77,6 +78,7 @@ Use estes valores:
 27. `spec-260704-a7f3-non-sequential-spec-ids` (substitui sequencial obrigatorio por `spec-YYMMDD-hex-slug`, com migracao no `pbq update`)
 28. `spec-260705-b9c1-non-sequential-bug-ids` (aplica `bug-YYMMDD-hex-slug` e migracao de bugs legados no `pbq update`)
 29. `spec-260706-c1a9-update-migration-empty-duplicates` (torna migracao do `pbq update` idempotente diante de diretorios modernos vazios por slug)
+30. `spec-260716-d3a1-pbq-compactacao-contract-check` (reduz custo gerado pelo PBQ e cria contract-check computacional leve)
 
 ## Decisoes De Roadmap
 
@@ -97,3 +99,4 @@ Use estes valores:
 - 2026-07-04: Adicionar `spec-260704-a7f3-non-sequential-spec-ids` apos risco de conflito por numeracao sequencial em branches paralelos. Decisao: novo padrao `spec-YYMMDD-hex-slug`, com `pbq update` migrando specs legadas materializadas a partir da data de criacao de `spec.md`.
 - 2026-07-05: Adicionar `spec-260705-b9c1-non-sequential-bug-ids` apos observar que registros de bug sequenciais sofrem o mesmo conflito entre branches. Decisao: novo padrao `bug-YYMMDD-hex-slug`, com `pbq update` migrando bugs legados materializados a partir da data de criacao de `bug.md`.
 - 2026-07-06: Adicionar `spec-260706-c1a9-update-migration-empty-duplicates` apos observar em repositorio consumidor que `pbq update` deixava diretorios modernos vazios com mesmo slug e hash diferente durante migracao/reexecucao. Decisao: limpar somente tentativas modernas vazias e avisar duplicidade por slug.
+- 2026-07-16: Adicionar `spec-260716-d3a1-pbq-compactacao-contract-check` apos diagnostico de lentidao no uso prolongado do PBQ em `C:\dti\netview\max`. Decisao: atacar primeiro o contract-check com validacao computacional curta, depois compactar artefatos gerados e diagnosticar peso em repos consumidores.

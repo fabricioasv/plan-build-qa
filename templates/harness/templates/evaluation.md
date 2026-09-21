@@ -21,6 +21,7 @@ Status permitidos:
 Regra:
 
 - **OBRIGATORIO**: todo sensor obrigatorio do contrato deve aparecer nesta tabela.
+- **OBRIGATORIO**: sensor local obrigatorio tambem deve aparecer nesta tabela; ele nao precisa existir em `sensors.json`, mas precisa ter evidencia real.
 - **OBRIGATORIO**: `Score: 1` exige todos os sensores obrigatorios com status `passou`.
 - **NUNCA** use `Score: 1` se algum sensor obrigatorio estiver `falhou`, `pendente` ou ausente.
 
@@ -40,3 +41,4 @@ Regra:
 
 - **Score: 1** somente se todos os sensores obrigatorios passarem e nao houver violacao critica.
 - **Score: 0** se houver falha, sensor pendente, regressao ou violacao critica.
+- Sensor local pode virar global depois, mas a promocao local -> global deve ser decisao explicita fora desta evaluation.

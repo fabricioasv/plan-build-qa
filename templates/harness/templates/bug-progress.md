@@ -1,19 +1,19 @@
 # Bug Progress
 
 > **Regra de retomada**
-> Mantenha este arquivo suficiente para outro agente continuar a investigacao, correcao ou teste sem memoria da sessao anterior.
+> Mantenha este arquivo suficiente para outro agente continuar a investigacao ou retomar o encaminhamento para `/implement`/`/test` sem memoria da sessao anterior.
 
 ## Estado Atual
 
-Use um destes estados: `investigando`, `corrigindo`, `em teste`, `resolvido`, `bloqueado`, `cancelado`.
+Use um destes estados: `investigando`, `encaminhado`, `resolvido`, `bloqueado`, `cancelado`.
 
 ## Quadro
 
 | Etapa | Status |
 | --- | --- |
 | 1. Investigacao | pendente |
-| 2. Correcao | pendente |
-| 3. Teste | pendente |
+| 2. Encaminhamento para implement | pendente |
+| 3. Evidencia de test | pendente |
 
 Status de etapa: `pendente`, `em andamento`, `ok`, `falhou`, `bloqueado`, `nao-aplicavel`.
 
@@ -23,7 +23,7 @@ Registre comando, data aproximada, resultado e caminho/link da evidencia quando 
 
 ## Decisoes
 
-Registre decisoes tecnicas tomadas durante a investigacao e correcao.
+Registre decisoes tecnicas tomadas durante a investigacao e o encaminhamento.
 
 ## Falhas Anteriores
 
