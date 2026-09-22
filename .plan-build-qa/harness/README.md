@@ -53,8 +53,9 @@ pbq guard --event commit .
 pbq guard --event close .
 ```
 
-Runners por tier (deprecated — use os runners por evento acima):
-`run-fast.ps1`, `run-medium.ps1`, `run-slow.ps1`
+## Dashboard
+
+`.plan-build-qa/dashboard/` e um artefato **derivado**, gerado sob demanda por `pbq dashboard`, e nao e versionado (ver `.gitignore` na raiz). Gere um snapshot quando precisar; nao commite o conteudo desse diretorio.
 
 ## Progresso
 

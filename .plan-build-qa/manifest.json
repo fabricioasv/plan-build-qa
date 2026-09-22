@@ -28,26 +28,8 @@
     ".plan-build-qa/harness/scripts/check-harness-structure.ps1": {
       "sha256": "c73d1ae86189940654e5b419b31b4e16179c8f047c9482e357279816eaf741f1"
     },
-    ".plan-build-qa/harness/scripts/run-fast.ps1": {
-      "sha256": "12c1d4ab8870ca4b0ac48a3dee19dd1a6e9971f290983fe9629a01f53e09c1d9"
-    },
-    ".plan-build-qa/harness/scripts/run-medium.ps1": {
-      "sha256": "e66414e54e0baeeb6951f96aeb8af3bc7e7f094eb9466ba1de3c4897f9a76e50"
-    },
-    ".plan-build-qa/harness/scripts/run-slow.ps1": {
-      "sha256": "347a5d41c5c39b5f43fed20b81bb730a4ef664d0c91d99395ba8d51f2133d11e"
-    },
     ".plan-build-qa/harness/scripts/check-harness-structure.sh": {
       "sha256": "1cb6b02d6683cfbaee62bc1d1e4c3ccb84a0e37b777a5abd5b2b9f018a5faf6a"
-    },
-    ".plan-build-qa/harness/scripts/run-fast.sh": {
-      "sha256": "ce1f112991f9bc644c2f12489c3e2a7c20787bf66417d47aebcda99ffb0e4f2e"
-    },
-    ".plan-build-qa/harness/scripts/run-medium.sh": {
-      "sha256": "ad6782606d7d93b0beb55510889aaf67a866e22f82f1abc33cac66186ddbac30"
-    },
-    ".plan-build-qa/harness/scripts/run-slow.sh": {
-      "sha256": "dd515a59d2a38f5ad5ed2c8d0b2fc774556225d8fafb13fc572bdcf11290f415"
     },
     ".plan-build-qa/harness/templates/spec.md": {
       "sha256": "bacd304892a19d99a3a500bfad87b89b4c6148c6376742b70e7c63fd2f52b3c2"
@@ -105,6 +87,12 @@
     },
     ".agents/skills/test/SKILL.md": {
       "sha256": "7306d3e9b7697496649afe10211e011d3829985dae1c0cfe07cafcfef2c5d654"
+    },
+    ".claude/skills/backlog-sync/SKILL.md": {
+      "sha256": "34ea24668378151ca788f4329ea011ebfb697af929b6a1d75cf00114d697c29d"
+    },
+    ".agents/skills/backlog-sync/SKILL.md": {
+      "sha256": "34ea24668378151ca788f4329ea011ebfb697af929b6a1d75cf00114d697c29d"
     }
   }
 }

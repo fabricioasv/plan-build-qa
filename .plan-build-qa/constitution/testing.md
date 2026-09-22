@@ -31,9 +31,6 @@ Exemplo de sensor:
 { "name": "unit-tests", "on": ["commit","close"], "command": "npm test", ... }
 ```
 
-O campo `tier` (fast/medium/slow) e **cosmético** — rotulo de custo para listagem.
-Migracao automatica v1→v2: `fast → commit,close`; `medium|slow → close`.
-
 ## Hooks Advisory vs Gate Bloqueante
 
 Os hooks (`pbq guard --event commit` no pre-commit, `pbq guard --event edit` no PostToolUse) sao
@@ -50,9 +47,10 @@ Enforcement: blocking   # hooks que falham bloqueiam (exit 1)
 Enforcement: advisory   # default — hooks sempre exit 0
 ```
 
-Regras:
-- Se 0 ou >1 specs `em andamento`, hooks sao sempre advisory (seguro por default).
-- `pbq guard` le o roadmap, resolve a spec ativa, e aplica a flag.
+Regras (`pbq guard` resolve a spec ativa nesta ordem):
+1. Exatamente 1 spec `em andamento`: usa o `Enforcement` dela.
+2. Mais de 1 spec `em andamento` e `--path <arquivo>` informado: se o arquivo casar com `Arquivos Permitidos` de exatamente uma das specs ativas, usa o `Enforcement` dela.
+3. Qualquer outro caso (0 specs ativas, sem `--path`, ou mais de uma spec casando): `advisory` (seguro por default).
 
 ## Verificacao Independente
 
@@ -74,7 +72,7 @@ Regras:
 ## Quando Rodar
 
 - Hooks (early-warning): `pbq guard --event commit` no pre-commit, `pbq guard --event edit` no PostToolUse.
-- Gate de package: `pbq package close . --spec <spec> --package <N> --tiers fast,medium`.
+- Gate de package: `pbq package close . --spec <spec> --package <N>`.
 - Runners diretos (deprecated, use pbq guard): `.plan-build-qa/harness/scripts/run-commit.ps1` ou `.sh`.
 
 ## Criterio Minimo de Validacao

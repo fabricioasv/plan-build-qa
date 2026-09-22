@@ -7,9 +7,9 @@ Score: 0
 
 ## Resumo De Sensores
 
-| Sensor | Tier | Obrigatorio | Status | Comando | Exit Code | Evidencia |
-| --- | --- | --- | --- | --- | --- | --- |
-| <nome> | fast/medium/slow | sim/nao | pendente | `<comando>` | - | - |
+| Sensor | Obrigatorio | Status | Comando | Exit Code | Evidencia |
+| --- | --- | --- | --- | --- | --- |
+| <nome> | sim/nao | pendente | `<comando>` | - | - |
 
 > A coluna Evidencia e preenchida automaticamente por `pbq package close` com os ultimos ~500 chars
 > de stdout+stderr do sensor. Preenchimento manual so e necessario quando o sensor e executado fora

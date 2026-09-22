@@ -4,6 +4,11 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+
+function sha256Text(content) {
+  return createHash("sha256").update(content, "utf8").digest("hex");
+}
 
 const root = await mkdtemp(path.join(tmpdir(), "pbq-init-"));
 
@@ -191,7 +196,7 @@ Reverter fixture.
     await rm(contractCheckRoot, { recursive: true, force: true });
   }
 
-  const result = spawnSync(process.execPath, [cli, "init", root], {
+  const result = spawnSync(process.execPath, [cli, "init", root, "--agents", "claude,codex"], {
     encoding: "utf8"
   });
 
@@ -206,10 +211,10 @@ Reverter fixture.
     ".plan-build-qa/constitution/repository-rules.md",
     ".plan-build-qa/harness/README.md",
     ".plan-build-qa/harness/scripts/check-harness-structure.ps1",
-    ".plan-build-qa/harness/scripts/run-fast.ps1",
-    ".plan-build-qa/harness/scripts/run-medium.ps1",
-    ".plan-build-qa/harness/scripts/run-slow.ps1",
-    ".plan-build-qa/harness/scripts/run-fast.sh",
+    ".plan-build-qa/harness/scripts/run-commit.ps1",
+    ".plan-build-qa/harness/scripts/run-close.ps1",
+    ".plan-build-qa/harness/scripts/run-commit.sh",
+    ".plan-build-qa/harness/scripts/run-close.sh",
     ".plan-build-qa/harness/templates/spec.md",
     ".plan-build-qa/harness/templates/contract.md",
     ".plan-build-qa/harness/templates/progress.md",
@@ -232,6 +237,8 @@ Reverter fixture.
     ".claude/skills/test/SKILL.md",
     ".claude/skills/analyze/SKILL.md",
     ".claude/skills/bug/SKILL.md",
+    ".claude/skills/retro/SKILL.md",
+    ".claude/skills/backlog-sync/SKILL.md",
     ".agents/skills/spec/SKILL.md",
     ".agents/skills/sensor/SKILL.md",
     ".agents/skills/roadmap/SKILL.md",
@@ -239,13 +246,25 @@ Reverter fixture.
     ".agents/skills/implement/SKILL.md",
     ".agents/skills/test/SKILL.md",
     ".agents/skills/analyze/SKILL.md",
-    ".agents/skills/bug/SKILL.md"
+    ".agents/skills/bug/SKILL.md",
+    ".agents/skills/retro/SKILL.md",
+    ".agents/skills/backlog-sync/SKILL.md"
   ];
 
   for (const file of required) {
     assert.ok(existsSync(path.join(root, file)), `missing ${file}`);
   }
   assert.equal(existsSync(path.join(root, ".plan-build-qa/harness/evaluations")), false);
+  for (const deprecated of [
+    ".plan-build-qa/harness/scripts/run-fast.ps1",
+    ".plan-build-qa/harness/scripts/run-medium.ps1",
+    ".plan-build-qa/harness/scripts/run-slow.ps1",
+    ".plan-build-qa/harness/scripts/run-fast.sh",
+    ".plan-build-qa/harness/scripts/run-medium.sh",
+    ".plan-build-qa/harness/scripts/run-slow.sh"
+  ]) {
+    assert.equal(existsSync(path.join(root, deprecated)), false, `deprecated runner should not be generated: ${deprecated}`);
+  }
 
   const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
   assert.match(agents, /Preserve me/);
@@ -388,6 +407,35 @@ Reverter fixture.
   assert.match(bugTemplate, /preenchido a partir de `\/test`/, "bug.md deve tratar Teste como registro externo");
   assert.match(bugTemplate, /rollback/, "bug.md deve exigir rollback");
 
+  // spec-260921-7a1b package-6: skill retro deve ser instalada nos 3 adapters, identica, sem editar constitution/sensores
+  const claudeRetroSkill = await readFile(path.join(root, ".claude/skills/retro/SKILL.md"), "utf8");
+  assert.match(claudeRetroSkill, /\/retro/, "claude retro skill deve mencionar /retro");
+  assert.match(claudeRetroSkill, /pbq analyze/, "claude retro skill deve orientar rodar pbq analyze");
+  assert.match(claudeRetroSkill, /NEVER\*\* edit `\.plan-build-qa\/constitution\/`/, "claude retro skill nao pode editar constitution diretamente");
+  assert.match(claudeRetroSkill, /revisar.*incrementar.*excluir|excluir.*incrementar.*revisar/s, "claude retro skill deve classificar achados em revisar/incrementar/excluir");
+  assert.match(claudeRetroSkill, /`\/constitution`|`\/sensor`/, "claude retro skill deve encaminhar aplicacao para outras skills");
+
+  const codexRetroSkill = await readFile(path.join(root, ".agents/skills/retro/SKILL.md"), "utf8");
+  assert.equal(codexRetroSkill, claudeRetroSkill, "codex retro skill deve ser identica a claude");
+
+  const templateRetroSkill = await readFile(path.join(cliDir, "templates/adapters/skills/retro/SKILL.md"), "utf8");
+  assert.equal(templateRetroSkill, claudeRetroSkill, "template retro skill deve ser identica a instalada");
+
+  // spec-260922-8e1f package-1: skill backlog-sync deve ser instalada nos 3 adapters, identica,
+  // e conter as 4 regras de bloqueio (nunca cria trabalho novo, nunca apaga pasta local,
+  // exige confirmacao item a item, para sem MCP de tracker configurado)
+  const claudeBacklogSyncSkill = await readFile(path.join(root, ".claude/skills/backlog-sync/SKILL.md"), "utf8");
+  assert.match(claudeBacklogSyncSkill, /NEVER\*\* create a new work item/, "backlog-sync nao pode criar trabalho novo no tracker");
+  assert.match(claudeBacklogSyncSkill, /NEVER\*\* delete a spec or bug folder from disk/, "backlog-sync nao pode apagar pasta local");
+  assert.match(claudeBacklogSyncSkill, /explicit, item-by-item confirmation/, "backlog-sync exige confirmacao item a item");
+  assert.match(claudeBacklogSyncSkill, /If none is configured, stop and explain what is missing/, "backlog-sync deve parar sem MCP de tracker configurado");
+
+  const codexBacklogSyncSkill = await readFile(path.join(root, ".agents/skills/backlog-sync/SKILL.md"), "utf8");
+  assert.equal(codexBacklogSyncSkill, claudeBacklogSyncSkill, "codex backlog-sync skill deve ser identica a claude");
+
+  const templateBacklogSyncSkill = await readFile(path.join(cliDir, "templates/adapters/skills/backlog-sync/SKILL.md"), "utf8");
+  assert.equal(templateBacklogSyncSkill, claudeBacklogSyncSkill, "template backlog-sync skill deve ser identica a instalada");
+
   const bugProgressTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/bug-progress.md"), "utf8");
   assert.match(bugProgressTemplate, /1\. Investigacao/, "bug-progress deve conter etapa Investigacao");
   assert.match(bugProgressTemplate, /2\. Encaminhamento para implement/, "bug-progress deve encaminhar para implement");
@@ -413,7 +461,7 @@ Reverter fixture.
   assert.match(testingConstitution, /Promocao local -> global e decisao explicita/, "testing constitution deve orientar promocao explicita");
 
   const contractTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/contract.md"), "utf8");
-  assert.match(contractTemplate, /\| Sensor \| Scope \| Tier \| Comando \| Motivo \|/, "contract template deve conter colunas local/global");
+  assert.match(contractTemplate, /\| Sensor \| Scope \| Comando \| Motivo \|/, "contract template deve conter colunas local/global");
   assert.match(contractTemplate, /Scope: global/, "contract template deve orientar global");
   assert.match(contractTemplate, /Scope: local.*Scope: package/s, "contract template deve orientar local/package");
   assert.match(contractTemplate, /pbq sensor add --scope global/, "contract template deve orientar criacao global");
@@ -421,22 +469,22 @@ Reverter fixture.
 
   const evaluationTemplate = await readFile(path.join(root, ".plan-build-qa/harness/templates/evaluation.md"), "utf8");
   assert.match(evaluationTemplate, /Resumo De Sensores/);
-  assert.match(evaluationTemplate, /\| Sensor \| Tier \| Obrigatorio \| Status \| Comando \| Exit Code \| Evidencia \|/);
+  assert.match(evaluationTemplate, /\| Sensor \| Obrigatorio \| Status \| Comando \| Exit Code \| Evidencia \|/);
   assert.match(evaluationTemplate, /sensor local obrigatorio tambem deve aparecer/, "evaluation template deve exigir local na tabela");
   assert.match(evaluationTemplate, /promocao local -> global deve ser decisao explicita/, "evaluation template deve orientar promocao explicita");
 
-  const fast = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-fast.ps1"), "utf8");
-  assert.match(fast, /npm run lint/);
+  const commitScript = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-commit.ps1"), "utf8");
+  assert.match(commitScript, /npm run lint/);
 
-  const fastResult =
+  const commitResult =
     process.platform === "win32"
-      ? spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, ".plan-build-qa/harness/scripts/run-fast.ps1")], {
+      ? spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, ".plan-build-qa/harness/scripts/run-commit.ps1")], {
           encoding: "utf8"
         })
-      : spawnSync("sh", [path.join(root, ".plan-build-qa/harness/scripts/run-fast.sh")], {
+      : spawnSync("sh", [path.join(root, ".plan-build-qa/harness/scripts/run-commit.sh")], {
           encoding: "utf8"
         });
-  assert.equal(fastResult.status, 0, fastResult.stderr || fastResult.stdout);
+  assert.equal(commitResult.status, 0, commitResult.stderr || commitResult.stdout);
 
   const addSensor = spawnSync(
     process.execPath,
@@ -448,9 +496,9 @@ Reverter fixture.
   const sensors = JSON.parse(await readFile(path.join(root, ".plan-build-qa/sensors.json"), "utf8"));
   assert.ok(sensors.sensors.some((sensor) => sensor.name === "browser-e2e" && sensor.tier === "slow"));
 
-  const slow = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-slow.ps1"), "utf8");
-  assert.match(slow, /npm run test:e2e/);
-  assert.match(slow, /dotnet test .*Tests\/App\.E2E\/App\.E2E\.csproj/);
+  const closeScript = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-close.ps1"), "utf8");
+  assert.match(closeScript, /npm run test:e2e/);
+  assert.match(closeScript, /dotnet test .*Tests\/App\.E2E\/App\.E2E\.csproj/);
 
   const status = spawnSync(process.execPath, [cli, "run", root, "--resume"], {
     encoding: "utf8"
@@ -1237,7 +1285,7 @@ Nenhum.
     await mkdir(path.join(sensorSuggestRoot, "scripts"), { recursive: true });
     await writeFile(path.join(sensorSuggestRoot, "scripts", "test.sh"), "#!/bin/sh\necho test\n");
 
-    const initForSuggest = spawnSync(process.execPath, [cli, "init", sensorSuggestRoot], { encoding: "utf8" });
+    const initForSuggest = spawnSync(process.execPath, [cli, "init", sensorSuggestRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initForSuggest.status, 0, initForSuggest.stderr || initForSuggest.stdout);
 
     const sensorsBefore = await readFile(path.join(sensorSuggestRoot, ".plan-build-qa", "sensors.json"), "utf8");
@@ -1275,34 +1323,40 @@ Nenhum.
     await writeFile(path.join(sensorDetectRoot, "scripts", "test.sh"), "#!/bin/sh\necho test\n");
     await writeFile(path.join(sensorDetectRoot, "Makefile"), "test:\n\techo make-test\n\nbuild:\n\techo make-build\n");
 
-    const detectInit = spawnSync(process.execPath, [cli, "init", sensorDetectRoot], { encoding: "utf8" });
+    const detectInit = spawnSync(process.execPath, [cli, "init", sensorDetectRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(detectInit.status, 0, detectInit.stderr || detectInit.stdout);
 
     const detectedSensors = JSON.parse(
       await readFile(path.join(sensorDetectRoot, ".plan-build-qa", "sensors.json"), "utf8")
     ).sensors;
 
+    const onEquals = (sensor, expected) => JSON.stringify(sensor.on) === JSON.stringify(expected);
+
     assert.ok(
-      detectedSensors.some((sensor) => sensor.tier === "fast" && /sonar\.bat/i.test(sensor.command)),
-      `sonar.bat deveria virar sensor fast. Detectados: ${JSON.stringify(detectedSensors)}`
+      detectedSensors.every((sensor) => sensor.tier === undefined),
+      `sensores detectados por pbq init nao devem mais ter campo tier. Detectados: ${JSON.stringify(detectedSensors)}`
     );
     assert.ok(
-      detectedSensors.some((sensor) => sensor.tier === "medium" && /scripts[\/\\]test\.sh/i.test(sensor.command)),
-      `scripts/test.sh deveria virar sensor medium. Detectados: ${JSON.stringify(detectedSensors)}`
+      detectedSensors.some((sensor) => onEquals(sensor, ["commit", "close"]) && /sonar\.bat/i.test(sensor.command)),
+      `sonar.bat deveria virar sensor on:[commit,close]. Detectados: ${JSON.stringify(detectedSensors)}`
     );
     assert.ok(
-      detectedSensors.some((sensor) => sensor.tier === "medium" && sensor.command === "make test"),
-      `make test deveria virar sensor medium. Detectados: ${JSON.stringify(detectedSensors)}`
+      detectedSensors.some((sensor) => onEquals(sensor, ["close"]) && /scripts[\/\\]test\.sh/i.test(sensor.command)),
+      `scripts/test.sh deveria virar sensor on:[close]. Detectados: ${JSON.stringify(detectedSensors)}`
+    );
+    assert.ok(
+      detectedSensors.some((sensor) => onEquals(sensor, ["close"]) && sensor.command === "make test"),
+      `make test deveria virar sensor on:[close]. Detectados: ${JSON.stringify(detectedSensors)}`
     );
     assert.ok(
       detectedSensors.some(
         (sensor) =>
-          sensor.tier === "medium" &&
+          onEquals(sensor, ["close"]) &&
           /qa\.bat/i.test(sensor.command) &&
           sensor.tierUncertain === true &&
           /tier-incerto/.test(sensor.reason)
       ),
-      `qa.bat deveria ser medium com tier-incerto. Detectados: ${JSON.stringify(detectedSensors)}`
+      `qa.bat deveria ser on:[close] com tier-incerto. Detectados: ${JSON.stringify(detectedSensors)}`
     );
   } finally {
     await rm(sensorDetectRoot, { recursive: true, force: true });
@@ -1326,12 +1380,13 @@ Nenhum.
   const sensorsAfterCatalog = JSON.parse(await readFile(path.join(root, ".plan-build-qa/sensors.json"), "utf8"));
   const sonarDotnet = sensorsAfterCatalog.sensors.find((s) => s.name === "sonar-dotnet");
   assert.ok(sonarDotnet, "sonar-dotnet deve estar em sensors.json apos add --from-catalog");
-  assert.equal(sonarDotnet.tier, "slow", "sonar-dotnet deve ter tier slow");
+  assert.equal(sonarDotnet.tier, undefined, "sonar-dotnet nao deve mais ter campo tier");
+  assert.deepEqual(sonarDotnet.on, ["edit", "close"], "sonar-dotnet deve preservar on do catalogo");
   assert.equal(sonarDotnet.enabled, false, "sonar-dotnet deve ter enabled false (vem do catalogo)");
   assert.equal(sonarDotnet.source, "catalog", "sonar-dotnet deve ter source catalog");
 
-  const slowAfterCatalog = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-slow.ps1"), "utf8");
-  assert.doesNotMatch(slowAfterCatalog, /sonarscanner|sonar-scanner|npx sonar/, "sensor disabled nao deve aparecer no runner");
+  const closeAfterCatalog = await readFile(path.join(root, ".plan-build-qa/harness/scripts/run-close.ps1"), "utf8");
+  assert.doesNotMatch(closeAfterCatalog, /sonarscanner|sonar-scanner|npx sonar/, "sensor disabled nao deve aparecer no runner");
 
   // catalog marca sonar-dotnet como [cadastrado] apos o add
   const catalogListAfter = spawnSync(process.execPath, [cli, "sensor", "catalog", root], { encoding: "utf8" });
@@ -1347,7 +1402,7 @@ Nenhum.
   // spec-017 package-2: sensor add --phase before grava phase:["before"]
   const phaseRoot = await mkdtemp(path.join(tmpdir(), "pbq-phase-"));
   try {
-    const initPhase = spawnSync(process.execPath, [cli, "init", phaseRoot], { encoding: "utf8" });
+    const initPhase = spawnSync(process.execPath, [cli, "init", phaseRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initPhase.status, 0, initPhase.stderr || initPhase.stdout);
 
     const addPhase = spawnSync(
@@ -1404,13 +1459,13 @@ Nenhum.
 
   const evaluation = await readFile(path.join(root, ".plan-build-qa/specs/spec-001-smoke/evaluations/package-1.md"), "utf8");
   assert.match(evaluation, /Score: 1/);
-  assert.match(evaluation, /\| npm-run-lint \| fast \| sim \| passou \|/);
+  assert.match(evaluation, /\| npm-run-lint \| - \| sim \| passou \|/, "sensor detectado por pbq init nao tem mais tier; coluna Tier da evaluation mostra '-'");
 
   // OVERVIEW.md deve ser sempre substituido no update (nao gera .pbq-new)
   await writeFile(path.join(root, ".plan-build-qa/OVERVIEW.md"), "conteudo customizado que deve ser substituido\n");
   await writeFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "custom constitution skill\n");
   await rm(path.join(root, ".agents/skills/roadmap/SKILL.md"), { force: true });
-  const update = spawnSync(process.execPath, [cli, "update", root], {
+  const update = spawnSync(process.execPath, [cli, "update", root, "--agents", "claude,codex"], {
     encoding: "utf8"
   });
   assert.equal(update.status, 0, update.stderr || update.stdout);
@@ -1427,7 +1482,7 @@ Nenhum.
 
   const updateMigrationRoot = await mkdtemp(path.join(tmpdir(), "pbq-update-spec-migration-"));
   try {
-    const initMigration = spawnSync(process.execPath, [cli, "init", updateMigrationRoot], { encoding: "utf8" });
+    const initMigration = spawnSync(process.execPath, [cli, "init", updateMigrationRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initMigration.status, 0, initMigration.stderr || initMigration.stdout);
     const legacySpecDir = path.join(updateMigrationRoot, ".plan-build-qa", "specs", "spec-001-legacy-demo");
     await mkdir(legacySpecDir, { recursive: true });
@@ -1448,7 +1503,7 @@ Nenhum.
     const expectedDateId = formatTestSpecDateId(legacySpecStat.birthtimeMs > 0 ? legacySpecStat.birthtime : legacySpecStat.mtime);
     const emptyModernSpecDir = path.join(updateMigrationRoot, ".plan-build-qa", "specs", `spec-${expectedDateId}-0000-legacy-demo`);
     await mkdir(emptyModernSpecDir, { recursive: true });
-    const updateMigration = spawnSync(process.execPath, [cli, "update", updateMigrationRoot], { encoding: "utf8" });
+    const updateMigration = spawnSync(process.execPath, [cli, "update", updateMigrationRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(updateMigration.status, 0, updateMigration.stderr || updateMigration.stdout);
     assert.match(updateMigration.stdout, /Spec migrated: spec-001-legacy-demo -> spec-\d{6}-[0-9a-f]{4}-legacy-demo/);
     assert.match(updateMigration.stdout, /Empty spec directory removed: spec-\d{6}-0000-legacy-demo/);
@@ -1468,7 +1523,7 @@ Nenhum.
 
   const bugUpdateMigrationRoot = await mkdtemp(path.join(tmpdir(), "pbq-update-bug-migration-"));
   try {
-    const initBugMigration = spawnSync(process.execPath, [cli, "init", bugUpdateMigrationRoot], { encoding: "utf8" });
+    const initBugMigration = spawnSync(process.execPath, [cli, "init", bugUpdateMigrationRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initBugMigration.status, 0, initBugMigration.stderr || initBugMigration.stdout);
     const legacyBugDir = path.join(bugUpdateMigrationRoot, ".plan-build-qa", "bugs", "bug-001-legacy-demo");
     await mkdir(legacyBugDir, { recursive: true });
@@ -1479,7 +1534,7 @@ Nenhum.
     const expectedBugDateId = formatTestSpecDateId(legacyBugStat.birthtimeMs > 0 ? legacyBugStat.birthtime : legacyBugStat.mtime);
     const emptyModernBugDir = path.join(bugUpdateMigrationRoot, ".plan-build-qa", "bugs", `bug-${expectedBugDateId}-0000-legacy-demo`);
     await mkdir(emptyModernBugDir, { recursive: true });
-    const updateBugMigration = spawnSync(process.execPath, [cli, "update", bugUpdateMigrationRoot], { encoding: "utf8" });
+    const updateBugMigration = spawnSync(process.execPath, [cli, "update", bugUpdateMigrationRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(updateBugMigration.status, 0, updateBugMigration.stderr || updateBugMigration.stdout);
     assert.match(updateBugMigration.stdout, /Bug migrated: bug-001-legacy-demo -> bug-\d{6}-[0-9a-f]{4}-legacy-demo/);
     assert.match(updateBugMigration.stdout, /Empty bug directory removed: bug-\d{6}-0000-legacy-demo/);
@@ -1496,7 +1551,7 @@ Nenhum.
 
   const duplicateModernRoot = await mkdtemp(path.join(tmpdir(), "pbq-update-modern-duplicates-"));
   try {
-    const initDuplicateModern = spawnSync(process.execPath, [cli, "init", duplicateModernRoot], { encoding: "utf8" });
+    const initDuplicateModern = spawnSync(process.execPath, [cli, "init", duplicateModernRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initDuplicateModern.status, 0, initDuplicateModern.stderr || initDuplicateModern.stdout);
     const specsRoot = path.join(duplicateModernRoot, ".plan-build-qa", "specs");
     const bugsRoot = path.join(duplicateModernRoot, ".plan-build-qa", "bugs");
@@ -1512,7 +1567,7 @@ Nenhum.
     await writeFile(path.join(secondSpecDuplicate, "spec.md"), "# Spec: Duplicate Demo\n");
     await writeFile(path.join(firstBugDuplicate, "bug.md"), "# Bug: Duplicate Demo\n");
     await writeFile(path.join(secondBugDuplicate, "bug.md"), "# Bug: Duplicate Demo\n");
-    const duplicateUpdate = spawnSync(process.execPath, [cli, "update", duplicateModernRoot], { encoding: "utf8" });
+    const duplicateUpdate = spawnSync(process.execPath, [cli, "update", duplicateModernRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(duplicateUpdate.status, 0, duplicateUpdate.stderr || duplicateUpdate.stdout);
     assert.match(
       duplicateUpdate.stdout,
@@ -1528,7 +1583,7 @@ Nenhum.
     await rm(duplicateModernRoot, { recursive: true, force: true });
   }
 
-  const second = spawnSync(process.execPath, [cli, "init", root], {
+  const second = spawnSync(process.execPath, [cli, "init", root, "--agents", "claude,codex"], {
     encoding: "utf8"
   });
   assert.equal(second.status, 0, second.stderr || second.stdout);
@@ -1536,7 +1591,7 @@ Nenhum.
 
   const freshRoot = await mkdtemp(path.join(tmpdir(), "pbq-dry-run-"));
   try {
-    const dryRun = spawnSync(process.execPath, [cli, "init", freshRoot, "--dry-run"], {
+    const dryRun = spawnSync(process.execPath, [cli, "init", freshRoot, "--agents", "claude,codex", "--dry-run"], {
       encoding: "utf8"
     });
     assert.equal(dryRun.status, 0, dryRun.stderr || dryRun.stdout);
@@ -1546,10 +1601,159 @@ Nenhum.
     await rm(freshRoot, { recursive: true, force: true });
   }
 
+  // spec-260921-7a1b package-5: --agents obrigatorio em init/update, suporte a cursor
+  const agentsRoot = await mkdtemp(path.join(tmpdir(), "pbq-agents-"));
+  try {
+    const initNoAgents = spawnSync(process.execPath, [cli, "init", agentsRoot], { encoding: "utf8" });
+    assert.notEqual(initNoAgents.status, 0, "init sem --agents e sem --no-agent-integration deve falhar");
+    assert.match(initNoAgents.stderr || initNoAgents.stdout, /Informe --agents/, "erro deve orientar --agents");
+    assert.equal(existsSync(path.join(agentsRoot, ".plan-build-qa")), false, "init com erro nao deve criar nenhum arquivo");
+
+    const updateNoAgents = spawnSync(process.execPath, [cli, "update", agentsRoot], { encoding: "utf8" });
+    assert.notEqual(updateNoAgents.status, 0, "update sem --agents e sem --no-agent-integration deve falhar");
+    assert.match(updateNoAgents.stderr || updateNoAgents.stdout, /Informe --agents/, "erro de update deve orientar --agents");
+
+    const initNoIntegration = spawnSync(
+      process.execPath, [cli, "init", agentsRoot, "--no-agent-integration"], { encoding: "utf8" }
+    );
+    assert.equal(initNoIntegration.status, 0, "--no-agent-integration sozinho deve funcionar em init");
+    assert.equal(existsSync(path.join(agentsRoot, ".claude/skills")), false, "--no-agent-integration nao deve criar .claude/skills");
+    assert.equal(existsSync(path.join(agentsRoot, ".agents/skills")), false, "--no-agent-integration nao deve criar .agents/skills");
+    assert.equal(existsSync(path.join(agentsRoot, ".cursor/commands")), false, "--no-agent-integration nao deve criar .cursor/commands");
+
+    const updateNoIntegration = spawnSync(
+      process.execPath, [cli, "update", agentsRoot, "--no-agent-integration"], { encoding: "utf8" }
+    );
+    assert.equal(updateNoIntegration.status, 0, "--no-agent-integration sozinho deve funcionar em update");
+  } finally {
+    await rm(agentsRoot, { recursive: true, force: true });
+  }
+
+  const cursorRoot = await mkdtemp(path.join(tmpdir(), "pbq-cursor-"));
+  try {
+    const initCursor = spawnSync(
+      process.execPath, [cli, "init", cursorRoot, "--agents", "claude,cursor"], { encoding: "utf8" }
+    );
+    assert.equal(initCursor.status, 0, initCursor.stderr || initCursor.stdout);
+    assert.ok(existsSync(path.join(cursorRoot, ".claude/skills/spec/SKILL.md")), "cursor: claude skill deve existir");
+    assert.ok(existsSync(path.join(cursorRoot, ".agents/skills/spec/SKILL.md")), "cursor: skills continuam em .agents");
+    assert.ok(existsSync(path.join(cursorRoot, ".cursor/commands/spec.md")), "cursor: comando /spec deve existir em .cursor/commands");
+    assert.equal(existsSync(path.join(cursorRoot, ".cursor/commands/nao-existe.md")), false);
+
+    const manifestCursor = JSON.parse(await readFile(path.join(cursorRoot, ".plan-build-qa/manifest.json"), "utf8"));
+    assert.deepEqual(manifestCursor.agents, ["claude", "cursor"], "manifest deve registrar os agentes instalados");
+
+    const updateDropCursor = spawnSync(
+      process.execPath, [cli, "update", cursorRoot, "--agents", "claude"], { encoding: "utf8" }
+    );
+    assert.equal(updateDropCursor.status, 0, updateDropCursor.stderr || updateDropCursor.stdout);
+    assert.match(updateDropCursor.stdout, /Agent file removed.*\.cursor\/commands\/spec\.md/, "update deve remover comando cursor ao tirar cursor de --agents");
+    assert.equal(existsSync(path.join(cursorRoot, ".cursor/commands/spec.md")), false, "arquivo cursor nao customizado deve ser removido");
+    assert.equal(existsSync(path.join(cursorRoot, ".agents/skills/spec/SKILL.md")), false, "agents/skills tambem deve sumir quando nem codex nem cursor sao selecionados");
+    assert.ok(existsSync(path.join(cursorRoot, ".claude/skills/spec/SKILL.md")), "claude skill deve permanecer");
+  } finally {
+    await rm(cursorRoot, { recursive: true, force: true });
+  }
+
+  const cursorPreserveRoot = await mkdtemp(path.join(tmpdir(), "pbq-cursor-preserve-"));
+  try {
+    const initPreserve = spawnSync(
+      process.execPath, [cli, "init", cursorPreserveRoot, "--agents", "claude,cursor"], { encoding: "utf8" }
+    );
+    assert.equal(initPreserve.status, 0, initPreserve.stderr || initPreserve.stdout);
+    const cursorCommandPath = path.join(cursorPreserveRoot, ".cursor/commands/spec.md");
+    await writeFile(cursorCommandPath, `${await readFile(cursorCommandPath, "utf8")}\nCUSTOM\n`, "utf8");
+
+    const updateDropCustomized = spawnSync(
+      process.execPath, [cli, "update", cursorPreserveRoot, "--agents", "claude"], { encoding: "utf8" }
+    );
+    assert.equal(updateDropCustomized.status, 0, updateDropCustomized.stderr || updateDropCustomized.stdout);
+    assert.match(updateDropCustomized.stdout, /preservado.*\.cursor\/commands\/spec\.md/, "update nao deve apagar arquivo cursor customizado");
+    assert.match(await readFile(cursorCommandPath, "utf8"), /CUSTOM/, "conteudo customizado deve ser preservado");
+  } finally {
+    await rm(cursorPreserveRoot, { recursive: true, force: true });
+  }
+
+  // spec-260921-7a1b package-3 (correcao): update deve remover arquivo deprecado orfao
+  // (nao gerado mais pelo gerador atual, mas ainda listado no manifest de uma instalacao antiga)
+  const deprecatedRoot = await mkdtemp(path.join(tmpdir(), "pbq-deprecated-file-"));
+  try {
+    const initDeprecated = spawnSync(
+      process.execPath, [cli, "init", deprecatedRoot, "--agents", "claude,codex"], { encoding: "utf8" }
+    );
+    assert.equal(initDeprecated.status, 0, initDeprecated.stderr || initDeprecated.stdout);
+
+    const deprecatedRelPath = ".plan-build-qa/harness/scripts/run-fast.sh";
+    const deprecatedAbsPath = path.join(deprecatedRoot, deprecatedRelPath);
+    const deprecatedContent = "#!/bin/sh\necho legacy-run-fast\n";
+    await mkdir(path.dirname(deprecatedAbsPath), { recursive: true });
+    await writeFile(deprecatedAbsPath, deprecatedContent, "utf8");
+
+    const manifestPath = path.join(deprecatedRoot, ".plan-build-qa/manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    manifest.files[deprecatedRelPath] = { sha256: sha256Text(deprecatedContent) };
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+
+    const dryRunDeprecated = spawnSync(
+      process.execPath, [cli, "update", deprecatedRoot, "--agents", "claude,codex", "--dry-run"], { encoding: "utf8" }
+    );
+    assert.equal(dryRunDeprecated.status, 0, dryRunDeprecated.stderr || dryRunDeprecated.stdout);
+    assert.match(
+      dryRunDeprecated.stdout,
+      /Would remove deprecated file.*run-fast\.sh/,
+      "dry-run deve reportar remocao do arquivo deprecado orfao"
+    );
+    assert.ok(existsSync(deprecatedAbsPath), "dry-run nao deve apagar nada de verdade");
+
+    const realUpdateDeprecated = spawnSync(
+      process.execPath, [cli, "update", deprecatedRoot, "--agents", "claude,codex"], { encoding: "utf8" }
+    );
+    assert.equal(realUpdateDeprecated.status, 0, realUpdateDeprecated.stderr || realUpdateDeprecated.stdout);
+    assert.match(realUpdateDeprecated.stdout, /Deprecated file removed.*run-fast\.sh/);
+    assert.equal(existsSync(deprecatedAbsPath), false, "update real deve remover o arquivo deprecado orfao nao customizado");
+  } finally {
+    await rm(deprecatedRoot, { recursive: true, force: true });
+  }
+
+  // mesmo cenario, mas com o arquivo deprecado customizado pelo usuario: deve ser preservado
+  const deprecatedCustomRoot = await mkdtemp(path.join(tmpdir(), "pbq-deprecated-custom-"));
+  try {
+    const initCustom = spawnSync(
+      process.execPath, [cli, "init", deprecatedCustomRoot, "--agents", "claude,codex"], { encoding: "utf8" }
+    );
+    assert.equal(initCustom.status, 0, initCustom.stderr || initCustom.stdout);
+
+    const deprecatedRelPath = ".plan-build-qa/harness/scripts/run-medium.sh";
+    const deprecatedAbsPath = path.join(deprecatedCustomRoot, deprecatedRelPath);
+    const originalContent = "#!/bin/sh\necho legacy-run-medium\n";
+    await mkdir(path.dirname(deprecatedAbsPath), { recursive: true });
+
+    const manifestPath = path.join(deprecatedCustomRoot, ".plan-build-qa/manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    manifest.files[deprecatedRelPath] = { sha256: sha256Text(originalContent) };
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+
+    const customizedContent = `${originalContent}echo CUSTOM\n`;
+    await writeFile(deprecatedAbsPath, customizedContent, "utf8");
+
+    const updateCustomDeprecated = spawnSync(
+      process.execPath, [cli, "update", deprecatedCustomRoot, "--agents", "claude,codex"], { encoding: "utf8" }
+    );
+    assert.equal(updateCustomDeprecated.status, 0, updateCustomDeprecated.stderr || updateCustomDeprecated.stdout);
+    assert.match(
+      updateCustomDeprecated.stdout,
+      /Deprecated file preservado \(customizado\).*run-medium\.sh/,
+      "update deve reportar preservacao do arquivo deprecado customizado"
+    );
+    assert.equal(await readFile(deprecatedAbsPath, "utf8"), customizedContent, "arquivo deprecado customizado nao deve ser apagado nem alterado");
+  } finally {
+    await rm(deprecatedCustomRoot, { recursive: true, force: true });
+  }
+
   // spec-019 package-1: sensor add --on (AC1, AC2)
   const onRoot = await mkdtemp(path.join(tmpdir(), "pbq-on-sensor-"));
   try {
-    const initOn = spawnSync(process.execPath, [cli, "init", onRoot], { encoding: "utf8" });
+    const initOn = spawnSync(process.execPath, [cli, "init", onRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initOn.status, 0, initOn.stderr || initOn.stdout);
 
     // AC1: --on commit,close
@@ -1606,7 +1810,7 @@ Nenhum.
   // spec-019 package-2: pbq guard + hooks
   const guardRoot = await mkdtemp(path.join(tmpdir(), "pbq-guard-"));
   try {
-    const initGuard = spawnSync(process.execPath, [cli, "init", guardRoot], { encoding: "utf8" });
+    const initGuard = spawnSync(process.execPath, [cli, "init", guardRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initGuard.status, 0, initGuard.stderr || initGuard.stdout);
 
     // Add failing sensor with on:commit
@@ -1666,7 +1870,28 @@ Nenhum.
     const guardMultiSpec = spawnSync(
       process.execPath, [cli, "guard", "--event", "commit", guardRoot], { encoding: "utf8" }
     );
-    assert.equal(guardMultiSpec.status, 0, "AC4: >1 spec ativa → advisory exit 0");
+    assert.equal(guardMultiSpec.status, 0, "AC4: >1 spec ativa sem --path → advisory exit 0");
+
+    // AC4b: >1 spec em andamento, --path casa com Arquivos Permitidos de exatamente uma
+    // (spec-099-block-test, que tem Enforcement: blocking) → deve aplicar o Enforcement dela
+    await writeFile(
+      path.join(guardRoot, ".plan-build-qa/specs/spec-099-block-test/contracts/package-1.md"),
+      "# Contract: Package 1\n\n## Arquivos Permitidos\n\n- src/blocked-file.js\n"
+    );
+    const guardMultiSpecPathMatch = spawnSync(
+      process.execPath,
+      [cli, "guard", "--event", "commit", guardRoot, "--path", "src/blocked-file.js"],
+      { encoding: "utf8" }
+    );
+    assert.equal(guardMultiSpecPathMatch.status, 1, "AC4b: --path casa com 1 spec ativa blocking → exit 1");
+
+    // AC4c: >1 spec em andamento, --path nao casa com nenhuma → advisory
+    const guardMultiSpecNoMatch = spawnSync(
+      process.execPath,
+      [cli, "guard", "--event", "commit", guardRoot, "--path", "src/unrelated-file.js"],
+      { encoding: "utf8" }
+    );
+    assert.equal(guardMultiSpecNoMatch.status, 0, "AC4c: --path nao casa com nenhuma spec ativa → advisory exit 0");
 
     // AC5: edit event with harness path → runs analyze
     const guardEdit = spawnSync(
@@ -1709,7 +1934,7 @@ Nenhum.
       path.join(guardRoot, ".claude/settings.json"),
       JSON.stringify(existingHook, null, 2) + "\n"
     );
-    const updateHook = spawnSync(process.execPath, [cli, "update", guardRoot], { encoding: "utf8" });
+    const updateHook = spawnSync(process.execPath, [cli, "update", guardRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(updateHook.status, 0, "AC8: pbq update deve rodar sem erro");
     const settingsAfter = JSON.parse(await readFile(path.join(guardRoot, ".claude/settings.json"), "utf8"));
     assert.ok(
@@ -1721,7 +1946,7 @@ Nenhum.
       "AC8: novo hook pbq guard deve ser adicionado"
     );
     // Run update again — idempotent (no duplicate hook)
-    const updateHook2 = spawnSync(process.execPath, [cli, "update", guardRoot], { encoding: "utf8" });
+    const updateHook2 = spawnSync(process.execPath, [cli, "update", guardRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(updateHook2.status, 0, "AC8: segundo update deve rodar sem erro");
     const settingsAfter2 = JSON.parse(await readFile(path.join(guardRoot, ".claude/settings.json"), "utf8"));
     const guardHooks = settingsAfter2.hooks.PostToolUse.filter((e) =>
@@ -1735,7 +1960,7 @@ Nenhum.
   // spec-019 package-1: migração v1→v2 via pbq update (AC5)
   const migrateRoot = await mkdtemp(path.join(tmpdir(), "pbq-migrate-v1-"));
   try {
-    const initMigrate = spawnSync(process.execPath, [cli, "init", migrateRoot], { encoding: "utf8" });
+    const initMigrate = spawnSync(process.execPath, [cli, "init", migrateRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initMigrate.status, 0, initMigrate.stderr || initMigrate.stdout);
     // overwrite com sensors.json v1 (sem campo on)
     await writeFile(
@@ -1748,7 +1973,7 @@ Nenhum.
         ]
       }, null, 2)
     );
-    const updateMigrate = spawnSync(process.execPath, [cli, "update", migrateRoot], { encoding: "utf8" });
+    const updateMigrate = spawnSync(process.execPath, [cli, "update", migrateRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(updateMigrate.status, 0, updateMigrate.stderr || updateMigrate.stdout);
     const migrated = JSON.parse(await readFile(path.join(migrateRoot, ".plan-build-qa/sensors.json"), "utf8"));
     assert.equal(migrated.version, 2, "sensors.json deve ter version 2 apos pbq update");
@@ -1762,7 +1987,7 @@ Nenhum.
 
   const migratePhaseStringRoot = await mkdtemp(path.join(tmpdir(), "pbq-migrate-phase-string-"));
   try {
-    const initPhaseString = spawnSync(process.execPath, [cli, "init", migratePhaseStringRoot], { encoding: "utf8" });
+    const initPhaseString = spawnSync(process.execPath, [cli, "init", migratePhaseStringRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initPhaseString.status, 0, initPhaseString.stderr || initPhaseString.stdout);
     await writeFile(
       path.join(migratePhaseStringRoot, ".plan-build-qa/sensors.json"),
@@ -1777,7 +2002,7 @@ Nenhum.
         2
       )
     );
-    const updatePhaseString = spawnSync(process.execPath, [cli, "update", migratePhaseStringRoot], { encoding: "utf8" });
+    const updatePhaseString = spawnSync(process.execPath, [cli, "update", migratePhaseStringRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(updatePhaseString.status, 0, updatePhaseString.stderr || updatePhaseString.stdout);
     const migratedPhaseString = JSON.parse(await readFile(path.join(migratePhaseStringRoot, ".plan-build-qa/sensors.json"), "utf8"));
     const sensor = migratedPhaseString.sensors.find((s) => s.name === "preflight-docs");
@@ -1790,7 +2015,7 @@ Nenhum.
   // spec-025 package-1: sensor scope local/global foundation
   const scopeRoot = await mkdtemp(path.join(tmpdir(), "pbq-sensor-scope-"));
   try {
-    const initScope = spawnSync(process.execPath, [cli, "init", scopeRoot], { encoding: "utf8" });
+    const initScope = spawnSync(process.execPath, [cli, "init", scopeRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initScope.status, 0, initScope.stderr || initScope.stdout);
 
     await writeFile(
@@ -1878,7 +2103,7 @@ Reverter fixture.
   // spec-025 package-2: package close executes contract-required global and local sensors
   const packageScopeRoot = await mkdtemp(path.join(tmpdir(), "pbq-package-scope-"));
   try {
-    const initPackageScope = spawnSync(process.execPath, [cli, "init", packageScopeRoot], { encoding: "utf8" });
+    const initPackageScope = spawnSync(process.execPath, [cli, "init", packageScopeRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initPackageScope.status, 0, initPackageScope.stderr || initPackageScope.stdout);
 
     const packageScopeSensorsPath = path.join(packageScopeRoot, ".plan-build-qa/sensors.json");
@@ -2013,7 +2238,7 @@ Sem secao de sensores obrigatorios.
   // spec-025 package-3: sensor add/list --scope and analyze local/global validation
   const sensorCliScopeRoot = await mkdtemp(path.join(tmpdir(), "pbq-sensor-cli-scope-"));
   try {
-    const initSensorCliScope = spawnSync(process.execPath, [cli, "init", sensorCliScopeRoot], { encoding: "utf8" });
+    const initSensorCliScope = spawnSync(process.execPath, [cli, "init", sensorCliScopeRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initSensorCliScope.status, 0, initSensorCliScope.stderr || initSensorCliScope.stdout);
     const sensorCliScopePath = path.join(sensorCliScopeRoot, ".plan-build-qa/sensors.json");
 
@@ -2064,15 +2289,15 @@ Sem secao de sensores obrigatorios.
 
     const listScope = spawnSync(process.execPath, [cli, "sensor", "list", sensorCliScopeRoot], { encoding: "utf8" });
     assert.equal(listScope.status, 0, listScope.stderr || listScope.stdout);
-    assert.match(listScope.stdout, /enabled\tglobal\tfast\tscoped-global/, "AC4: sensor list deve mostrar scope global");
-    assert.match(listScope.stdout, /enabled\tglobal\tfast\tdefault-global/, "AC4: sensor list deve mostrar default global");
+    assert.match(listScope.stdout, /enabled\tglobal\tscoped-global/, "AC4: sensor list deve mostrar scope global");
+    assert.match(listScope.stdout, /enabled\tglobal\tdefault-global/, "AC4: sensor list deve mostrar default global");
   } finally {
     await rm(sensorCliScopeRoot, { recursive: true, force: true });
   }
 
   const analyzeLocalOkRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-local-ok-"));
   try {
-    const initAnalyzeLocalOk = spawnSync(process.execPath, [cli, "init", analyzeLocalOkRoot], { encoding: "utf8" });
+    const initAnalyzeLocalOk = spawnSync(process.execPath, [cli, "init", analyzeLocalOkRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initAnalyzeLocalOk.status, 0, initAnalyzeLocalOk.stderr || initAnalyzeLocalOk.stdout);
     await mkdir(path.join(analyzeLocalOkRoot, ".plan-build-qa/specs/spec-025-local-ok/contracts"), { recursive: true });
     await writeFile(
@@ -2119,7 +2344,7 @@ Sem secao de sensores obrigatorios.
 
   const analyzeLocalMissingRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-local-missing-"));
   try {
-    const initAnalyzeLocalMissing = spawnSync(process.execPath, [cli, "init", analyzeLocalMissingRoot], { encoding: "utf8" });
+    const initAnalyzeLocalMissing = spawnSync(process.execPath, [cli, "init", analyzeLocalMissingRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initAnalyzeLocalMissing.status, 0, initAnalyzeLocalMissing.stderr || initAnalyzeLocalMissing.stdout);
     await mkdir(path.join(analyzeLocalMissingRoot, ".plan-build-qa/specs/spec-025-local-missing/contracts"), { recursive: true });
     await writeFile(
@@ -2170,7 +2395,7 @@ Sem secao de sensores obrigatorios.
 
   const analyzeGlobalMissingRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-global-missing-"));
   try {
-    const initAnalyzeGlobalMissing = spawnSync(process.execPath, [cli, "init", analyzeGlobalMissingRoot], { encoding: "utf8" });
+    const initAnalyzeGlobalMissing = spawnSync(process.execPath, [cli, "init", analyzeGlobalMissingRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initAnalyzeGlobalMissing.status, 0, initAnalyzeGlobalMissing.stderr || initAnalyzeGlobalMissing.stdout);
     await mkdir(path.join(analyzeGlobalMissingRoot, ".plan-build-qa/specs/spec-025-global-missing/contracts"), { recursive: true });
     await writeFile(
@@ -2221,7 +2446,7 @@ Sem secao de sensores obrigatorios.
 
   const analyzeLocalFailedRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-local-failed-"));
   try {
-    const initAnalyzeLocalFailed = spawnSync(process.execPath, [cli, "init", analyzeLocalFailedRoot], { encoding: "utf8" });
+    const initAnalyzeLocalFailed = spawnSync(process.execPath, [cli, "init", analyzeLocalFailedRoot, "--agents", "claude,codex"], { encoding: "utf8" });
     assert.equal(initAnalyzeLocalFailed.status, 0, initAnalyzeLocalFailed.stderr || initAnalyzeLocalFailed.stdout);
     await mkdir(path.join(analyzeLocalFailedRoot, ".plan-build-qa/specs/spec-025-local-failed/contracts"), { recursive: true });
     await mkdir(path.join(analyzeLocalFailedRoot, ".plan-build-qa/specs/spec-025-local-failed/evaluations"), { recursive: true });

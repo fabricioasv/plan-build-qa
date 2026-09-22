@@ -4,7 +4,6 @@
     {
       "id": "sonar-dotnet",
       "name": "sonar-dotnet",
-      "tier": "slow",
       "on": ["edit", "close"],
       "phase": ["before", "after"],
       "command": "dotnet sonarscanner begin /k:\"<PROJECT_KEY>\" /d:sonar.host.url=\"$SONAR_HOST_URL\" /d:sonar.login=\"$SONAR_TOKEN\" && dotnet build && dotnet sonarscanner end /d:sonar.login=\"$SONAR_TOKEN\"",
@@ -15,7 +14,6 @@
     {
       "id": "sonar-js",
       "name": "sonar-js",
-      "tier": "slow",
       "on": ["edit", "close"],
       "phase": ["before", "after"],
       "command": "npx sonar-scanner -Dsonar.host.url=\"$SONAR_HOST_URL\" -Dsonar.login=\"$SONAR_TOKEN\"",
@@ -26,7 +24,6 @@
     {
       "id": "dotnet-build",
       "name": "dotnet-build",
-      "tier": "medium",
       "on": ["close"],
       "command": "dotnet build",
       "reason": "Compilacao de projetos .NET",
@@ -36,7 +33,6 @@
     {
       "id": "dotnet-test",
       "name": "dotnet-test",
-      "tier": "medium",
       "on": ["close"],
       "command": "dotnet test",
       "reason": "Execucao de testes unitarios e de integracao .NET",
@@ -46,7 +42,6 @@
     {
       "id": "eslint",
       "name": "eslint",
-      "tier": "fast",
       "on": ["commit", "close"],
       "command": "npx eslint .",
       "reason": "Linting estatico para projetos JavaScript/TypeScript",
@@ -56,7 +51,6 @@
     {
       "id": "playwright-e2e",
       "name": "playwright-e2e",
-      "tier": "slow",
       "on": ["close"],
       "command": "npx playwright test",
       "reason": "Testes E2E com Playwright",

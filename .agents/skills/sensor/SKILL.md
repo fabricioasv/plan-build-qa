@@ -77,11 +77,11 @@ The `on` field controls when a sensor runs:
 
 A sensor may belong to multiple events: `["commit","close"]`.
 
-The `tier` field (fast/medium/slow) is cosmetic — a cost label for display. The `on` field is what controls execution.
-
-Legacy `--tier` is still accepted and maps to `on` automatically:
+The `tier` concept (fast/medium/slow) is retired. Sensors added via `pbq init`, `pbq sensor add --on`, or the catalog no longer carry a `tier` field. Legacy `--tier <fast|medium|slow>` is still accepted only for backward compatibility with older scripts and maps to `on` automatically:
 - `--tier fast` → `on:["commit","close"]`
 - `--tier medium` or `--tier slow` → `on:["close"]`
+
+Prefer `--on` for any new sensor; do not document or suggest `--tier` as the primary way to add a sensor.
 
 Legacy `--phase` is also accepted (deprecated, mapped to `on`):
 - `--phase before` → `on:["edit"]`

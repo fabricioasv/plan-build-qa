@@ -77,6 +77,29 @@ flowchart TD
 
 ---
 
+## 4o Estagio: `/retro`
+
+O pipeline de 5 etapas acima cobre um package. Além dele, o fluxo de desenvolvimento tem um quarto
+estágio, mais amplo, que olha para o harness como um todo: **`/spec` -> `/implement` -> `/test` -> `/retro`**.
+
+`/retro` lê `roadmap.md`, o histórico de `evaluations/*.md` e `pbq analyze --strict`, e recomenda
+**revisar**, **incrementar** ou **excluir** partes do harness (constitution, sensores, templates) —
+sempre como recomendação, nunca aplicando a mudança sozinho. Aplicar uma recomendação passa pelas
+skills `constitution`/`sensor`/`spec`, como qualquer outra mudança no harness.
+
+---
+
+## Utilitario Opcional: `/backlog-sync`
+
+Nao e um estagio obrigatorio de nenhum fluxo. `/backlog-sync` arquiva, so de saida, specs `planejado`
+nunca iniciadas e bugs que o usuario confirma nao fazerem mais sentido, criando um item correspondente
+num tracker externo (Azure DevOps, Jira, ou qualquer outro com MCP disponivel na sessao) e, so apos
+confirmacao explicita item a item e sucesso remoto, atualizando `roadmap.md` (`Status` -> `cancelado`
+com a referencia em `Evidencia`) ou o `bug.md`/`progress.md` do bug — sem apagar a pasta local. Nunca
+cria trabalho novo no tracker e nunca sincroniza status de specs concluidas continuamente.
+
+---
+
 ## Ecossistema de Sensores
 
 ```mermaid
@@ -87,12 +110,12 @@ flowchart TD
     end
 
     subgraph Registro["Registro em sensors.json"]
-        MANUAL["pbq sensor add\n--name  --on  --command\n--reason  [--tier cosmético]"]
+        MANUAL["pbq sensor add\n--name  --on  --command\n--reason"]
         FROMCAT["pbq sensor add\n--from-catalog id"]
     end
 
     subgraph SJ["sensors.json v2"]
-        FIELDS["name  command  reason\nsource  enabled  requiresEnv\non: edit  commit  close  manual\ntier: cosmético opcional"]
+        FIELDS["name  command  reason\nsource  enabled  requiresEnv\non: edit  commit  close  manual"]
     end
 
     subgraph Guard["pbq guard"]
@@ -101,7 +124,7 @@ flowchart TD
     end
 
     subgraph Close["pbq package close  gate bloqueante"]
-        CEVENT["on:close\nExecuta sensores de gate\n--tiers cosmético opcional"]
+        CEVENT["on:close\nExecuta sensores de gate"]
         EVAL["evaluations/package-N.md\nScore: 0 ou 1\nEvidencia: stdout real"]
     end
 

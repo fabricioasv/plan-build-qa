@@ -52,7 +52,7 @@ Applies after `implement` produces code against the contract. Verify the impleme
 
 1. Read `.plan-build-qa/constitution/testing.md`.
 2. Read the required sensors from `contracts/package-N.md`.
-3. Prefer `pbq package close . --spec <spec> --package <N> --tiers <tiers>` for enforced execution and evaluation generation. The evaluation's Evidence column is auto-populated with real stdout/stderr output.
+3. Prefer `pbq package close . --spec <spec> --package <N>` for enforced execution and evaluation generation. The evaluation's Evidence column is auto-populated with real stdout/stderr output.
 4. For exploratory validation, use `.plan-build-qa/harness/scripts/run-close.ps1` or `run-close.sh` (event-based runners).
 5. **REQUIRED**: record every required sensor in the evaluation table with status, command, exit code, and evidence.
 6. A required global sensor must exist in `.plan-build-qa/sensors.json`; `Scope: local` and `Scope: package` sensors are contract-local and do not require global registry entries.

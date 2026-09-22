@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, readdir, rename, rmdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -10,9 +10,10 @@ import { fileURLToPath } from "node:url";
 const MARKER_START = "<!-- PBQ-HARNESS-START -->";
 const MARKER_END = "<!-- PBQ-HARNESS-END -->";
 const HARNESS_DIR = ".plan-build-qa";
-const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement", "test", "analyze", "bug"];
+const ADAPTER_SKILLS = ["spec", "sensor", "roadmap", "constitution", "implement", "test", "analyze", "bug", "retro", "backlog-sync"];
 const PBQ_TEMPLATE_VERSION = 2;
 const ALLOWED_SPEC_STATUS = new Set(["planejado", "em andamento", "bloqueado", "concluido", "cancelado"]);
+const ALLOWED_AGENTS = new Set(["claude", "codex", "cursor"]);
 const MODERN_SPEC_NAME_RE = /^spec-\d{6}-[0-9a-f]{4}-[a-z0-9][a-z0-9-]*$/i;
 const LEGACY_SPEC_NAME_RE = /^spec-\d{3}-[a-z0-9][a-z0-9-]*$/i;
 const MODERN_BUG_NAME_RE = /^bug-\d{6}-[0-9a-f]{4}-[a-z0-9][a-z0-9-]*$/i;
@@ -29,13 +30,7 @@ const REQUIRED_FILES = [
   `${HARNESS_DIR}/harness/prompts/implement-package.md`,
   `${HARNESS_DIR}/harness/prompts/validate-contract.md`,
   `${HARNESS_DIR}/harness/prompts/run-evaluation.md`,
-  `${HARNESS_DIR}/harness/scripts/run-fast.ps1`,
-  `${HARNESS_DIR}/harness/scripts/run-medium.ps1`,
-  `${HARNESS_DIR}/harness/scripts/run-slow.ps1`,
   `${HARNESS_DIR}/harness/scripts/check-harness-structure.ps1`,
-  `${HARNESS_DIR}/harness/scripts/run-fast.sh`,
-  `${HARNESS_DIR}/harness/scripts/run-medium.sh`,
-  `${HARNESS_DIR}/harness/scripts/run-slow.sh`,
   `${HARNESS_DIR}/harness/scripts/check-harness-structure.sh`,
   `${HARNESS_DIR}/harness/templates/spec.md`,
   `${HARNESS_DIR}/harness/templates/contract.md`,
@@ -118,9 +113,14 @@ async function main() {
   await ensureDirectory(targetRoot);
 
   const project = await inspectProject(targetRoot);
-  const generated = withManifest(await generateFiles(project));
+  const generated = withManifest(await generateFiles(project), options.integrateAgents ? [...options.agents] : []);
   if (!options.integrateAgents) {
     for (const path of adapterSkillPaths()) delete generated[path];
+  } else {
+    const keep = agentSkillPathsFor(options.agents);
+    for (const path of adapterSkillPaths()) {
+      if (!keep.has(path)) delete generated[path];
+    }
   }
   const events = [];
 
@@ -142,26 +142,51 @@ function isHelpRequest(value) {
   return value === "help" || value === "--help" || value === "-h";
 }
 
+function parseAgentsOption(value) {
+  const agents = new Set(
+    value.split(",").map((agent) => agent.trim().toLowerCase()).filter(Boolean)
+  );
+  for (const agent of agents) {
+    if (!ALLOWED_AGENTS.has(agent)) {
+      throw new Error(`Agente desconhecido em --agents: ${agent}. Use claude, codex e/ou cursor.`);
+    }
+  }
+  if (agents.size === 0) {
+    throw new Error("Informe ao menos um agente em --agents (claude, codex e/ou cursor).");
+  }
+  return agents;
+}
+
 function parseInitArgs(args) {
   const options = {
     targetPath: ".",
     force: false,
     dryRun: false,
-    integrateAgents: true
+    integrateAgents: true,
+    agents: null
   };
 
-  for (const arg of args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
     if (arg === "--force") {
       options.force = true;
     } else if (arg === "--dry-run") {
       options.dryRun = true;
     } else if (arg === "--no-agent-integration") {
       options.integrateAgents = false;
+    } else if (arg === "--agents") {
+      options.agents = parseAgentsOption(readOptionValue(args, ++index, "--agents"));
     } else if (arg.startsWith("--")) {
       throw new Error(`Opcao desconhecida: ${arg}`);
     } else {
       options.targetPath = arg;
     }
+  }
+
+  if (options.integrateAgents && !options.agents) {
+    throw new Error(
+      "Informe --agents <claude,codex,cursor> (obrigatorio), ou use --no-agent-integration para pular a integracao de agente."
+    );
   }
 
   return options;
@@ -201,7 +226,7 @@ async function runSensorCommand(args) {
 
     await writeSensors(targetRoot, sensors);
     await regenerateSensorScripts(targetRoot, sensors);
-    console.log(`[pbq] Sensor ${index >= 0 ? "updated" : "added"}: ${nextSensor.name} (${nextSensor.tier})`);
+    console.log(`[pbq] Sensor ${index >= 0 ? "updated" : "added"}: ${nextSensor.name} (on: ${nextSensor.on.join(",")})`);
     return;
   }
 
@@ -222,7 +247,8 @@ async function runSensorCommand(args) {
       const alreadyAdded = registered.has(entry.name);
       const envNote = entry.requiresEnv && entry.requiresEnv.length > 0 ? ` [requer: ${entry.requiresEnv.join(", ")}]` : "";
       const status = alreadyAdded ? "[cadastrado]" : entry.enabled === false ? "[disabled]" : "[disponivel]";
-      console.log(`${status}\t${entry.tier}\t${entry.id}${envNote}\t${entry.reason}`);
+      const onStr = (entry.on || []).join(",") || "-";
+      console.log(`${status}\t${onStr}\t${entry.id}${envNote}\t${entry.reason}`);
     }
     return;
   }
@@ -236,7 +262,7 @@ async function runSensorCommand(args) {
     }
     for (const sensor of sensors) {
       const onStr = sensor.on ? sensor.on.join(",") : "(sem on)";
-      console.log(`${sensor.enabled === false ? "disabled" : "enabled"}\t${sensor.scope || "global"}\t${sensor.tier || "-"}\t${sensor.name}\t${onStr}\t${sensor.command}`);
+      console.log(`${sensor.enabled === false ? "disabled" : "enabled"}\t${sensor.scope || "global"}\t${sensor.name}\t${onStr}\t${sensor.command}`);
     }
     return;
   }
@@ -480,17 +506,47 @@ function parseGuardArgs(args) {
   return options;
 }
 
-async function resolveEnforcement(targetRoot) {
-  const roadmapPath = path.join(targetRoot, HARNESS_DIR, "roadmap.md");
-  if (!existsSync(roadmapPath)) return "advisory";
-  const roadmap = await readFile(roadmapPath, "utf8");
-  const activeSpecs = parseRoadmapSpecRows(roadmap).filter((s) => s.status === "em andamento");
-  if (activeSpecs.length !== 1) return "advisory";
-  const specPath = path.join(targetRoot, HARNESS_DIR, "specs", activeSpecs[0].name, "spec.md");
+async function readSpecEnforcement(targetRoot, specName) {
+  const specPath = path.join(targetRoot, HARNESS_DIR, "specs", specName, "spec.md");
   if (!existsSync(specPath)) return "advisory";
   const specContent = await readFile(specPath, "utf8");
   const match = specContent.match(/^Enforcement:\s*(blocking|advisory)/im);
   return match ? match[1].toLowerCase() : "advisory";
+}
+
+async function specContractAllowsPath(targetRoot, specName, filePath) {
+  const contractsDir = path.join(targetRoot, HARNESS_DIR, "specs", specName, "contracts");
+  if (!existsSync(contractsDir)) return false;
+  const normalized = filePath.replace(/\\/g, "/");
+  const entries = await readdir(contractsDir).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.endsWith(".md")) continue;
+    const content = await readFile(path.join(contractsDir, entry), "utf8").catch(() => "");
+    const section = content.match(/## Arquivos Permitidos([\s\S]*?)(\n## |$)/i);
+    if (section && section[1].includes(normalized)) return true;
+  }
+  return false;
+}
+
+async function resolveEnforcement(targetRoot, filePath = "") {
+  const roadmapPath = path.join(targetRoot, HARNESS_DIR, "roadmap.md");
+  if (!existsSync(roadmapPath)) return "advisory";
+  const roadmap = await readFile(roadmapPath, "utf8");
+  const activeSpecs = parseRoadmapSpecRows(roadmap).filter((s) => s.status === "em andamento");
+
+  if (activeSpecs.length === 1) {
+    return readSpecEnforcement(targetRoot, activeSpecs[0].name);
+  }
+
+  if (activeSpecs.length > 1 && filePath) {
+    const matches = [];
+    for (const spec of activeSpecs) {
+      if (await specContractAllowsPath(targetRoot, spec.name, filePath)) matches.push(spec);
+    }
+    if (matches.length === 1) return readSpecEnforcement(targetRoot, matches[0].name);
+  }
+
+  return "advisory";
 }
 
 async function runGuardCommand(args) {
@@ -506,7 +562,7 @@ async function runGuardCommand(args) {
     // sensors.json absent — nothing to guard
   }
 
-  const enforcement = await resolveEnforcement(targetRoot);
+  const enforcement = await resolveEnforcement(targetRoot, options.filePath);
   let hasFailed = false;
 
   for (const sensor of sensors) {
@@ -694,14 +750,7 @@ async function writeSensors(root, sensors) {
 }
 
 async function regenerateSensorScripts(root, sensors) {
-  const placeholders = sensorPlaceholders(sensors);
   const files = {
-    [`${HARNESS_DIR}/harness/scripts/run-fast.ps1`]: psRunScript("fast", sensors, placeholders),
-    [`${HARNESS_DIR}/harness/scripts/run-medium.ps1`]: psRunScript("medium", sensors, placeholders),
-    [`${HARNESS_DIR}/harness/scripts/run-slow.ps1`]: psRunScript("slow", sensors, placeholders),
-    [`${HARNESS_DIR}/harness/scripts/run-fast.sh`]: shRunScript("fast", sensors, placeholders),
-    [`${HARNESS_DIR}/harness/scripts/run-medium.sh`]: shRunScript("medium", sensors, placeholders),
-    [`${HARNESS_DIR}/harness/scripts/run-slow.sh`]: shRunScript("slow", sensors, placeholders),
     [`${HARNESS_DIR}/harness/scripts/run-commit.ps1`]: psRunEventScript("commit", sensors),
     [`${HARNESS_DIR}/harness/scripts/run-close.ps1`]: psRunEventScript("close", sensors),
     [`${HARNESS_DIR}/harness/scripts/run-commit.sh`]: shRunEventScript("commit", sensors),
@@ -779,34 +828,44 @@ printf '[harness:${label}] OK\\n'
 `;
 }
 
-function sensorPlaceholders(sensors) {
-  return ["fast", "medium", "slow"]
-    .filter((tier) => !sensors.some((sensor) => sensor.tier === tier && sensor.enabled !== false))
-    .map((tier) => ({
-      bucket: tier,
-      text: `Nenhum sensor ${tier} cadastrado. Use 'pbq sensor add --tier ${tier}' para adicionar.`
-    }));
-}
-
 function printHelp(topic = "") {
   const normalized = topic.toLowerCase();
   const helpByTopic = {
-    init: `pbq init [path] [--force] [--dry-run] [--no-agent-integration]
+    init: `pbq init [path] --agents <claude,codex,cursor> [--force] [--dry-run]
+pbq init [path] --no-agent-integration [--force] [--dry-run]
 
-Cria a estrutura inicial em .plan-build-qa/ e adapters para Claude/Codex.
+Cria a estrutura inicial em .plan-build-qa/ e adapters para os agentes escolhidos.
 
 Opcoes:
+  --agents <lista>        OBRIGATORIO (a menos que --no-agent-integration seja usado).
+                          Valores aceitos, separados por virgula: claude, codex, cursor.
+                            claude  -> .claude/skills/<skill>/SKILL.md + bloco em CLAUDE.md
+                            codex   -> .agents/skills/<skill>/SKILL.md + bloco em AGENTS.md
+                            cursor  -> .agents/skills/<skill>/SKILL.md (mesma pasta que codex)
+                                       + .cursor/commands/<skill>.md + AGENTS.md como referencia
+                          skills de agente novo (ex.: retro) sao instaladas junto, conforme os
+                          agentes escolhidos.
   --force                 sobrescreve arquivos existentes gerados pelo harness
   --dry-run               mostra o que seria criado/alterado
-  --no-agent-integration  nao cria/atualiza AGENTS.md, CLAUDE.md, .claude/skills ou .agents/skills
+  --no-agent-integration  nao cria/atualiza AGENTS.md, CLAUDE.md, .claude/skills, .agents/skills
+                          ou .cursor/commands; dispensa --agents
 
 Exemplos:
-  pbq init .
-  pbq init C:\\repo\\app --dry-run`,
+  pbq init . --agents claude
+  pbq init . --agents claude,codex,cursor
+  pbq init C:\\repo\\app --agents codex --dry-run`,
 
-    update: `pbq update [path] [--dry-run] [--force]
+    update: `pbq update [path] --agents <claude,codex,cursor> [--dry-run] [--force]
+pbq update [path] --no-agent-integration [--dry-run] [--force]
 
 Atualiza templates/skills de uma instalacao existente usando .plan-build-qa/manifest.json.
+
+  --agents <lista>        OBRIGATORIO (a menos que --no-agent-integration seja usado); mesmos
+                          valores e efeitos de 'pbq init --agents'. Remover um agente da lista
+                          apaga os artefatos exclusivos dele (.claude/skills, .agents/skills ou
+                          .cursor/commands) SE ainda estiverem identicos ao ultimo template
+                          instalado; se foram customizados, sao preservados (nao apagados).
+  --no-agent-integration  dispensa --agents; nao toca integracao de agente nenhuma
 
 Comportamento:
   arquivo ausente                 cria
@@ -815,12 +874,11 @@ Comportamento:
   sensors.json                    nunca sobrescreve
 
 Exemplos:
-  pbq update .
-  pbq update C:\\repo\\app --dry-run
-  pbq update . --force`,
+  pbq update . --agents claude,codex
+  pbq update C:\\repo\\app --agents cursor --dry-run
+  pbq update . --agents claude,codex --force`,
 
     sensor: `pbq sensor add [path] --name <name> --on <gatilhos> --command <command> [--reason <text>]
-pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
 pbq sensor add --from-catalog <id> [path]
 pbq sensor list [path]
 pbq sensor suggest [path]
@@ -828,9 +886,7 @@ pbq sensor catalog [path]
 
 Gerencia sensores computacionais em .plan-build-qa/sensors.json e regenera runners.
 
-  --on     gatilhos de execucao: edit, commit, close, manual (separados por virgula). Preferido.
-  --tier   rotulo cosmético de custo (fast|medium|slow). Mapeado para --on se omitido.
-           fast -> commit,close | medium -> close | slow -> close
+  --on     gatilhos de execucao: edit, commit, close, manual (separados por virgula).
 
   suggest  escaneia o alvo e imprime comandos 'pbq sensor add' prontos para candidatos detectados
            (scripts soltos, Makefile, sonar*) e ainda nao cadastrados em sensors.json. So imprime;
@@ -876,30 +932,37 @@ Exemplos:
   pbq contract check . --contract .plan-build-qa/specs/spec-001/contracts/package-1.md
   pbq contract check . --spec spec-001-login --package 1`,
 
-    package: `pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow] [--phase before|after]
+    package: `pbq package close [path] --spec <spec-name> --package <N> [--phase before|after]
 
 Executa sensores cadastrados, gera evaluation em .plan-build-qa/specs/<spec>/evaluations/package-N.md e falha se sensor obrigatorio falhar.
 
   --phase  fase de execucao (default: after). Sensores sem campo phase so rodam na fase after.
            Sensores com phase:["before"] so rodam com --phase before.
+  --tiers  alias legado sem efeito para sensores novos (mantido para compatibilidade com
+           sensores antigos que ainda tem campo tier); selecao real de sensores usa on:<evento>.
 
 Exemplos:
-  pbq package close . --spec spec-001-login --package 1 --tiers fast,medium
+  pbq package close . --spec spec-001-login --package 1
   pbq package close . --spec spec-001-login --package 1 --phase before
   pbq package close C:\\repo\\app --spec spec-002-checkout --package 3`,
 
     guard: `pbq guard --event <edit|commit|close> [path] [--path <file>]
 
 Roda sensores com on:<event> e imprime resultado.
-Advisory por default (exit 0 sempre). Exit 1 apenas se spec ativa tiver
-"Enforcement: blocking" E algum sensor falhar.
+Advisory por default (exit 0 sempre). Exit 1 apenas se a spec ativa resolvida
+tiver "Enforcement: blocking" E algum sensor falhar. Spec ativa e resolvida assim:
+  1. 1 unica spec "em andamento": usa o Enforcement dela.
+  2. Mais de 1 spec "em andamento" e --path informado: se o arquivo casar com
+     "Arquivos Permitidos" de exatamente uma spec ativa, usa o Enforcement dela.
+  3. Qualquer outro caso: advisory (seguro por default).
 
   edit    sensores de edicao (ex.: lint rapido, analyze)
   commit  sensores de pre-commit (ex.: unit tests, lint)
   close   sensores de gate de aceite (equivalente ao pbq package close)
 
-  --path  caminho do arquivo editado; se estiver em .plan-build-qa/**, tambem
-          roda 'pbq analyze' automaticamente
+  --path  caminho do arquivo editado; usado tambem para resolver a spec ativa
+          quando ha mais de uma "em andamento"; se estiver em .plan-build-qa/**,
+          tambem roda 'pbq analyze' automaticamente
 
 Exemplos:
   pbq guard --event commit .
@@ -924,6 +987,9 @@ pbq dashboard [path] [--json] [--output <dir>] [--serve] [--watch] [--port <N>] 
 
 Mostra painel textual com specs, contrato, build, QA e score.
 
+O dashboard (.plan-build-qa/dashboard/) e um artefato derivado, nao versionado; gere-o sob
+demanda quando precisar.
+
 Exemplos:
   pbq status .
   pbq run C:\\repo\\app --resume
@@ -941,6 +1007,9 @@ Exemplo:
     dashboard: `pbq dashboard [path] [--json] [--output <dir>] [--serve] [--watch] [--port <N>] [--resume]
 
 Mostra o painel textual ou gera um snapshot JSON do dashboard.
+
+O dashboard (.plan-build-qa/dashboard/) e um artefato derivado, nao versionado; gere-o sob
+demanda quando precisar, nao commite o conteudo desse diretorio.
 
 Flags:
   --json          imprime o dashboard em JSON em vez do painel textual
@@ -998,12 +1067,12 @@ Ajuda por comando:
   pbq help run
 
 Exemplos:
-  pbq init .
-  pbq update . --dry-run
+  pbq init . --agents claude
+  pbq update . --agents claude --dry-run
   pbq sensor list .
   pbq analyze .
   pbq contract check . --spec spec-001-exemplo --package 1
-  pbq package close . --spec spec-001-exemplo --package 1 --tiers fast,medium
+  pbq package close . --spec spec-001-exemplo --package 1
   pbq run . --resume`);
 }
 
@@ -1739,7 +1808,15 @@ async function runUpdateCommand(args) {
   }
 
   const project = await inspectProject(targetRoot);
-  const generated = withManifest(await generateFiles(project));
+  const generated = withManifest(await generateFiles(project), options.integrateAgents ? [...options.agents] : []);
+  if (!options.integrateAgents) {
+    for (const path of adapterSkillPaths()) delete generated[path];
+  } else {
+    const keep = agentSkillPathsFor(options.agents);
+    for (const path of adapterSkillPaths()) {
+      if (!keep.has(path)) delete generated[path];
+    }
+  }
   const previousManifest = await readManifest(targetRoot);
   const events = [];
 
@@ -1747,6 +1824,12 @@ async function runUpdateCommand(args) {
     if (relativePath === `${HARNESS_DIR}/sensors.json`) continue;
     const effectiveOptions = ALWAYS_REPLACE_FILES.has(relativePath) ? { ...options, force: true } : options;
     await updateManagedFile(targetRoot, relativePath, latest, previousManifest, effectiveOptions, events);
+  }
+
+  await removeDeprecatedManagedFiles(targetRoot, generated, options, previousManifest, events);
+
+  if (options.integrateAgents) {
+    await removeUnselectedAgentFiles(targetRoot, options, previousManifest, events);
   }
 
   await migrateLegacySpecDirectories(targetRoot, options, events);
@@ -1761,14 +1844,25 @@ function parseUpdateArgs(args) {
   const options = {
     targetPath: ".",
     dryRun: false,
-    force: false
+    force: false,
+    integrateAgents: true,
+    agents: null
   };
 
-  for (const arg of args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
     if (arg === "--dry-run") options.dryRun = true;
     else if (arg === "--force") options.force = true;
+    else if (arg === "--no-agent-integration") options.integrateAgents = false;
+    else if (arg === "--agents") options.agents = parseAgentsOption(readOptionValue(args, ++index, "--agents"));
     else if (arg.startsWith("--")) throw new Error(`Opcao desconhecida: ${arg}`);
     else options.targetPath = arg;
+  }
+
+  if (options.integrateAgents && !options.agents) {
+    throw new Error(
+      "Informe --agents <claude,codex,cursor> (obrigatorio), ou use --no-agent-integration para pular a integracao de agente."
+    );
   }
 
   return options;
@@ -2038,6 +2132,66 @@ async function updateManagedFile(root, relativePath, latest, previousManifest, o
   events.push({ type: "candidate", path: candidatePath });
 }
 
+async function removeDeprecatedManagedFiles(targetRoot, generated, options, previousManifest, events) {
+  if (!previousManifest?.files) return;
+
+  const skip = new Set(adapterSkillPaths());
+  skip.add(`${HARNESS_DIR}/sensors.json`);
+  skip.add(`${HARNESS_DIR}/manifest.json`);
+
+  for (const [relativePath, previousEntry] of Object.entries(previousManifest.files)) {
+    if (skip.has(relativePath)) continue;
+    if (Object.prototype.hasOwnProperty.call(generated, relativePath)) continue;
+
+    const absolutePath = path.join(targetRoot, relativePath);
+    if (!existsSync(absolutePath)) continue;
+
+    const current = await readFile(absolutePath, "utf8").catch(() => null);
+    if (current === null) continue;
+
+    if (sha256(current) !== previousEntry.sha256) {
+      events.push({ type: "deprecated-file-preserved-customized", path: relativePath });
+      continue;
+    }
+
+    if (!options.dryRun) {
+      await rm(absolutePath, { force: true });
+    }
+    events.push({ type: "deprecated-file-removed", path: relativePath });
+  }
+}
+
+async function removeUnselectedAgentFiles(targetRoot, options, previousManifest, events) {
+  if (!Array.isArray(previousManifest?.agents)) return;
+
+  const previousAgents = new Set(previousManifest.agents);
+  const removedAgents = [...previousAgents].filter((agent) => !options.agents.has(agent));
+  if (removedAgents.length === 0) return;
+
+  const keep = agentSkillPathsFor(options.agents);
+  for (const relativePath of adapterSkillPaths()) {
+    if (keep.has(relativePath)) continue;
+    const previousEntry = previousManifest.files?.[relativePath];
+    if (!previousEntry) continue;
+
+    const absolutePath = path.join(targetRoot, relativePath);
+    if (!existsSync(absolutePath)) continue;
+
+    const current = await readFile(absolutePath, "utf8").catch(() => null);
+    if (current === null) continue;
+
+    if (sha256(current) !== previousEntry.sha256) {
+      events.push({ type: "agent-file-preserved-customized", path: relativePath });
+      continue;
+    }
+
+    if (!options.dryRun) {
+      await rm(absolutePath, { force: true });
+    }
+    events.push({ type: "agent-file-removed", path: relativePath });
+  }
+}
+
 function printUpdateSummary(targetRoot, events, options, catalogCount = 0) {
   const grouped = groupBy(events, "type");
   console.log(`[pbq] Update target: ${targetRoot}`);
@@ -2047,6 +2201,20 @@ function printUpdateSummary(targetRoot, events, options, catalogCount = 0) {
   console.log(`[pbq] Force updated: ${(grouped["force-update"] || []).length}`);
   console.log(`[pbq] Candidates written: ${(grouped.candidate || []).length}`);
   console.log(`[pbq] Already current: ${(grouped.ok || []).length}`);
+  for (const event of grouped["deprecated-file-removed"] || []) {
+    const action = options.dryRun ? "Would remove deprecated file" : "Deprecated file removed";
+    console.log(`[pbq] ${action}: ${event.path}`);
+  }
+  for (const event of grouped["deprecated-file-preserved-customized"] || []) {
+    console.log(`[pbq] Deprecated file preservado (customizado): ${event.path}`);
+  }
+  for (const event of grouped["agent-file-removed"] || []) {
+    const action = options.dryRun ? "Would remove agent file" : "Agent file removed";
+    console.log(`[pbq] ${action} (agente retirado de --agents): ${event.path}`);
+  }
+  for (const event of grouped["agent-file-preserved-customized"] || []) {
+    console.log(`[pbq] Agent file de agente retirado preservado (customizado): ${event.path}`);
+  }
   for (const event of grouped["spec-migrate"] || []) {
     console.log(`[pbq] Spec migrated: ${event.oldName} -> ${event.newName}`);
   }
@@ -2075,19 +2243,21 @@ function printUpdateSummary(targetRoot, events, options, catalogCount = 0) {
 async function runPackageCommand(args) {
   const action = args.shift();
   if (action !== "close") {
-    throw new Error("Uso: pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]");
+    throw new Error("Uso: pbq package close [path] --spec <spec-name> --package <N> [--phase before|after]");
   }
 
   const options = parsePackageCloseArgs(args);
   const targetRoot = path.resolve(options.targetPath);
   const event = options.phase === "before" ? "edit" : "close";
   const allSensors = await readSensors(targetRoot);
-  const selectedSensors = allSensors.filter(
-    (sensor) =>
+  const selectedSensors = allSensors.filter((sensor) => {
+    const legacyBucket = sensor.tier || sensor.runnerBucket;
+    return (
       sensor.enabled !== false &&
-      (sensor.tier === undefined || options.tiers.includes(sensor.tier)) &&
+      (legacyBucket === undefined || options.tiers.includes(legacyBucket)) &&
       isSensorEligibleForEvent(sensor, event)
-  );
+    );
+  });
   const requiredSensors = await readPackageRequiredSensors(targetRoot, options);
   const sensors = resolvePackageSensors(selectedSensors, allSensors, requiredSensors);
   const result = executePackageSensors(targetRoot, sensors);
@@ -3945,7 +4115,7 @@ function detectCommands(fileSet, packageJson, extraCandidates = []) {
   if (commands.slow.length === 0) {
     commands.placeholders.push({
       bucket: "slow",
-      text: "Nenhum E2E/integracao pesada foi detectado. Mantenha run-slow como placeholder ate haver sensor real."
+      text: "Nenhum E2E/integracao pesada foi detectado. Adicione um sensor com 'pbq sensor add --on close' quando houver um real."
     });
   }
 
@@ -3975,13 +4145,7 @@ async function generateFiles(project) {
     [`${HARNESS_DIR}/harness/prompts/validate-contract.md`, await loadTemplate("harness/prompts/validate-contract.md")],
     [`${HARNESS_DIR}/harness/prompts/run-evaluation.md`, await loadTemplate("harness/prompts/run-evaluation.md")],
     [`${HARNESS_DIR}/harness/scripts/check-harness-structure.ps1`, psCheckHarnessStructure()],
-    [`${HARNESS_DIR}/harness/scripts/run-fast.ps1`, psRunScript("fast", sensors, project.commands.placeholders)],
-    [`${HARNESS_DIR}/harness/scripts/run-medium.ps1`, psRunScript("medium", sensors, project.commands.placeholders)],
-    [`${HARNESS_DIR}/harness/scripts/run-slow.ps1`, psRunScript("slow", sensors, project.commands.placeholders)],
     [`${HARNESS_DIR}/harness/scripts/check-harness-structure.sh`, shCheckHarnessStructure()],
-    [`${HARNESS_DIR}/harness/scripts/run-fast.sh`, shRunScript("fast", sensors, project.commands.placeholders)],
-    [`${HARNESS_DIR}/harness/scripts/run-medium.sh`, shRunScript("medium", sensors, project.commands.placeholders)],
-    [`${HARNESS_DIR}/harness/scripts/run-slow.sh`, shRunScript("slow", sensors, project.commands.placeholders)],
     [`${HARNESS_DIR}/harness/scripts/run-commit.ps1`, psRunEventScript("commit", sensors)],
     [`${HARNESS_DIR}/harness/scripts/run-close.ps1`, psRunEventScript("close", sensors)],
     [`${HARNESS_DIR}/harness/scripts/run-commit.sh`, shRunEventScript("commit", sensors)],
@@ -4003,7 +4167,7 @@ async function generateFiles(project) {
   ]);
 }
 
-function withManifest(generated) {
+function withManifest(generated, agents = null) {
   const files = {};
   for (const [relativePath, content] of Object.entries(generated)) {
     if (relativePath === `${HARNESS_DIR}/manifest.json`) continue;
@@ -4011,16 +4175,14 @@ function withManifest(generated) {
       sha256: sha256(content)
     };
   }
+  const manifest = {
+    version: PBQ_TEMPLATE_VERSION,
+    files
+  };
+  if (agents) manifest.agents = [...agents].sort();
   return {
     ...generated,
-    [`${HARNESS_DIR}/manifest.json`]: JSON.stringify(
-      {
-        version: PBQ_TEMPLATE_VERSION,
-        files
-      },
-      null,
-      2
-    ) + "\n"
+    [`${HARNESS_DIR}/manifest.json`]: JSON.stringify(manifest, null, 2) + "\n"
   };
 }
 
@@ -4034,15 +4196,31 @@ async function adapterSkillEntries() {
     const content = await loadTemplate(`adapters/skills/${skill}/SKILL.md`);
     entries.push([`.claude/skills/${skill}/SKILL.md`, content]);
     entries.push([`.agents/skills/${skill}/SKILL.md`, content]);
+    entries.push([`.cursor/commands/${skill}.md`, cursorCommandContent(skill)]);
   }
   return entries;
+}
+
+function cursorCommandContent(skill) {
+  return `# /${skill}\n\nExecute a skill \`${skill}\` deste projeto conforme \`.agents/skills/${skill}/SKILL.md\`.\n`;
 }
 
 function adapterSkillPaths() {
   return ADAPTER_SKILLS.flatMap((skill) => [
     `.claude/skills/${skill}/SKILL.md`,
-    `.agents/skills/${skill}/SKILL.md`
+    `.agents/skills/${skill}/SKILL.md`,
+    `.cursor/commands/${skill}.md`
   ]);
+}
+
+function agentSkillPathsFor(agents) {
+  const keep = new Set();
+  for (const skill of ADAPTER_SKILLS) {
+    if (agents.has("claude")) keep.add(`.claude/skills/${skill}/SKILL.md`);
+    if (agents.has("codex") || agents.has("cursor")) keep.add(`.agents/skills/${skill}/SKILL.md`);
+    if (agents.has("cursor")) keep.add(`.cursor/commands/${skill}.md`);
+  }
+  return keep;
 }
 
 function buildSensors(commands) {
@@ -4051,8 +4229,11 @@ function buildSensors(commands) {
     for (const item of commands[tier]) {
       const sensor = {
         name: sensorName(item.command),
-        tier,
         on: legacyTierToOn(tier),
+        // runnerBucket (nao "tier"): usado por 'pbq package close --tiers' para selecionar
+        // qual subconjunto de sensores detectados roda por padrao. Nao e mais usado para
+        // gerar runners run-fast/medium/slow (removidos).
+        runnerBucket: tier,
         command: item.command,
         reason: item.reason,
         source: "detected",
@@ -4401,8 +4582,6 @@ Cada sensor declara **quando** deve rodar via o campo \`on\`:
 - **\`close\`** — gate de aceite \`pbq package close\` (bloqueante)
 - **\`manual\`** — so sob invocacao explicita
 
-O campo \`tier\` e cosmético (rotulo de custo). Migracao automatica: \`fast → commit,close\`; \`medium|slow → close\`.
-
 ## Hooks Advisory vs Gate Bloqueante
 
 Hooks (\`pbq guard\`) sao **early-warning nao-bloqueantes por default**.
@@ -4578,9 +4757,6 @@ pbq guard --event commit .
 pbq guard --event close .
 \`\`\`
 
-Runners por tier (deprecated — use os runners por evento acima):
-\`run-fast.ps1\`, \`run-medium.ps1\`, \`run-slow.ps1\`
-
 ## Progresso
 
 Cada spec deve manter \`progress.md\` com estado atual, decisoes, sensores executados, falhas anteriores e contexto para retomada.
@@ -4646,41 +4822,6 @@ exit 0
 `;
 }
 
-function psRunScript(kind, sensors, placeholders) {
-  const scopedPlaceholders = placeholders.filter((item) => item.bucket === kind);
-  const commands = sensors.filter((sensor) => sensor.tier === kind && sensor.enabled);
-  return `$ErrorActionPreference = "Stop"
-
-$Root = Resolve-Path (Join-Path $PSScriptRoot "..\\..\\..")
-Set-Location $Root
-
-function Invoke-HarnessCommand {
-  param([string]$Command)
-  Write-Host "[harness:${kind}] $Command"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command $Command
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host "[harness:${kind}] Failed: $Command"
-    exit $LASTEXITCODE
-  }
-}
-
-Invoke-HarnessCommand ".\\${HARNESS_DIR}\\harness\\scripts\\check-harness-structure.ps1"
-
-$Commands = @(
-${commands.map((item) => `  "${escapePowerShellString(item.command)}"`).join(",\n")}
-)
-
-foreach ($Command in $Commands) {
-  Invoke-HarnessCommand $Command
-}
-
-${scopedPlaceholders.map((item) => `Write-Host "[harness:${kind}] PLACEHOLDER: ${escapePowerShellString(item.text)}"`).join("\n")}
-
-Write-Host "[harness:${kind}] OK"
-exit 0
-`;
-}
-
 function shCheckHarnessStructure() {
   return `#!/usr/bin/env sh
 set -eu
@@ -4702,30 +4843,6 @@ if [ -n "$missing" ]; then
 fi
 
 printf '[harness] Structure OK\\n'
-`;
-}
-
-function shRunScript(kind, sensors, placeholders) {
-  const scopedPlaceholders = placeholders.filter((item) => item.bucket === kind);
-  const commands = sensors.filter((sensor) => sensor.tier === kind && sensor.enabled);
-  return `#!/usr/bin/env sh
-set -eu
-
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)"
-cd "$ROOT"
-
-run_cmd() {
-  printf '[harness:${kind}] %s\\n' "$1"
-  sh -c "$1"
-}
-
-run_cmd "sh ./${HARNESS_DIR}/harness/scripts/check-harness-structure.sh"
-
-${commands.map((item) => `run_cmd "${escapeShellString(item.command)}"`).join("\n")}
-
-${scopedPlaceholders.map((item) => `printf '[harness:${kind}] PLACEHOLDER: ${escapeShellString(item.text)}\\n'`).join("\n")}
-
-printf '[harness:${kind}] OK\\n'
 `;
 }
 

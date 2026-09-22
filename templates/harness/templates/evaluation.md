@@ -7,9 +7,9 @@ Score: 0
 
 ## Resumo De Sensores
 
-| Sensor | Tier | Obrigatorio | Status | Comando | Exit Code | Evidencia |
-| --- | --- | --- | --- | --- | --- | --- |
-| <nome> | fast/medium/slow | sim/nao | pendente | `<comando>` | - | - |
+| Sensor | Obrigatorio | Status | Comando | Exit Code | Evidencia |
+| --- | --- | --- | --- | --- | --- |
+| <nome> | sim/nao | pendente | `<comando>` | - | - |
 
 Status permitidos:
 

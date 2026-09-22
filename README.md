@@ -9,26 +9,31 @@ O objetivo e transformar um prompt de bootstrap em um comando deterministico, id
 ```powershell
 npm install
 npm link
-pbq init C:\caminho\do\repo
+pbq init C:\caminho\do\repo --agents claude
 ```
 
 Sem `npm link`:
 
 ```powershell
-node .\bin\pbq.mjs init C:\caminho\do\repo
+node .\bin\pbq.mjs init C:\caminho\do\repo --agents claude
 ```
+
+`--agents` e obrigatorio (valores: `claude`, `codex`, `cursor`, separados por virgula) a menos que
+`--no-agent-integration` seja usado. `cursor` gera `.cursor/commands/<skill>.md` alem de
+`.agents/skills/<skill>/SKILL.md` (mesma pasta usada por `codex`); `AGENTS.md` continua sendo a
+referencia para `codex` e `cursor`, e `CLAUDE.md` para `claude`.
 
 Comandos:
 
 ```text
-pbq init [path] [--force] [--dry-run] [--no-agent-integration]
-pbq update [path] [--dry-run] [--force]
-pbq sensor add [path] --name <name> --tier <fast|medium|slow> --command <command> [--reason <text>]
+pbq init [path] --agents <claude,codex,cursor> [--force] [--dry-run]
+pbq update [path] --agents <claude,codex,cursor> [--dry-run] [--force]
+pbq sensor add [path] --name <name> --on <edit|commit|close|manual> --command <command> [--reason <text>]
 pbq sensor list [path]
 pbq analyze [path]
 pbq status [path]
 pbq run [path] [--resume]
-pbq package close [path] --spec <spec-name> --package <N> [--tiers fast,medium,slow]
+pbq package close [path] --spec <spec-name> --package <N>
 ```
 
 Ajuda:
@@ -104,7 +109,7 @@ Isso permite evoluir `spec.md`, `contract.md`, `progress.md`, `evaluation.md` e 
 `pbq init` nao sobrescreve arquivos existentes. Para atualizar templates e skills de uma instalacao ja existente, use:
 
 ```powershell
-pbq update C:\caminho\do\repo
+pbq update C:\caminho\do\repo --agents claude
 ```
 
 O update usa `.plan-build-qa/manifest.json` para distinguir arquivos ainda iguais ao template de arquivos customizados:
@@ -122,9 +127,8 @@ Os scripts gerados rodam a partir da raiz do repositorio alvo:
 
 ```powershell
 .\.plan-build-qa\harness\scripts\check-harness-structure.ps1
-.\.plan-build-qa\harness\scripts\run-fast.ps1
-.\.plan-build-qa\harness\scripts\run-medium.ps1
-.\.plan-build-qa\harness\scripts\run-slow.ps1
+.\.plan-build-qa\harness\scripts\run-commit.ps1
+.\.plan-build-qa\harness\scripts\run-close.ps1
 ```
 
 Tambem sao criados equivalentes `.sh` para ambientes Unix quando possivel.
@@ -145,14 +149,14 @@ Ele e o indice consolidado das specs:
 Sensores ficam registrados em `.plan-build-qa/sensors.json`. Para adicionar um E2E manualmente:
 
 ```powershell
-pbq sensor add C:\caminho\do\repo --name e2e --tier slow --command ".\scripts\run-e2e.ps1" --reason "Valida fluxo E2E principal"
+pbq sensor add C:\caminho\do\repo --name e2e --on close --command ".\scripts\run-e2e.ps1" --reason "Valida fluxo E2E principal"
 ```
 
-O comando atualiza `sensors.json` e regenera os runners `run-fast`, `run-medium` e `run-slow`.
+O comando atualiza `sensors.json` e regenera os runners por evento (`run-commit`, `run-close`).
 
 No Claude Code, use `/sensor` para orientar o agente a cadastrar ou revisar sensores.
 
-Skills instaladas para Claude e Codex:
+Skills instaladas conforme os agentes escolhidos em `--agents` (ver `Uso Local`):
 
 - `constitution`: ler ou atualizar regras permanentes do projeto
 - `roadmap`: manter status consolidado das specs
@@ -160,6 +164,10 @@ Skills instaladas para Claude e Codex:
 - `implement`: implementar package contra contrato
 - `test`: rodar sensores, fechar package e preencher evaluation
 - `sensor`: cadastrar ou revisar sensores
+- `analyze`: validar coerencia minima entre artefatos do harness
+- `bug`: registrar e investigar bugs (sem corrigir)
+- `retro`: 4o estagio do fluxo de desenvolvimento (`spec` -> `implement` -> `test` -> `retro`) — revisa o historico do harness e recomenda revisar/incrementar/excluir regras, sensores ou templates, sem aplicar a mudanca sozinha
+- `backlog-sync`: utilitario opcional (nao e estagio obrigatorio de nenhum fluxo) — arquiva specs `planejado` nunca iniciadas e bugs irrelevantes para um tracker externo plugavel via MCP (Azure DevOps, Jira, etc.), so de saida, sem criar trabalho novo nem sincronizar status continuamente
 
 ## Painel De Execucao
 
@@ -187,6 +195,8 @@ Isso grava:
 
 - `.plan-build-qa/dashboard/status.json`
 - `.plan-build-qa/dashboard/index.html`
+
+O dashboard e um artefato **derivado**, nao versionado (`.gitignore` ja ignora `.plan-build-qa/dashboard/`). Gere-o sob demanda quando precisar; nao ha necessidade de commitar o snapshot.
 
 `index.html` abre sozinho como snapshot estatico. Quando servido por HTTP, ele tambem tenta recarregar `status.json` periodicamente.
 
@@ -221,10 +231,10 @@ Se um sensor obrigatorio estiver ausente, `pendente` ou `falhou`, o `Score` deve
 Para fechamento com execucao real dos sensores:
 
 ```powershell
-pbq package close C:\caminho\do\repo --spec spec-260704-a7f3-exemplo --package 1 --tiers fast,medium
+pbq package close C:\caminho\do\repo --spec spec-260704-a7f3-exemplo --package 1
 ```
 
-Esse comando executa os sensores cadastrados nos tiers informados, gera `.plan-build-qa/specs/<spec>/evaluations/package-N.md`, preenche a tabela de sensores e retorna exit code diferente de zero se algum sensor falhar ou estiver pendente.
+Esse comando executa os sensores elegiveis para o evento `close` (campo `on` do sensor), gera `.plan-build-qa/specs/<spec>/evaluations/package-N.md`, preenche a tabela de sensores e retorna exit code diferente de zero se algum sensor falhar ou estiver pendente. A flag `--tiers` ainda e aceita como alias sem efeito para sensores novos, mantida so por compatibilidade com sensores antigos que ainda tem campo `tier`.
 
 As evaluations pertencem sempre a uma spec:
 

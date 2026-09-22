@@ -3,7 +3,6 @@
   "sensors": [
     {
       "name": "npm-run-test",
-      "tier": "medium",
       "command": "npm run test",
       "reason": "package.json script 'test'",
       "source": "detected",
@@ -18,7 +17,6 @@
       "reason": "Validacao de coerencia do harness",
       "source": "manual",
       "enabled": true,
-      "tier": "fast",
       "on": [
         "edit",
         "close"
