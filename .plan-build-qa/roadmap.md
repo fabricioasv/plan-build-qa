@@ -16,6 +16,7 @@ Use estes valores:
 
 | Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
 | --- | --- | --- | --- | --- | --- |
+| spec-261002-a91f-agent-skill-priority | concluido | 5 | 2026-10-02 | Packages 1 a 5 com Score 1 em `specs/spec-261002-a91f-agent-skill-priority/evaluations/`; `npm-run-test` e `pbq-analyze` passaram | - |
 | spec-260523-2b55-analyze | concluido | 3 | 2026-05-23 | Packages 1, 2 e 3 fechados com Score 1 (evaluations em `.plan-build-qa/specs/spec-260523-2b55-analyze/evaluations/`). `pbq analyze` cobre presenca/coerencia minima, estados permitidos, package atual divergente, sensores referenciados em sensors.json, resumo com contadores, flag `--strict` e deteccao de `sensors.json` invalido | - |
 | spec-002-plan-tasks | planejado | - | 2026-05-23 | Sugestao inspirada nas fases `specify`, `plan`, `tasks`, `implement` do Spec Kit | Adicionar artefatos `plan.md` e `tasks.md` e skills `/plan` e `/tasks` |
 | spec-003-checklist | planejado | - | 2026-05-23 | Sugestao inspirada em checklists de qualidade do Spec Kit | Criar `pbq checklist` para gerar checks objetivos por spec/package |

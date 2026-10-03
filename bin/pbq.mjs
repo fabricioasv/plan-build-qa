@@ -113,15 +113,8 @@ async function main() {
   await ensureDirectory(targetRoot);
 
   const project = await inspectProject(targetRoot);
-  const generated = withManifest(await generateFiles(project), options.integrateAgents ? [...options.agents] : []);
-  if (!options.integrateAgents) {
-    for (const path of adapterSkillPaths()) delete generated[path];
-  } else {
-    const keep = agentSkillPathsFor(options.agents);
-    for (const path of adapterSkillPaths()) {
-      if (!keep.has(path)) delete generated[path];
-    }
-  }
+  const agents = options.integrateAgents ? options.agents : new Set();
+  const generated = withManifest(await generateFiles(project, agents), [...agents]);
   const events = [];
 
   for (const [relativePath, content] of Object.entries(generated)) {
@@ -841,8 +834,9 @@ Opcoes:
                           Valores aceitos, separados por virgula: claude, codex, cursor.
                             claude  -> .claude/skills/<skill>/SKILL.md + bloco em CLAUDE.md
                             codex   -> .agents/skills/<skill>/SKILL.md + bloco em AGENTS.md
-                            cursor  -> .agents/skills/<skill>/SKILL.md (mesma pasta que codex)
-                                       + .cursor/commands/<skill>.md + AGENTS.md como referencia
+                            cursor  -> .cursor/commands/<skill>.md + AGENTS.md como referencia
+                          O primeiro agente da lista recebe o conteudo integral; os demais,
+                          uma referencia direta a ele.
                           skills de agente novo (ex.: retro) sao instaladas junto, conforme os
                           agentes escolhidos.
   --force                 sobrescreve arquivos existentes gerados pelo harness
@@ -852,7 +846,7 @@ Opcoes:
 
 Exemplos:
   pbq init . --agents claude
-  pbq init . --agents claude,codex,cursor
+  pbq init . --agents 'claude,codex,cursor'
   pbq init C:\\repo\\app --agents codex --dry-run`,
 
     update: `pbq update [path] --agents <claude,codex,cursor> [--dry-run] [--force]
@@ -861,7 +855,8 @@ pbq update [path] --no-agent-integration [--dry-run] [--force]
 Atualiza templates/skills de uma instalacao existente usando .plan-build-qa/manifest.json.
 
   --agents <lista>        OBRIGATORIO (a menos que --no-agent-integration seja usado); mesmos
-                          valores e efeitos de 'pbq init --agents'. Remover um agente da lista
+                          valores e efeitos de 'pbq init --agents'. O primeiro recebe o conteudo
+                          integral. Remover um agente da lista
                           apaga os artefatos exclusivos dele (.claude/skills, .agents/skills ou
                           .cursor/commands) SE ainda estiverem identicos ao ultimo template
                           instalado; se foram customizados, sao preservados (nao apagados).
@@ -869,14 +864,18 @@ Atualiza templates/skills de uma instalacao existente usando .plan-build-qa/mani
 
 Comportamento:
   arquivo ausente                 cria
-  arquivo igual ao template antigo atualiza automaticamente
-  arquivo customizado             preserva e grava .pbq-new
-  sensors.json                    nunca sobrescreve
+  arquivo equivalente ao gerado  preserva sem reescrever
+  arquivo existente diferente     atualiza diretamente (use source control para revisar)
+  diferenca so nas extremidades   considera igual apos trim; nao reescreve
+  sensors.json e roadmap.md       preserva como estado local
+  constitution/ com regra local   preserva e pede revisao; --force substitui apos revisao
 
 Exemplos:
-  pbq update . --agents claude,codex
+  pbq update . --agents 'codex,claude,cursor'
   pbq update C:\\repo\\app --agents cursor --dry-run
-  pbq update . --agents claude,codex --force`,
+  pbq update . --agents 'claude,codex' --dry-run
+
+No PowerShell, use aspas quando informar mais de um agente.`,
 
     sensor: `pbq sensor add [path] --name <name> --on <gatilhos> --command <command> [--reason <text>]
 pbq sensor add --from-catalog <id> [path]
@@ -1068,7 +1067,7 @@ Ajuda por comando:
 
 Exemplos:
   pbq init . --agents claude
-  pbq update . --agents claude --dry-run
+  pbq update . --agents 'codex,claude,cursor' --dry-run
   pbq sensor list .
   pbq analyze .
   pbq contract check . --spec spec-001-exemplo --package 1
@@ -1808,33 +1807,34 @@ async function runUpdateCommand(args) {
   }
 
   const project = await inspectProject(targetRoot);
-  const generated = withManifest(await generateFiles(project), options.integrateAgents ? [...options.agents] : []);
-  if (!options.integrateAgents) {
-    for (const path of adapterSkillPaths()) delete generated[path];
-  } else {
-    const keep = agentSkillPathsFor(options.agents);
-    for (const path of adapterSkillPaths()) {
-      if (!keep.has(path)) delete generated[path];
-    }
-  }
+  const agents = options.integrateAgents ? options.agents : new Set();
+  const generated = withManifest(await generateFiles(project, agents), [...agents]);
   const previousManifest = await readManifest(targetRoot);
   const events = [];
+  const manifestPath = `${HARNESS_DIR}/manifest.json`;
+  const nextManifest = JSON.parse(generated[manifestPath]);
 
   for (const [relativePath, latest] of Object.entries(generated)) {
-    if (relativePath === `${HARNESS_DIR}/sensors.json`) continue;
-    const effectiveOptions = ALWAYS_REPLACE_FILES.has(relativePath) ? { ...options, force: true } : options;
-    await updateManagedFile(targetRoot, relativePath, latest, previousManifest, effectiveOptions, events);
+    if (relativePath === `${HARNESS_DIR}/sensors.json` || relativePath === `${HARNESS_DIR}/roadmap.md` || relativePath === manifestPath) continue;
+    if (relativePath.startsWith(`${HARNESS_DIR}/constitution/`)) {
+      const result = await updateConstitutionFile(targetRoot, relativePath, latest, previousManifest, options, events);
+      if (result === null) delete nextManifest.files[relativePath];
+      else nextManifest.files[relativePath].sha256 = result;
+      continue;
+    }
+    await updateManagedFile(targetRoot, relativePath, latest, options, events);
   }
+  await updateManagedFile(targetRoot, manifestPath, JSON.stringify(nextManifest, null, 2) + "\n", options, events);
 
   await removeDeprecatedManagedFiles(targetRoot, generated, options, previousManifest, events);
 
   if (options.integrateAgents) {
-    await removeUnselectedAgentFiles(targetRoot, options, previousManifest, events);
+    await removeUnselectedAgentFiles(targetRoot, options, previousManifest, generated, events);
   }
 
   await migrateLegacySpecDirectories(targetRoot, options, events);
   await migrateLegacyBugDirectories(targetRoot, options, events);
-  await migrateSensorsV1ToV2(targetRoot);
+  if (!options.dryRun) await migrateSensorsV1ToV2(targetRoot);
   await mergeGuardHookInSettings(targetRoot, options, events);
   const catalog = await loadSensorCatalog();
   printUpdateSummary(targetRoot, events, options, catalog.length);
@@ -2096,7 +2096,7 @@ async function readManifest(root) {
   }
 }
 
-async function updateManagedFile(root, relativePath, latest, previousManifest, options, events) {
+async function updateManagedFile(root, relativePath, latest, options, events) {
   const absolutePath = path.join(root, relativePath);
   if (!existsSync(absolutePath)) {
     if (!options.dryRun) {
@@ -2108,28 +2108,41 @@ async function updateManagedFile(root, relativePath, latest, previousManifest, o
   }
 
   const current = await readFile(absolutePath, "utf8");
-  if (current === latest) {
+  if (current.trim() === latest.trim()) {
     events.push({ type: "ok", path: relativePath });
     return;
   }
 
-  const currentHash = sha256(current);
+  if (!options.dryRun) await writeFile(absolutePath, latest, "utf8");
+  events.push({ type: "update", path: relativePath });
+}
+
+async function updateConstitutionFile(root, relativePath, latest, previousManifest, options, events) {
+  const absolutePath = path.join(root, relativePath);
+  if (!existsSync(absolutePath)) {
+    await updateManagedFile(root, relativePath, latest, options, events);
+    return sha256(latest);
+  }
+
+  const current = await readFile(absolutePath, "utf8");
+  if (current.trim() === latest.trim()) {
+    events.push({ type: "ok", path: relativePath });
+    return sha256(current);
+  }
+
   const previousHash = previousManifest?.files?.[relativePath]?.sha256;
-  const canAutoUpdate = options.force || (previousHash && currentHash === previousHash);
-
-  if (canAutoUpdate) {
+  if (options.force || (previousHash && sha256(current) === previousHash)) {
     if (!options.dryRun) await writeFile(absolutePath, latest, "utf8");
-    events.push({ type: options.force ? "force-update" : "auto-update", path: relativePath });
-    return;
+    events.push({ type: "update", path: relativePath });
+    return sha256(latest);
   }
 
-  const candidatePath = `${relativePath}.pbq-new`;
-  if (!options.dryRun) {
-    const absoluteCandidatePath = path.join(root, candidatePath);
-    await mkdir(path.dirname(absoluteCandidatePath), { recursive: true });
-    await writeFile(absoluteCandidatePath, latest, "utf8");
-  }
-  events.push({ type: "candidate", path: candidatePath });
+  events.push({
+    type: "constitution-review",
+    path: relativePath,
+    reason: previousHash ? "alterado localmente" : "sem versao anterior confiavel"
+  });
+  return previousHash || null;
 }
 
 async function removeDeprecatedManagedFiles(targetRoot, generated, options, previousManifest, events) {
@@ -2161,16 +2174,11 @@ async function removeDeprecatedManagedFiles(targetRoot, generated, options, prev
   }
 }
 
-async function removeUnselectedAgentFiles(targetRoot, options, previousManifest, events) {
-  if (!Array.isArray(previousManifest?.agents)) return;
+async function removeUnselectedAgentFiles(targetRoot, options, previousManifest, generated, events) {
+  if (!previousManifest?.files) return;
 
-  const previousAgents = new Set(previousManifest.agents);
-  const removedAgents = [...previousAgents].filter((agent) => !options.agents.has(agent));
-  if (removedAgents.length === 0) return;
-
-  const keep = agentSkillPathsFor(options.agents);
   for (const relativePath of adapterSkillPaths()) {
-    if (keep.has(relativePath)) continue;
+    if (Object.prototype.hasOwnProperty.call(generated, relativePath)) continue;
     const previousEntry = previousManifest.files?.[relativePath];
     if (!previousEntry) continue;
 
@@ -2197,10 +2205,9 @@ function printUpdateSummary(targetRoot, events, options, catalogCount = 0) {
   console.log(`[pbq] Update target: ${targetRoot}`);
   if (options.dryRun) console.log("[pbq] Dry run: nenhum arquivo foi alterado.");
   console.log(`[pbq] Created missing: ${(grouped.create || []).length}`);
-  console.log(`[pbq] Auto updated: ${(grouped["auto-update"] || []).length}`);
-  console.log(`[pbq] Force updated: ${(grouped["force-update"] || []).length}`);
-  console.log(`[pbq] Candidates written: ${(grouped.candidate || []).length}`);
+  console.log(`[pbq] Updated: ${(grouped.update || []).length}`);
   console.log(`[pbq] Already current: ${(grouped.ok || []).length}`);
+  printConstitutionTable(events, options, "update");
   for (const event of grouped["deprecated-file-removed"] || []) {
     const action = options.dryRun ? "Would remove deprecated file" : "Deprecated file removed";
     console.log(`[pbq] ${action}: ${event.path}`);
@@ -2232,11 +2239,40 @@ function printUpdateSummary(targetRoot, events, options, catalogCount = 0) {
   if ((grouped["roadmap-spec-migrate"] || []).length > 0) {
     console.log("[pbq] Roadmap spec references updated.");
   }
-  if ((grouped.candidate || []).length > 0) {
-    console.log("[pbq] Review .pbq-new files and merge manually; existing custom files were preserved.");
-  }
   if (catalogCount > 0) {
     console.log(`[pbq] ${catalogCount} sensores no catalogo. Rode 'pbq sensor catalog' ou /sensor para adicionar.`);
+  }
+}
+
+function printConstitutionTable(events, options, command) {
+  const rows = events.filter((event) => event.path?.startsWith(`${HARNESS_DIR}/constitution/`));
+  if (rows.length === 0) return;
+
+  console.log("[pbq] Constitution:");
+  console.log("| Arquivo | Resultado | Motivo |");
+  console.log("| --- | --- | --- |");
+  for (const event of rows) {
+    let result;
+    let reason;
+    if (event.type === "constitution-review") {
+      result = "preservado para revisao";
+      reason = event.reason;
+    } else if (event.type === "ok") {
+      result = "mantido";
+      reason = "equivalente ao gerado";
+    } else if (event.type === "skip") {
+      result = "preservado";
+      reason = "ja existia; init nao sobrescreve";
+    } else if (event.type === "create" || event.type === "would-create") {
+      result = options.dryRun ? "criaria" : "criado";
+      reason = "arquivo ausente";
+    } else if (["update", "overwrite", "would-overwrite"].includes(event.type)) {
+      result = options.dryRun ? "atualizaria" : "atualizado";
+      reason = command === "init" ? "--force" : "versao gerada diferente";
+    } else {
+      continue;
+    }
+    console.log(`| ${event.path} | ${result} | ${reason} |`);
   }
 }
 
@@ -4133,7 +4169,7 @@ function hasAny(fileSet, files) {
   return files.some((file) => fileSet.has(file));
 }
 
-async function generateFiles(project) {
+async function generateFiles(project, agents) {
   const sensors = buildSensors(project.commands);
   return Object.fromEntries([
     [`${HARNESS_DIR}/constitution/architecture.md`, constitutionArchitecture(project)],
@@ -4163,7 +4199,7 @@ async function generateFiles(project) {
     [`${HARNESS_DIR}/specs/README.md`, await loadTemplate("specs/README.md")],
     [`${HARNESS_DIR}/bugs/README.md`, await loadTemplate("bugs/README.md")],
     [`${HARNESS_DIR}/sensors.json`, JSON.stringify({ version: 1, sensors }, null, 2) + "\n"],
-    ...(await adapterSkillEntries())
+    ...(await adapterSkillEntries(agents))
   ]);
 }
 
@@ -4179,7 +4215,7 @@ function withManifest(generated, agents = null) {
     version: PBQ_TEMPLATE_VERSION,
     files
   };
-  if (agents) manifest.agents = [...agents].sort();
+  if (agents) manifest.agents = [...agents];
   return {
     ...generated,
     [`${HARNESS_DIR}/manifest.json`]: JSON.stringify(manifest, null, 2) + "\n"
@@ -4190,19 +4226,37 @@ function sha256(content) {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-async function adapterSkillEntries() {
+async function adapterSkillEntries(agents) {
   const entries = [];
+  const primary = agents.values().next().value;
+  const primaryPath = (skill) => primary === "claude"
+    ? `.claude/skills/${skill}/SKILL.md`
+    : primary === "codex" ? `.agents/skills/${skill}/SKILL.md` : `.cursor/commands/${skill}.md`;
   for (const skill of ADAPTER_SKILLS) {
     const content = await loadTemplate(`adapters/skills/${skill}/SKILL.md`);
-    entries.push([`.claude/skills/${skill}/SKILL.md`, content]);
-    entries.push([`.agents/skills/${skill}/SKILL.md`, content]);
-    entries.push([`.cursor/commands/${skill}.md`, cursorCommandContent(skill)]);
+    if (agents.has("claude")) {
+      entries.push([`.claude/skills/${skill}/SKILL.md`, primary === "claude"
+        ? content : skillReferenceContent(skill, primaryPath(skill), content)]);
+    }
+    if (agents.has("codex")) {
+      entries.push([`.agents/skills/${skill}/SKILL.md`, primary === "codex"
+        ? content : skillReferenceContent(skill, primaryPath(skill), content)]);
+    }
+    if (agents.has("cursor")) {
+      entries.push([`.cursor/commands/${skill}.md`, primary === "cursor"
+        ? content : cursorCommandContent(skill, primaryPath(skill))]);
+    }
   }
   return entries;
 }
 
-function cursorCommandContent(skill) {
-  return `# /${skill}\n\nExecute a skill \`${skill}\` deste projeto conforme \`.agents/skills/${skill}/SKILL.md\`.\n`;
+function skillReferenceContent(skill, target, content) {
+  const frontmatter = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/)?.[0] ?? "";
+  return `${frontmatter}\n# ${skill}\n\nExecute a skill \`${skill}\` deste projeto conforme \`${target}\`.\n`;
+}
+
+function cursorCommandContent(skill, target) {
+  return `# /${skill}\n\nExecute a skill \`${skill}\` deste projeto conforme \`${target}\`.\n`;
 }
 
 function adapterSkillPaths() {
@@ -4211,16 +4265,6 @@ function adapterSkillPaths() {
     `.agents/skills/${skill}/SKILL.md`,
     `.cursor/commands/${skill}.md`
   ]);
-}
-
-function agentSkillPathsFor(agents) {
-  const keep = new Set();
-  for (const skill of ADAPTER_SKILLS) {
-    if (agents.has("claude")) keep.add(`.claude/skills/${skill}/SKILL.md`);
-    if (agents.has("codex") || agents.has("cursor")) keep.add(`.agents/skills/${skill}/SKILL.md`);
-    if (agents.has("cursor")) keep.add(`.cursor/commands/${skill}.md`);
-  }
-  return keep;
 }
 
 function buildSensors(commands) {
@@ -4444,6 +4488,7 @@ function printSummary(targetRoot, project, events, options, catalogCount = 0) {
   console.log(`[pbq] Created: ${(grouped.create || []).length}`);
   console.log(`[pbq] Updated: ${((grouped.append || []).length + (grouped.overwrite || []).length)}`);
   console.log(`[pbq] Skipped existing: ${(grouped.skip || []).length}`);
+  printConstitutionTable(events, options, "init");
   console.log("[pbq] Fast sensors:");
   printCommandList(project.commands.fast);
   console.log("[pbq] Medium sensors:");

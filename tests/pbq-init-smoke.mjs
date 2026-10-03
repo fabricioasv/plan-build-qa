@@ -201,6 +201,8 @@ Reverter fixture.
   });
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /\| \.plan-build-qa\/constitution\/architecture\.md \| criado \| arquivo ausente \|/, "init deve listar constitution criada");
+  assert.equal((result.stdout.match(/^\| \.plan-build-qa\/constitution\/[^|]+ \|/gm) || []).length, 4, "init lista cada constitution uma vez");
   // spec-017 package-1: convite ao catalogo no fim de init
   assert.match(result.stdout, /sensores no catalogo/, "init deve imprimir convite ao catalogo");
 
@@ -289,7 +291,8 @@ Reverter fixture.
   assert.match(specSkill, /roadmap\.md/);
   const codexSpecSkill = await readFile(path.join(root, ".agents/skills/spec/SKILL.md"), "utf8");
   const templateSpecSkill = await readFile(path.join(cliDir, "templates/adapters/skills/spec/SKILL.md"), "utf8");
-  for (const content of [specSkill, codexSpecSkill, templateSpecSkill]) {
+  assert.match(codexSpecSkill, /\.claude\/skills\/spec\/SKILL\.md/);
+  for (const content of [specSkill, templateSpecSkill]) {
     assert.match(content, /spec-YYMMDD-hex-name/, "spec skill deve orientar o novo padrao de ID");
     assert.match(content, /Legacy `spec-NNN-name`/, "spec skill deve documentar compatibilidade legado");
     assert.match(content, /Sensor scope in contracts/, "spec skill deve orientar scope local/global");
@@ -299,7 +302,7 @@ Reverter fixture.
   }
 
   // spec-011 package-2: implement delega verificacao a test (nao roda pbq package close direto)
-  const codexImplementSkill = await readFile(path.join(root, ".agents/skills/implement/SKILL.md"), "utf8");
+  const codexImplementSkill = await readFile(path.join(cliDir, "templates/adapters/skills/implement/SKILL.md"), "utf8");
   assert.doesNotMatch(codexImplementSkill, /pbq package close/, "implement skill deve delegar verificacao, nao citar pbq package close");
   assert.match(codexImplementSkill, /[Dd]elegate verification to the .test. skill/, "implement skill deve delegar a test");
 
@@ -310,7 +313,8 @@ Reverter fixture.
   assert.match(claudeTestSkill, /acceptance-check/, "test skill deve documentar o modo acceptance-check");
   const codexTestSkill = await readFile(path.join(root, ".agents/skills/test/SKILL.md"), "utf8");
   const templateTestSkill = await readFile(path.join(cliDir, "templates/adapters/skills/test/SKILL.md"), "utf8");
-  for (const content of [claudeTestSkill, codexTestSkill, templateTestSkill]) {
+  assert.match(codexTestSkill, /\.claude\/skills\/test\/SKILL\.md/);
+  for (const content of [claudeTestSkill, templateTestSkill]) {
     assert.match(content, /required global sensor/, "test skill deve exigir registry para global");
     assert.match(content, /Scope: local.*Scope: package/s, "test skill deve aceitar local/package sem registry global");
     assert.match(content, /Local required sensors must be enforced by name/, "test skill deve manter enforcement por nome para local");
@@ -327,12 +331,7 @@ Reverter fixture.
   assert.match(claudeSensorSkill, /phase/, "claude sensor skill deve documentar campo phase");
 
   const codexSensorSkill = await readFile(path.join(root, ".agents/skills/sensor/SKILL.md"), "utf8");
-  assert.match(codexSensorSkill, /pbq sensor suggest/, "codex sensor skill deve citar pbq sensor suggest");
-  assert.match(codexSensorSkill, /sonar|Makefile|scripts\//, "codex sensor skill deve citar exemplo concreto");
-  assert.match(codexSensorSkill, /non-zero exit code/, "codex sensor skill deve preservar regra de exit code");
-  // spec-017 package-3
-  assert.match(codexSensorSkill, /pbq sensor catalog/, "codex sensor skill deve citar pbq sensor catalog");
-  assert.match(codexSensorSkill, /--from-catalog/, "codex sensor skill deve citar --from-catalog");
+  assert.match(codexSensorSkill, /\.claude\/skills\/sensor\/SKILL\.md/, "codex deve referenciar a skill Claude");
 
   const templateSensorSkill = await readFile(path.join(cliDir, "templates/adapters/skills/sensor/SKILL.md"), "utf8");
   assert.match(templateSensorSkill, /pbq sensor suggest/, "template sensor skill deve citar pbq sensor suggest");
@@ -341,7 +340,7 @@ Reverter fixture.
   // spec-017 package-3
   assert.match(templateSensorSkill, /pbq sensor catalog/, "template sensor skill deve citar pbq sensor catalog");
   assert.match(templateSensorSkill, /--from-catalog/, "template sensor skill deve citar --from-catalog");
-  for (const content of [claudeSensorSkill, codexSensorSkill, templateSensorSkill]) {
+  for (const content of [claudeSensorSkill, templateSensorSkill]) {
     assert.match(content, /registry for .*global.* reusable sensors/i, "sensor skill deve declarar registry global");
     assert.match(content, /pbq sensor add --scope global/, "sensor skill deve orientar --scope global");
     assert.match(content, /Do not create local\/package sensors in `sensors\.json`/, "sensor skill nao deve criar local no registry");
@@ -355,8 +354,7 @@ Reverter fixture.
   assert.match(claudeAnalyzeSkill, /--strict/, "claude analyze skill deve mencionar --strict");
 
   const codexAnalyzeSkill = await readFile(path.join(root, ".agents/skills/analyze/SKILL.md"), "utf8");
-  assert.match(codexAnalyzeSkill, /pbq analyze/, "codex analyze skill deve citar pbq analyze");
-  assert.match(codexAnalyzeSkill, /[Vv]iolations/, "codex analyze skill deve orientar sobre violations");
+  assert.match(codexAnalyzeSkill, /\.claude\/skills\/analyze\/SKILL\.md/);
 
   const templateAnalyzeSkill = await readFile(path.join(cliDir, "templates/adapters/skills/analyze/SKILL.md"), "utf8");
   assert.match(templateAnalyzeSkill, /pbq analyze/, "template analyze skill deve citar pbq analyze");
@@ -379,14 +377,7 @@ Reverter fixture.
   assert.doesNotMatch(claudeBugSkill, /create or link a spec\/package/, "claude bug skill nao deve criar spec/package durante /bug");
 
   const codexBugSkill = await readFile(path.join(root, ".agents/skills/bug/SKILL.md"), "utf8");
-  assert.match(codexBugSkill, /\.plan-build-qa\/bugs\/bug-YYMMDD-hex-slug\/bug\.md/, "codex bug skill deve orientar bug.md");
-  assert.match(codexBugSkill, /Legacy `bug-NNN-slug`/, "codex bug skill deve documentar compatibilidade legado");
-  assert.match(codexBugSkill, /progress\.md/, "codex bug skill deve orientar progress.md");
-  assert.match(codexBugSkill, /Do not edit product code/, "codex bug skill nao deve implementar correcao");
-  assert.match(codexBugSkill, /\/implement/, "codex bug skill deve encaminhar correcao para implement");
-  assert.match(codexBugSkill, /\/test/, "codex bug skill deve encaminhar validacao para test");
-  assert.match(codexBugSkill, /offer to open a spec\/package/, "codex bug skill nao deve oferecer abertura de spec");
-  assert.match(codexBugSkill, /Do not end with a question offering to open a spec\/package, forward to `\/implement`, run `\/test`, or continue the workflow/, "codex bug skill nao deve perguntar continuidade para implement/test");
+  assert.match(codexBugSkill, /\.claude\/skills\/bug\/SKILL\.md/);
 
   const templateBugSkill = await readFile(path.join(cliDir, "templates/adapters/skills/bug/SKILL.md"), "utf8");
   assert.match(templateBugSkill, /\.plan-build-qa\/bugs\/bug-YYMMDD-hex-slug\/bug\.md/, "template bug skill deve orientar bug.md");
@@ -416,7 +407,7 @@ Reverter fixture.
   assert.match(claudeRetroSkill, /`\/constitution`|`\/sensor`/, "claude retro skill deve encaminhar aplicacao para outras skills");
 
   const codexRetroSkill = await readFile(path.join(root, ".agents/skills/retro/SKILL.md"), "utf8");
-  assert.equal(codexRetroSkill, claudeRetroSkill, "codex retro skill deve ser identica a claude");
+  assert.match(codexRetroSkill, /\.claude\/skills\/retro\/SKILL\.md/);
 
   const templateRetroSkill = await readFile(path.join(cliDir, "templates/adapters/skills/retro/SKILL.md"), "utf8");
   assert.equal(templateRetroSkill, claudeRetroSkill, "template retro skill deve ser identica a instalada");
@@ -431,7 +422,7 @@ Reverter fixture.
   assert.match(claudeBacklogSyncSkill, /If none is configured, stop and explain what is missing/, "backlog-sync deve parar sem MCP de tracker configurado");
 
   const codexBacklogSyncSkill = await readFile(path.join(root, ".agents/skills/backlog-sync/SKILL.md"), "utf8");
-  assert.equal(codexBacklogSyncSkill, claudeBacklogSyncSkill, "codex backlog-sync skill deve ser identica a claude");
+  assert.match(codexBacklogSyncSkill, /\.claude\/skills\/backlog-sync\/SKILL\.md/);
 
   const templateBacklogSyncSkill = await readFile(path.join(cliDir, "templates/adapters/skills/backlog-sync/SKILL.md"), "utf8");
   assert.equal(templateBacklogSyncSkill, claudeBacklogSyncSkill, "template backlog-sync skill deve ser identica a instalada");
@@ -1461,7 +1452,7 @@ Nenhum.
   assert.match(evaluation, /Score: 1/);
   assert.match(evaluation, /\| npm-run-lint \| - \| sim \| passou \|/, "sensor detectado por pbq init nao tem mais tier; coluna Tier da evaluation mostra '-'");
 
-  // OVERVIEW.md deve ser sempre substituido no update (nao gera .pbq-new)
+  // Update substitui arquivos gerenciados diferentes no original.
   await writeFile(path.join(root, ".plan-build-qa/OVERVIEW.md"), "conteudo customizado que deve ser substituido\n");
   await writeFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "custom constitution skill\n");
   await rm(path.join(root, ".agents/skills/roadmap/SKILL.md"), { force: true });
@@ -1469,11 +1460,14 @@ Nenhum.
     encoding: "utf8"
   });
   assert.equal(update.status, 0, update.stderr || update.stdout);
-  assert.match(update.stdout, /Candidates written/);
+  assert.match(update.stdout, /Updated:/);
   // spec-017 package-1: convite ao catalogo no fim de update
   assert.match(update.stdout, /sensores no catalogo/, "update deve imprimir convite ao catalogo");
-  assert.equal(await readFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "utf8"), "custom constitution skill\n");
-  assert.ok(existsSync(path.join(root, ".claude/skills/constitution/SKILL.md.pbq-new")));
+  assert.equal(
+    await readFile(path.join(root, ".claude/skills/constitution/SKILL.md"), "utf8"),
+    await readFile(path.join(cliDir, "templates/adapters/skills/constitution/SKILL.md"), "utf8")
+  );
+  assert.equal(existsSync(path.join(root, ".claude/skills/constitution/SKILL.md.pbq-new")), false);
   assert.ok(existsSync(path.join(root, ".agents/skills/roadmap/SKILL.md")));
   // OVERVIEW.md deve ter sido substituido (nao preservado como custom)
   const overviewAfterUpdate = await readFile(path.join(root, ".plan-build-qa/OVERVIEW.md"), "utf8");
@@ -1588,6 +1582,7 @@ Nenhum.
   });
   assert.equal(second.status, 0, second.stderr || second.stdout);
   assert.match(second.stdout, /Skipped existing/);
+  assert.match(second.stdout, /\| \.plan-build-qa\/constitution\/architecture\.md \| preservado \| ja existia; init nao sobrescreve \|/);
 
   const freshRoot = await mkdtemp(path.join(tmpdir(), "pbq-dry-run-"));
   try {
@@ -1597,8 +1592,23 @@ Nenhum.
     assert.equal(dryRun.status, 0, dryRun.stderr || dryRun.stdout);
     assert.match(dryRun.stdout, /Would create:/);
     assert.match(dryRun.stdout, /Would update:/);
+    assert.match(dryRun.stdout, /\| \.plan-build-qa\/constitution\/architecture\.md \| criaria \| arquivo ausente \|/);
   } finally {
     await rm(freshRoot, { recursive: true, force: true });
+  }
+
+  const existingConstitutionRoot = await mkdtemp(path.join(tmpdir(), "pbq-init-existing-constitution-"));
+  try {
+    const architecturePath = path.join(existingConstitutionRoot, ".plan-build-qa/constitution/architecture.md");
+    await mkdir(path.dirname(architecturePath), { recursive: true });
+    await writeFile(architecturePath, "# Constitution: Architecture\n\nRegra local.\n", "utf8");
+    const initExisting = spawnSync(process.execPath, [cli, "init", existingConstitutionRoot, "--agents", "codex"], { encoding: "utf8" });
+    assert.equal(initExisting.status, 0, initExisting.stderr || initExisting.stdout);
+    assert.match(initExisting.stdout, /\| \.plan-build-qa\/constitution\/architecture\.md \| preservado \| ja existia; init nao sobrescreve \|/);
+    assert.match(initExisting.stdout, /\| \.plan-build-qa\/constitution\/testing\.md \| criado \| arquivo ausente \|/);
+    assert.equal(await readFile(architecturePath, "utf8"), "# Constitution: Architecture\n\nRegra local.\n");
+  } finally {
+    await rm(existingConstitutionRoot, { recursive: true, force: true });
   }
 
   // spec-260921-7a1b package-5: --agents obrigatorio em init/update, suporte a cursor
@@ -1636,7 +1646,7 @@ Nenhum.
     );
     assert.equal(initCursor.status, 0, initCursor.stderr || initCursor.stdout);
     assert.ok(existsSync(path.join(cursorRoot, ".claude/skills/spec/SKILL.md")), "cursor: claude skill deve existir");
-    assert.ok(existsSync(path.join(cursorRoot, ".agents/skills/spec/SKILL.md")), "cursor: skills continuam em .agents");
+    assert.equal(existsSync(path.join(cursorRoot, ".agents/skills/spec/SKILL.md")), false, "claude+cursor nao precisa de .agents/skills");
     assert.ok(existsSync(path.join(cursorRoot, ".cursor/commands/spec.md")), "cursor: comando /spec deve existir em .cursor/commands");
     assert.equal(existsSync(path.join(cursorRoot, ".cursor/commands/nao-existe.md")), false);
 
@@ -1653,6 +1663,197 @@ Nenhum.
     assert.ok(existsSync(path.join(cursorRoot, ".claude/skills/spec/SKILL.md")), "claude skill deve permanecer");
   } finally {
     await rm(cursorRoot, { recursive: true, force: true });
+  }
+
+  // O primeiro agente informado recebe conteudo integral; os demais apontam diretamente para ele.
+  const selections = [
+    ["claude"], ["codex"], ["cursor"],
+    ["claude", "codex"], ["codex", "claude"],
+    ["claude", "cursor"], ["cursor", "claude"],
+    ["codex", "cursor"], ["cursor", "codex"],
+    ["claude", "codex", "cursor"], ["claude", "cursor", "codex"],
+    ["codex", "claude", "cursor"], ["codex", "cursor", "claude"],
+    ["cursor", "claude", "codex"], ["cursor", "codex", "claude"]
+  ];
+  const skillPaths = {
+    claude: ".claude/skills/spec/SKILL.md",
+    codex: ".agents/skills/spec/SKILL.md",
+    cursor: ".cursor/commands/spec.md"
+  };
+  const canonicalSpec = await readFile(path.join(cliDir, "templates/adapters/skills/spec/SKILL.md"), "utf8");
+  for (const selection of selections) {
+    const selectionRoot = await mkdtemp(path.join(tmpdir(), "pbq-agent-priority-"));
+    try {
+      const selected = selection.join(",");
+      const initSelected = spawnSync(process.execPath, [cli, "init", selectionRoot, "--agents", selected], { encoding: "utf8" });
+      assert.equal(initSelected.status, 0, `${selected}: ${initSelected.stderr || initSelected.stdout}`);
+      const primary = selection[0];
+      for (const [agent, relativePath] of Object.entries(skillPaths)) {
+        const absolutePath = path.join(selectionRoot, relativePath);
+        assert.equal(existsSync(absolutePath), selection.includes(agent), `${selected}: ${agent} presente somente quando selecionado`);
+        if (!selection.includes(agent)) continue;
+        const content = await readFile(absolutePath, "utf8");
+        if (agent === primary) {
+          assert.equal(content, canonicalSpec, `${selected}: ${primary} recebe conteudo integral`);
+        } else {
+          assert.ok(content.includes(skillPaths[primary]), `${selected}: ${agent} referencia ${primary}`);
+          assert.doesNotMatch(content, /Sensor scope in contracts/, `${selected}: ${agent} nao duplica conteudo`);
+          if (agent === "codex" || agent === "claude") {
+            assert.match(content, /^---\nname: spec\n/, `${selected}: referencia ${agent} preserva frontmatter`);
+          }
+        }
+      }
+      const manifest = JSON.parse(await readFile(path.join(selectionRoot, ".plan-build-qa/manifest.json"), "utf8"));
+      assert.deepEqual(manifest.agents, selection, `${selected}: manifest preserva a ordem do init`);
+      for (const [agent, relativePath] of Object.entries(skillPaths)) {
+        assert.equal(Object.hasOwn(manifest.files, relativePath), selection.includes(agent), `${selected}: manifest acompanha selecao`);
+      }
+
+      const updateRoot = await mkdtemp(path.join(tmpdir(), "pbq-agent-priority-update-"));
+      try {
+        const initAll = spawnSync(process.execPath, [cli, "init", updateRoot, "--agents", "claude,codex,cursor"], { encoding: "utf8" });
+        assert.equal(initAll.status, 0, initAll.stderr || initAll.stdout);
+        const updateSelected = spawnSync(process.execPath, [cli, "update", updateRoot, "--agents", selected], { encoding: "utf8" });
+        assert.equal(updateSelected.status, 0, `${selected}: ${updateSelected.stderr || updateSelected.stdout}`);
+        const updatedManifest = JSON.parse(await readFile(path.join(updateRoot, ".plan-build-qa/manifest.json"), "utf8"));
+        assert.deepEqual(updatedManifest.agents, selection, `${selected}: manifest preserva a ordem do update`);
+        for (const [agent, relativePath] of Object.entries(skillPaths)) {
+          const absolutePath = path.join(updateRoot, relativePath);
+          assert.equal(existsSync(`${absolutePath}.pbq-new`), false, `${selected}: update nao cria .pbq-new`);
+          assert.equal(existsSync(absolutePath), selection.includes(agent), `${selected}: update mantem apenas ${agent} selecionado`);
+          if (!selection.includes(agent)) continue;
+          const content = await readFile(absolutePath, "utf8");
+          if (agent === primary) assert.equal(content, canonicalSpec, `${selected}: update gera conteudo integral em ${primary}`);
+          else {
+            assert.ok(content.includes(skillPaths[primary]), `${selected}: update referencia ${primary}`);
+            if (agent === "codex" || agent === "claude") {
+              assert.match(content, /^---\nname: spec\n/, `${selected}: update preserva frontmatter de ${agent}`);
+            }
+          }
+        }
+      } finally {
+        await rm(updateRoot, { recursive: true, force: true });
+      }
+    } finally {
+      await rm(selectionRoot, { recursive: true, force: true });
+    }
+  }
+
+  const trimRoot = await mkdtemp(path.join(tmpdir(), "pbq-agent-trim-"));
+  try {
+    const initCursorOnly = spawnSync(process.execPath, [cli, "init", trimRoot, "--agents", "cursor"], { encoding: "utf8" });
+    assert.equal(initCursorOnly.status, 0, initCursorOnly.stderr || initCursorOnly.stdout);
+    const commandPath = path.join(trimRoot, skillPaths.cursor);
+    const withEdgeWhitespace = `  \n\n${canonicalSpec}\n \n`;
+    await writeFile(commandPath, withEdgeWhitespace, "utf8");
+    const updateTrim = spawnSync(process.execPath, [cli, "update", trimRoot, "--agents", "cursor"], { encoding: "utf8" });
+    assert.equal(updateTrim.status, 0, updateTrim.stderr || updateTrim.stdout);
+    assert.equal(await readFile(commandPath, "utf8"), withEdgeWhitespace, "update preserva conteudo equivalente");
+    assert.equal(existsSync(`${commandPath}.pbq-new`), false, "update nao gera candidato por whitespace nas extremidades");
+  } finally {
+    await rm(trimRoot, { recursive: true, force: true });
+  }
+
+  const directUpdateRoot = await mkdtemp(path.join(tmpdir(), "pbq-direct-update-"));
+  try {
+    const initCursor = spawnSync(process.execPath, [cli, "init", directUpdateRoot, "--agents", "cursor"], { encoding: "utf8" });
+    assert.equal(initCursor.status, 0, initCursor.stderr || initCursor.stdout);
+    const cursorPath = path.join(directUpdateRoot, ".cursor/commands/spec.md");
+    const manifestPath = path.join(directUpdateRoot, ".plan-build-qa/manifest.json");
+    const roadmapPath = path.join(directUpdateRoot, ".plan-build-qa/roadmap.md");
+    const sensorsPath = path.join(directUpdateRoot, ".plan-build-qa/sensors.json");
+    await writeFile(cursorPath, "cursor customizado\n", "utf8");
+    await writeFile(roadmapPath, "# Roadmap local\n\nPreservar este estado.\n", "utf8");
+    const localSensors = JSON.stringify({ version: 2, sensors: [{ name: "local-only", command: "echo ok", on: ["manual"] }] }, null, 2) + "\n";
+    await writeFile(sensorsPath, localSensors, "utf8");
+    const oldManifest = await readFile(manifestPath, "utf8");
+
+    const dryRunUpdate = spawnSync(process.execPath, [cli, "update", directUpdateRoot, "--agents", "claude,codex,cursor", "--dry-run"], { encoding: "utf8" });
+    assert.equal(dryRunUpdate.status, 0, dryRunUpdate.stderr || dryRunUpdate.stdout);
+    assert.match(dryRunUpdate.stdout, /Updated:/);
+    assert.equal(await readFile(cursorPath, "utf8"), "cursor customizado\n", "dry-run nao escreve o comando");
+    assert.equal(await readFile(manifestPath, "utf8"), oldManifest, "dry-run nao escreve manifest");
+    assert.equal(existsSync(`${cursorPath}.pbq-new`), false, "dry-run nao cria candidato");
+
+    const directUpdate = spawnSync(process.execPath, [cli, "update", directUpdateRoot, "--agents", "claude,codex,cursor"], { encoding: "utf8" });
+    assert.equal(directUpdate.status, 0, directUpdate.stderr || directUpdate.stdout);
+    assert.match(await readFile(cursorPath, "utf8"), /\.claude\/skills\/spec\/SKILL\.md/, "update sobrescreve comando customizado com referencia prioritaria");
+    assert.equal(existsSync(`${cursorPath}.pbq-new`), false, "update nao cria candidato");
+    const updatedManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    assert.deepEqual(updatedManifest.agents, ["claude", "codex", "cursor"], "manifest original atualiza a selecao");
+    assert.equal(existsSync(`${manifestPath}.pbq-new`), false, "manifest nao cria candidato");
+    assert.equal(await readFile(roadmapPath, "utf8"), "# Roadmap local\n\nPreservar este estado.\n", "roadmap local e preservado");
+    assert.equal(await readFile(sensorsPath, "utf8"), localSensors, "sensores locais sao preservados");
+  } finally {
+    await rm(directUpdateRoot, { recursive: true, force: true });
+  }
+
+  const constitutionRoot = await mkdtemp(path.join(tmpdir(), "pbq-constitution-review-"));
+  try {
+    const initConstitution = spawnSync(process.execPath, [cli, "init", constitutionRoot, "--agents", "codex"], { encoding: "utf8" });
+    assert.equal(initConstitution.status, 0, initConstitution.stderr || initConstitution.stdout);
+    const architectureKey = ".plan-build-qa/constitution/architecture.md";
+    const testingKey = ".plan-build-qa/constitution/testing.md";
+    const operationsKey = ".plan-build-qa/constitution/operations.md";
+    const architecturePath = path.join(constitutionRoot, architectureKey);
+    const testingPath = path.join(constitutionRoot, testingKey);
+    const operationsPath = path.join(constitutionRoot, operationsKey);
+    const manifestPath = path.join(constitutionRoot, ".plan-build-qa/manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    const oldArchitectureHash = manifest.files[architectureKey].sha256;
+    const localArchitecture = `${await readFile(architecturePath, "utf8")}\n## Decisao local MAX\n\nPreservar esta regra.\n`;
+    const localOperations = "# Constitution: Operations\n\nRegra local sem baseline.\n";
+    const oldTesting = "# Constitution: Testing\n\nVersao gerenciada antiga.\n";
+    await writeFile(architecturePath, localArchitecture, "utf8");
+    await writeFile(operationsPath, localOperations, "utf8");
+    await writeFile(testingPath, oldTesting, "utf8");
+    manifest.files[testingKey].sha256 = sha256Text(oldTesting);
+    delete manifest.files[operationsKey];
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+    const beforeDryRunManifest = await readFile(manifestPath, "utf8");
+
+    const reviewDryRun = spawnSync(process.execPath, [cli, "update", constitutionRoot, "--agents", "codex", "--dry-run"], { encoding: "utf8" });
+    assert.equal(reviewDryRun.status, 0, reviewDryRun.stderr || reviewDryRun.stdout);
+    assert.match(reviewDryRun.stdout, /\| \.plan-build-qa\/constitution\/architecture\.md \| preservado para revisao \| alterado localmente \|/);
+    assert.match(reviewDryRun.stdout, /\| \.plan-build-qa\/constitution\/operations\.md \| preservado para revisao \| sem versao anterior confiavel \|/);
+    assert.match(reviewDryRun.stdout, /\| \.plan-build-qa\/constitution\/testing\.md \| atualizaria \| versao gerada diferente \|/);
+    assert.equal(await readFile(architecturePath, "utf8"), localArchitecture, "dry-run preserva architecture");
+    assert.equal(await readFile(testingPath, "utf8"), oldTesting, "dry-run preserva testing");
+    assert.equal(await readFile(manifestPath, "utf8"), beforeDryRunManifest, "dry-run preserva manifest");
+
+    const reviewUpdate = spawnSync(process.execPath, [cli, "update", constitutionRoot, "--agents", "codex"], { encoding: "utf8" });
+    assert.equal(reviewUpdate.status, 0, reviewUpdate.stderr || reviewUpdate.stdout);
+    assert.equal((reviewUpdate.stdout.match(/^\| \.plan-build-qa\/constitution\/[^|]+ \|/gm) || []).length, 4, "update lista cada constitution uma vez");
+    assert.equal((reviewUpdate.stdout.match(/\[pbq\] Constitution:/g) || []).length, 1, "update imprime uma tabela de constitution");
+    assert.doesNotMatch(reviewUpdate.stdout, /\[pbq\] Constitution preservada para revisao/, "update nao duplica linhas individuais");
+    assert.match(reviewUpdate.stdout, /\| \.plan-build-qa\/constitution\/testing\.md \| atualizado \| versao gerada diferente \|/);
+    assert.match(reviewUpdate.stdout, /\| \.plan-build-qa\/constitution\/architecture\.md \| preservado para revisao \| alterado localmente \|/);
+    assert.equal(await readFile(architecturePath, "utf8"), localArchitecture, "constitution local alterada e preservada");
+    assert.equal(await readFile(operationsPath, "utf8"), localOperations, "constitution sem baseline e preservada");
+    assert.doesNotMatch(await readFile(testingPath, "utf8"), /Versao gerenciada antiga/, "constitution igual ao hash anterior recebe update");
+    assert.equal(existsSync(`${architecturePath}.pbq-new`), false, "revisao nao cria candidato");
+    const reviewedManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    assert.equal(reviewedManifest.files[architectureKey].sha256, oldArchitectureHash, "manifest retém hash anterior da constitution preservada");
+    assert.equal(Object.hasOwn(reviewedManifest.files, operationsKey), false, "manifest nao inventa baseline para constitution preservada");
+    assert.equal(reviewedManifest.files[testingKey].sha256, sha256Text(await readFile(testingPath, "utf8")), "manifest registra constitution atualizada");
+
+    const forcedUpdate = spawnSync(process.execPath, [cli, "update", constitutionRoot, "--agents", "codex", "--force"], { encoding: "utf8" });
+    assert.equal(forcedUpdate.status, 0, forcedUpdate.stderr || forcedUpdate.stdout);
+    assert.doesNotMatch(await readFile(architecturePath, "utf8"), /Decisao local MAX/, "force substitui constitution revisada");
+    assert.doesNotMatch(await readFile(operationsPath, "utf8"), /Regra local sem baseline/, "force substitui constitution sem baseline");
+    const forcedManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    assert.equal(forcedManifest.files[architectureKey].sha256, sha256Text(await readFile(architecturePath, "utf8")));
+    assert.equal(forcedManifest.files[operationsKey].sha256, sha256Text(await readFile(operationsPath, "utf8")));
+
+    const equivalentArchitecture = ` \n${await readFile(architecturePath, "utf8")}\n \n`;
+    await writeFile(architecturePath, equivalentArchitecture, "utf8");
+    const equivalentUpdate = spawnSync(process.execPath, [cli, "update", constitutionRoot, "--agents", "codex"], { encoding: "utf8" });
+    assert.equal(equivalentUpdate.status, 0, equivalentUpdate.stderr || equivalentUpdate.stdout);
+    assert.equal(await readFile(architecturePath, "utf8"), equivalentArchitecture, "constitution equivalente apos trim nao e reescrita");
+    const equivalentManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    assert.equal(equivalentManifest.files[architectureKey].sha256, sha256Text(equivalentArchitecture), "manifest registra bytes realmente mantidos");
+  } finally {
+    await rm(constitutionRoot, { recursive: true, force: true });
   }
 
   const cursorPreserveRoot = await mkdtemp(path.join(tmpdir(), "pbq-cursor-preserve-"));

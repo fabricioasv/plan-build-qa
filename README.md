@@ -19,9 +19,10 @@ node .\bin\pbq.mjs init C:\caminho\do\repo --agents claude
 ```
 
 `--agents` e obrigatorio (valores: `claude`, `codex`, `cursor`, separados por virgula) a menos que
-`--no-agent-integration` seja usado. `cursor` gera `.cursor/commands/<skill>.md` alem de
-`.agents/skills/<skill>/SKILL.md` (mesma pasta usada por `codex`); `AGENTS.md` continua sendo a
-referencia para `codex` e `cursor`, e `CLAUDE.md` para `claude`.
+`--no-agent-integration` seja usado. O primeiro agente informado em `--agents` recebe o conteudo
+integral das skills; os demais recebem uma referencia direta a ele. Cursor isolado recebe o
+conteudo integral em `.cursor/commands/<skill>.md`; `.agents/skills`
+e gerado quando Codex e selecionado. No PowerShell, use aspas em listas com mais de um agente.
 
 Comandos:
 
@@ -48,7 +49,7 @@ pbq help package
 pbq help run
 ```
 
-- `--force`: permite sobrescrever arquivos do harness gerados anteriormente.
+- `--force`: permite sobrescrever arquivos no `init` e, no `update`, substitui arquivos locais de `constitution/` apos revisao.
 - `--dry-run`: mostra o que seria criado ou alterado, sem escrever.
 - `--no-agent-integration`: nao adiciona a secao "Harness Engineering" em arquivos de instrucao.
 
@@ -104,7 +105,7 @@ templates/
 
 Isso permite evoluir `spec.md`, `contract.md`, `progress.md`, `evaluation.md` e prompts operacionais sem mexer na logica do CLI.
 
-## Update Seguro
+## Update
 
 `pbq init` nao sobrescreve arquivos existentes. Para atualizar templates e skills de uma instalacao ja existente, use:
 
@@ -112,14 +113,35 @@ Isso permite evoluir `spec.md`, `contract.md`, `progress.md`, `evaluation.md` e 
 pbq update C:\caminho\do\repo --agents claude
 ```
 
-O update usa `.plan-build-qa/manifest.json` para distinguir arquivos ainda iguais ao template de arquivos customizados:
+O update grava diretamente os arquivos gerenciados gerados pelo PBQ:
 
 - arquivo ausente: cria
-- arquivo igual ao template anterior: atualiza automaticamente
-- arquivo customizado: preserva o original e grava um `.pbq-new` ao lado
-- `--force`: sobrescreve mesmo arquivos customizados
+- arquivo diferente do gerado: sobrescreve o original, mesmo que tenha sido customizado
+- arquivo equivalente apos `trim()`: preserva sem reescrever
+- `.plan-build-qa/manifest.json`: atualiza diretamente com a selecao de agentes
 
-`sensors.json` nao e sobrescrito pelo update, porque sensores sao configuracao local do projeto.
+Revise as alteracoes pelo source control. O update nao cria novos arquivos `.pbq-new`.
+
+`sensors.json` e `roadmap.md` nao sao substituidos pelo template no update, porque guardam estado local do projeto.
+Os arquivos de `.plan-build-qa/constitution/` recebem tratamento especial: se ainda coincidirem
+com a versao registrada no manifest, o update aplica a nova versao. Se contiverem alteracoes
+locais ou nao houver historico confiavel, o PBQ preserva o arquivo e lista o caminho para
+revisao manual, sem criar `.pbq-new`. Depois de comparar as regras locais com a versao gerada,
+use `--force` apenas se quiser substitui-las. O CLI nao decide automaticamente se uma regra
+permanente especifica do projeto pode ser descartada.
+
+`pbq init` e `pbq update` mostram uma tabela por arquivo de constitution com o resultado e o
+motivo. Por exemplo:
+
+```text
+[pbq] Constitution:
+| Arquivo | Resultado | Motivo |
+| --- | --- | --- |
+| .plan-build-qa/constitution/architecture.md | preservado para revisao | alterado localmente |
+| .plan-build-qa/constitution/testing.md | atualizado | versao gerada diferente |
+```
+
+No `init`, `preservado` significa que o arquivo ja existia e nao foi analisado semanticamente.
 
 Durante o update, specs materializadas no formato legado `spec-NNN-nome` sao migradas para `spec-YYMMDD-hex-nome`, usando a data de criacao de `spec.md` para `YYMMDD`. O roadmap e atualizado com o novo nome quando a migracao acontece.
 
