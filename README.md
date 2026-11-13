@@ -120,6 +120,28 @@ O update grava diretamente os arquivos gerenciados gerados pelo PBQ:
 - arquivo equivalente apos `trim()`: preserva sem reescrever
 - `.plan-build-qa/manifest.json`: atualiza diretamente com a selecao de agentes
 
+O init e o update tambem padronizam skills locais em `.claude/skills/<nome>/SKILL.md`,
+`.agents/skills/<nome>/SKILL.md` e `.cursor/commands/<nome>.md`. O primeiro agente
+em `--agents` recebe o conteudo integral; os demais selecionados recebem referencias
+diretas. Se o principal ainda nao tiver a skill, o conteudo e obtido de uma copia
+existente, resolvendo referencias PBQ antes de escrever. Skills exclusivas de agentes
+nao selecionados permanecem intocadas.
+
+A skill do primeiro agente e a base: conteudos divergentes e referencias antigas
+nos demais selecionados sao substituidos automaticamente por referencias diretas,
+sem precisar de `--force`. Recursos auxiliares da fonte principal sao preservados e
+copiados ao mudar a fonte; recursos exclusivos ou divergentes dos secundarios
+permanecem no disco, mas nao sao incorporados ao principal. Somente referencias PBQ
+quebradas/circulares da fonte principal bloqueiam antes das escritas. Se o principal
+nao tiver a skill, vale a primeira copia existente na ordem informada.
+No init, essa normalizacao abrange skills locais existentes, preservando as regras
+gerais de criacao dos outros arquivos. Para comandos Cursor, recursos
+locais devem ficar em `.cursor/commands/<nome>/`, referenciados por `<nome>/...`;
+arquivos compartilhados fora dessa pasta nao sao migrados automaticamente.
+Links simbolicos nao sao seguidos. `--dry-run` exibe o plano sem escrever.
+Skills locais nao entram no manifest de templates do PBQ e nao sao removidas ao
+retirar um agente de `--agents`. `--no-agent-integration` pula essa normalizacao.
+
 Revise as alteracoes pelo source control. O update nao cria novos arquivos `.pbq-new`.
 
 `sensors.json` e `roadmap.md` nao sao substituidos pelo template no update, porque guardam estado local do projeto.
@@ -227,6 +249,18 @@ Para acompanhar ao vivo durante a execucao:
 ```powershell
 pbq dashboard . --serve --watch --port 4173
 ```
+
+O HTML inclui indicadores globais, distribuicao de specs e um fluxo interativo de cinco
+etapas: especificar, validar contrato, implementar, testar/avaliar e atualizar roadmap.
+Selecione uma spec e um package, ou use **Ver fluxo** na tabela. Cada etapa mostra
+estado e caminho da evidencia; os sensores do package aparecem logo abaixo.
+
+O dashboard diferencia conclusao **declarada** em `progress.md`, resultado **confirmado**
+por evaluation e sensores registrados, pendencia explicita e **sem registro**.
+Arquivo existente nao comprova execucao de uma skill; o quadro do progress so vale
+para o package atual identificado. Falta de registro nao prova que a etapa nao ocorreu.
+Score 1 com sensores obrigatorios ausentes ou contraditorios aparece como divergencia.
+O layout funciona offline e adapta o fluxo para uma coluna em telas pequenas.
 
 O servidor local escreve os snapshots no diretorio `.plan-build-qa/dashboard/` e serve `http://127.0.0.1:4173/` sem depender de internet ou dependencias extras.
 

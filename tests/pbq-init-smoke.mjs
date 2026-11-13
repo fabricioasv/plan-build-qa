@@ -632,61 +632,43 @@ Score: 1
     const writtenJson = JSON.parse(await readFile(path.join(dashboardOutDir, "status.json"), "utf8"));
     assert.equal(writtenJson.schemaVersion, 1, "AC6: arquivo escrito com schema esperado");
     const writtenHtml = await readFile(path.join(dashboardOutDir, "index.html"), "utf8");
-    assert.match(writtenHtml, /PBQ Dashboard/, "AC1/AC3: html gerado");
-    assert.match(writtenHtml, /Totais Gerais/, "AC1: topo agrupa os totais gerais");
-    assert.match(writtenHtml, /Status/, "AC1: topo mostra contadores por status");
-    assert.match(writtenHtml, /status: em andamento/, "AC1: contador de status visivel");
-    assert.match(writtenHtml, /status: planejado/, "AC1: contador de status planejado visivel");
-    assert.match(writtenHtml, /Integridade/, "AC1: topo mostra contadores por integridade");
-    assert.match(writtenHtml, /integridade: healthy/, "AC1: contador healthy visivel");
-    assert.match(writtenHtml, /integridade: warning/, "AC1: contador warning visivel");
-    assert.match(writtenHtml, /integridade: critical/, "AC1: contador critical visivel");
-    assert.match(writtenHtml, /main\s*\{\s*width:\s*100%/i, "AC1: pagina full-width");
-    assert.match(writtenHtml, /spec-001-demo/, "AC2: spec materializada no HTML");
-    assert.match(writtenHtml, /spec-002-planned-only/, "AC2: spec so no roadmap no HTML");
-    assert.match(writtenHtml, /missing-sensor/, "motivo da integridade deve substituir o subtitulo quando nao for healthy");
-    assert.match(writtenHtml, /gantt-grid/, "AC2: grade gantt principal");
-    assert.match(writtenHtml, /dashboard-filters/, "AC1: controles de filtro presentes");
-    assert.match(writtenHtml, /filter-spec-text/, "AC2: filtro por texto presente");
-    assert.match(writtenHtml, /filter-spec-status/, "AC2: filtro por status presente");
-    assert.match(writtenHtml, /filter-spec-integrity/, "AC2: filtro por integridade presente");
-    assert.match(writtenHtml, /filter-spec-sort/, "AC2: seletor de ordenacao presente");
-    assert.match(writtenHtml, /mais atual -> mais antiga/, "AC2: ordenacao default descrita no HTML");
-    assert.match(writtenHtml, /Legenda da grade de execucao/, "AC1: legenda da grade presente");
-    assert.match(writtenHtml, /healthy[\s\S]*warning[\s\S]*critical/, "AC2: legenda explica cores de integridade");
-    assert.match(writtenHtml, /SOON[\s\S]*pendente/, "AC3\/AC4: legenda explica marcador pendente");
-    assert.match(writtenHtml, /Integridade<\/span>/, "AC2: coluna integridade");
-    assert.match(writtenHtml, /Status<\/span>/, "AC2: coluna status");
-    assert.match(writtenHtml, /Packages<\/span>/, "AC3: coluna packages");
-    assert.match(writtenHtml, /Evaluations<\/span>/, "AC3: coluna evaluations");
-    assert.match(writtenHtml, /✅/, "AC4: emoji de etapa concluida");
-    assert.match(writtenHtml, /<span class="stage-icon-soon"><span class="arrow">↑<\/span><span>SOON<\/span><\/span>/, "AC4: pendente usa marcador SOON");
-    assert.match(writtenHtml, /∅/, "AC5: simbolo de nao-aplicavel atualizado");
-    assert.doesNotMatch(writtenHtml, /Kanban/, "AC1: secao kanban removida");
-    assert.doesNotMatch(writtenHtml, /background:\s*rgba\(255,255,255,0\.55\)/, "AC4: celulas sem background");
-    assert.match(writtenHtml, /font-size:\s*13px;\s*\}/, "AC3: tipografia da grade mais compacta");
-    assert.match(writtenHtml, /contract: yes/, "AC4: contract visivel por package");
-    assert.match(writtenHtml, /evaluation: yes/, "AC4: evaluation visivel por package");
-    assert.match(writtenHtml, /score: 1/, "AC4: score visivel por package");
-    assert.match(writtenHtml, /gantt-detail-row/, "AC2: detalhe vira linha abaixo da spec");
-    assert.match(writtenHtml, /gantt-detail-cell/, "AC2: detalhe ocupa linha dedicada");
-    assert.match(writtenHtml, /data-spec-name=/, "AC4: linhas carregam metadados para filtro");
-    assert.match(writtenHtml, /data-spec-updated-at=/, "AC4: linhas carregam metadados para ordenacao");
-    assert.match(writtenHtml, /applyDashboardFilters/, "AC3: script de filtro presente");
-    assert.match(writtenHtml, /applyDashboardSort/, "AC3: script de ordenacao presente");
-    assert.match(writtenHtml, /<details class="gantt-collapse">/, "AC2: fluxo por spec vira colapso");
-    assert.match(writtenHtml, /ver packages \(1\)/, "AC2: colapso exposto por spec");
-    assert.match(writtenHtml, /collapse-package/, "AC3: packages ficam dentro do colapso");
-    assert.doesNotMatch(writtenHtml, /Fluxo<\/span>/, "AC1: linha principal nao usa coluna de fluxo");
-    assert.doesNotMatch(writtenHtml, /spec-flow/, "AC4: secao separada de fluxo removida");
-    assert.doesNotMatch(writtenHtml, /flow-table/, "AC4: grade separada de fluxo removida");
-    assert.doesNotMatch(writtenHtml, /flow-card/, "AC1: fluxo nao usa mais cards");
-    assert.match(writtenHtml, /integrity-matrix/, "AC3: secao integridade");
-    assert.match(writtenHtml, /pbq-dashboard-data/, "AC4: payload embutido");
-    assert.ok(
-      writtenHtml.indexOf("spec-001-demo") < writtenHtml.indexOf("spec-002-planned-only"),
-      "AC6: HTML inicial respeita ordenacao default por data mais recente"
-    );
+    assert.match(writtenHtml, /PBQ Dashboard/);
+    assert.match(writtenHtml, /class="topbar"/);
+    assert.match(writtenHtml, /class="metrics"/);
+    assert.match(writtenHtml, /Registro das etapas/);
+    assert.match(writtenHtml, /Distribuicao das specs/);
+    assert.match(writtenHtml, /conic-gradient/);
+    assert.match(writtenHtml, /id="pbq-flow"/);
+    assert.match(writtenHtml, /id="flow-spec"/);
+    assert.match(writtenHtml, /id="flow-package"/);
+    assert.match(writtenHtml, /aria-label="Etapas PBQ"/);
+    assert.match(writtenHtml, /Concluido \(declarado\)/);
+    assert.match(writtenHtml, /Confirmado por evaluation/);
+    assert.match(writtenHtml, /Sem registro/);
+    assert.match(writtenHtml, /Nao se aplica/);
+    assert.match(writtenHtml, /contrato nao comprova|existencia do arquivo nao comprova/);
+    assert.match(writtenHtml, /data-flow-state="conflict"/, "Score 1 sem sensor obrigatorio deve sinalizar divergencia");
+    assert.match(writtenHtml, /data-flow-state="running"/);
+    assert.match(writtenHtml, /data-flow-state="pending"/);
+    assert.match(writtenHtml, /missing-sensor/);
+    assert.match(writtenHtml, /spec-002-planned-only/);
+    assert.match(writtenHtml, /main\s*\{\s*width:\s*100%/i);
+    for (const id of ["filter-spec-text", "filter-spec-status", "filter-spec-integrity", "filter-spec-sort", "filter-empty", "filter-count", "integrity-matrix", "pbq-dashboard-data"]) {
+      assert.ok(writtenHtml.includes(`id="${id}"`), `controle/estado preservado: ${id}`);
+    }
+    assert.match(writtenHtml, /applyDashboardFilters/);
+    assert.match(writtenHtml, /applyDashboardSort/);
+    assert.match(writtenHtml, /Ver packages \(1\)/);
+    assert.match(writtenHtml, /Contrato: presente/);
+    assert.match(writtenHtml, /Evaluation: presente/);
+    assert.match(writtenHtml, /Score: 1/);
+    assert.match(writtenHtml, /sensores do package/i);
+    assert.match(writtenHtml, /Indicadores do topo representam o projeto inteiro/);
+    assert.match(writtenHtml, /@media\(max-width:800px\)/);
+    assert.doesNotMatch(writtenHtml, /<(?:script|link)[^>]+(?:src|href)=["']https?:/, "snapshot funciona sem recursos externos");
+    assert.ok(writtenHtml.indexOf("spec-001-demo") < writtenHtml.indexOf("spec-002-planned-only"));
+    assert.deepEqual(materialized.artifacts, { spec: true, progress: true, roadmap: true });
+    assert.deepEqual(plannedOnly.artifacts, { spec: false, progress: false, roadmap: true });
 
     const serverPort = 43173;
     const liveDir = path.join(dashboardFixtureRoot, "dashboard-live");
@@ -732,6 +714,103 @@ Score: 1
     }
   } finally {
     await rm(dashboardFixtureRoot, { recursive: true, force: true });
+  }
+
+  // A current progress board is not evidence for historical packages.
+  const flowRoot = await mkdtemp(path.join(tmpdir(), "pbq-flow-evidence-"));
+  try {
+    const harness = path.join(flowRoot, ".plan-build-qa");
+    const specDir = path.join(harness, "specs/spec-001-flow");
+    const output = path.join(flowRoot, "out");
+    await mkdir(path.join(specDir, "contracts"), { recursive: true });
+    await mkdir(path.join(specDir, "evaluations"), { recursive: true });
+    await writeFile(path.join(harness, "roadmap.md"), `| Spec | Status | Package Atual | Ultima Atualizacao | Evidencia | Proxima Acao |
+| --- | --- | --- | --- | --- | --- |
+| spec-001-flow | em andamento | 2 | 2026-11-12 | - | - |
+`);
+    await writeFile(path.join(specDir, "spec.md"), `# Spec: flow
+
+## Packages
+
+| Package | Objetivo | Estado | Sensores |
+| --- | --- | --- | --- |
+| 1 | Old | concluido | one |
+| 2 | Current | em andamento | one |
+`);
+    const progress = `# Progress
+
+## Package Atual
+Package 2
+
+| Etapa | Status |
+| --- | --- |
+| 1. spec | ok |
+| 2. contract (validacao) | pendente |
+| 3. implement | em andamento |
+| 4. test/qa | nao-aplicavel |
+| 5. roadmap | falhou |
+`;
+    await writeFile(path.join(specDir, "progress.md"), progress);
+    const contract = `# Contract
+
+## Sensores Obrigatorios
+
+| Sensor | Scope | Comando | Motivo |
+| --- | --- | --- | --- |
+| one | local | echo ok | Test |
+`;
+    await writeFile(path.join(specDir, "contracts/package-1.md"), contract);
+    await writeFile(path.join(specDir, "contracts/package-2.md"), contract);
+    const evaluation = `# Evaluation
+
+Score: 1
+
+| Sensor | Tier | Obrigatorio | Status | Comando | Exit Code | Evidencia |
+| --- | --- | --- | --- | --- | --- | --- |
+| one | - | sim | passou | echo ok | 0 | ok |
+`;
+    await writeFile(path.join(specDir, "evaluations/package-1.md"), evaluation);
+    const generateFlow = async () => {
+      const result = spawnSync(process.execPath, [cli, "dashboard", flowRoot, "--output", output], { encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      return readFile(path.join(output, "index.html"), "utf8");
+    };
+    const template = (html, number) => html.match(new RegExp(`<template id="flow-0-${number}">([\\s\\S]*?)</template>`))?.[1] || "";
+    let html = await generateFlow();
+    const current = template(html, 2), historical = template(html, 1);
+    assert.match(current, /data-stage="2" data-flow-state="pending"/, "contract file does not prove contract-check execution");
+    assert.match(current, /data-stage="3" data-flow-state="running"/);
+    assert.match(current, /data-stage="4" data-flow-state="skipped"/);
+    assert.match(current, /data-stage="5" data-flow-state="failed"/);
+    assert.match(historical, /data-stage="2" data-flow-state="missing"/, "old packages must not inherit the current board");
+    assert.match(historical, /data-stage="3" data-flow-state="missing"/);
+    assert.match(historical, /data-stage="4" data-flow-state="verified"/);
+    assert.doesNotMatch(historical, /data-flow-state="reported"/);
+    await writeFile(path.join(specDir, "evaluations/package-1.md"), evaluation.replace("passou", "pendente"));
+    html = await generateFlow();
+    assert.match(template(html, 1), /data-stage="4" data-flow-state="conflict"/, "Score 1 with pending mandatory sensor is inconsistent");
+    await writeFile(path.join(specDir, "evaluations/package-1.md"), evaluation.replace("Score: 1", "Score: 0").replace("passou", "falhou"));
+    html = await generateFlow();
+    assert.match(template(html, 1), /data-stage="4" data-flow-state="failed"/);
+    await writeFile(path.join(specDir, "progress.md"), progress.replace("Package 2", "Package 3"));
+    html = await generateFlow();
+    assert.match(template(html, 2), /Package atual diverge/);
+    assert.match(template(html, 2), /data-stage="3" data-flow-state="missing"/);
+    await rm(path.join(specDir, "progress.md"));
+    await rm(path.join(specDir, "spec.md"));
+    await writeFile(path.join(specDir, "evaluations/package-1.md"), evaluation.replaceAll("one", '<img src=x onerror="alert(1)">'));
+    html = await generateFlow();
+    assert.match(template(html, 2), /data-stage="1" data-flow-state="missing"/, "directory alone does not prove spec artifact exists");
+    assert.ok(html.includes("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;"));
+    assert.doesNotMatch(html, /<img src=x/, "sensor names must not become executable markup");
+    await rm(path.join(harness, "specs"), { recursive: true, force: true });
+    await writeFile(path.join(harness, "roadmap.md"), "# Empty roadmap\n");
+    html = await generateFlow();
+    assert.match(html, /Nenhuma spec registrada/);
+    assert.match(html, /id="flow-spec" disabled/);
+    assert.doesNotMatch(html, /NaN|Infinity/);
+  } finally {
+    await rm(flowRoot, { recursive: true, force: true });
   }
 
   const analyzeRoot = await mkdtemp(path.join(tmpdir(), "pbq-analyze-"));
@@ -1699,7 +1778,7 @@ Nenhum.
           assert.ok(content.includes(skillPaths[primary]), `${selected}: ${agent} referencia ${primary}`);
           assert.doesNotMatch(content, /Sensor scope in contracts/, `${selected}: ${agent} nao duplica conteudo`);
           if (agent === "codex" || agent === "claude") {
-            assert.match(content, /^---\nname: spec\n/, `${selected}: referencia ${agent} preserva frontmatter`);
+            assert.match(content, /^---\r?\nname: spec\r?\n/, `${selected}: referencia ${agent} preserva frontmatter`);
           }
         }
       }
@@ -1727,7 +1806,7 @@ Nenhum.
           else {
             assert.ok(content.includes(skillPaths[primary]), `${selected}: update referencia ${primary}`);
             if (agent === "codex" || agent === "claude") {
-              assert.match(content, /^---\nname: spec\n/, `${selected}: update preserva frontmatter de ${agent}`);
+              assert.match(content, /^---\r?\nname: spec\r?\n/, `${selected}: update preserva frontmatter de ${agent}`);
             }
           }
         }
@@ -1736,6 +1815,143 @@ Nenhum.
       }
     } finally {
       await rm(selectionRoot, { recursive: true, force: true });
+    }
+  }
+
+  // Local skills follow the same first-agent rule, without losing instructions or resources.
+  const localRoot = await mkdtemp(path.join(tmpdir(), "pbq-local-skills-"));
+  try {
+    const runLocal = (args) => spawnSync(process.execPath, [cli, ...args, localRoot,
+      "--agents", "claude,codex,cursor"], { encoding: "utf8" });
+    let result = runLocal(["init"]);
+    assert.equal(result.status, 0, result.stderr);
+    const custom = "---\nname: local-demo\ndescription: Custom instructions\n---\n\n# Local\nRead local-demo/data.bin.\n";
+    const claudePath = path.join(localRoot, ".claude/skills/local-demo/SKILL.md");
+    const codexPath = path.join(localRoot, ".agents/skills/local-demo/SKILL.md");
+    const cursorPath = path.join(localRoot, ".cursor/commands/local-demo.md");
+    await mkdir(path.dirname(codexPath), { recursive: true });
+    await mkdir(path.join(path.dirname(codexPath), "local-demo"), { recursive: true });
+    await writeFile(codexPath, custom);
+    const binary = Buffer.from([0, 255, 128, 42]);
+    await writeFile(path.join(path.dirname(codexPath), "local-demo/data.bin"), binary);
+    result = runLocal(["update", "--dry-run"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(existsSync(claudePath), false, "dry-run must not create local skills");
+    assert.equal(await readFile(codexPath, "utf8"), custom);
+    result = runLocal(["update"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(await readFile(claudePath, "utf8"), custom);
+    assert.match(await readFile(codexPath, "utf8"), /conforme `\.claude\/skills\/local-demo\/SKILL\.md`/);
+    assert.match(await readFile(cursorPath, "utf8"), /conforme `\.claude\/skills\/local-demo\/SKILL\.md`/);
+    assert.deepEqual(await readFile(path.join(path.dirname(claudePath), "local-demo/data.bin")), binary);
+    const before = await readFile(codexPath, "utf8");
+    result = runLocal(["update"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(await readFile(codexPath, "utf8"), before, "second update must be stable");
+    for (const selection of ["codex,cursor,claude", "cursor,claude,codex", "claude,codex,cursor"]) {
+      result = spawnSync(process.execPath, [cli, "update", localRoot, "--agents", selection], { encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr);
+      const primaryPath = selection.startsWith("codex") ? codexPath : selection.startsWith("cursor") ? cursorPath : claudePath;
+      assert.equal(await readFile(primaryPath, "utf8"), custom, "changing primary must resolve the old wrapper");
+      assert.deepEqual(await readFile(path.join(path.dirname(primaryPath), "local-demo/data.bin")), binary);
+    }
+    const managed = path.join(localRoot, ".claude/skills/spec/SKILL.md");
+    await writeFile(codexPath, "divergent local instructions");
+    result = runLocal(["update"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(await readFile(claudePath, "utf8"), custom, "primary instructions remain authoritative");
+    assert.equal(await readFile(codexPath, "utf8"), before, "divergent secondary becomes a direct wrapper");
+    await writeFile(path.join(path.dirname(codexPath), "local-demo/data.bin"), "secondary resource");
+    await writeFile(path.join(path.dirname(codexPath), "secondary-only.txt"), "keep locally");
+    result = runLocal(["update"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(await readFile(path.join(path.dirname(claudePath), "local-demo/data.bin")), binary);
+    assert.equal(await readFile(path.join(path.dirname(codexPath), "local-demo/data.bin"), "utf8"), "secondary resource");
+    assert.equal(existsSync(path.join(path.dirname(claudePath), "secondary-only.txt")), false);
+    await writeFile(codexPath, before.replace(".claude/skills/local-demo/SKILL.md", ".agents/skills/local-demo/SKILL.md"));
+    result = runLocal(["update"]);
+    assert.equal(result.status, 0, result.stderr, "circular secondary reference is replaced");
+    assert.equal(await readFile(codexPath, "utf8"), before);
+    await writeFile(codexPath, before.replace(".claude/skills/local-demo/SKILL.md", ".claude/skills/missing/SKILL.md"));
+    result = runLocal(["update"]);
+    assert.equal(result.status, 0, result.stderr, "broken secondary reference is replaced");
+    assert.equal(await readFile(codexPath, "utf8"), before);
+    const selfReference = before;
+    await writeFile(claudePath, selfReference);
+    await writeFile(managed, "must stay until preflight passes");
+    result = runLocal(["update"]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /referencia circular/);
+    assert.equal(await readFile(managed, "utf8"), "must stay until preflight passes");
+    await writeFile(claudePath, before.replace(".claude/skills/local-demo/SKILL.md", ".claude/skills/missing/SKILL.md"));
+    result = runLocal(["update"]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /referencia quebrada/);
+    result = spawnSync(process.execPath, [cli, "update", localRoot, "--no-agent-integration"], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(await readFile(claudePath, "utf8"), /missing/);
+    await writeFile(claudePath, custom);
+    await writeFile(codexPath, custom);
+    result = spawnSync(process.execPath, [cli, "update", localRoot, "--agents", "codex"], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(existsSync(claudePath), "unselected local skills must remain");
+    const unrelated = path.join(localRoot, ".claude/skills/only-unselected/SKILL.md");
+    await mkdir(path.dirname(unrelated), { recursive: true });
+    await writeFile(unrelated, "exclusive instructions");
+    result = spawnSync(process.execPath, [cli, "update", localRoot, "--agents", "codex"], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(existsSync(path.join(localRoot, ".agents/skills/only-unselected/SKILL.md")), false);
+  } finally {
+    await rm(localRoot, { recursive: true, force: true });
+  }
+
+  // Reproduction of MAX's merge-maxcore: the first agent wins in init and update.
+  for (const command of ["init", "update"]) {
+    for (const selection of ["claude,codex,cursor", "codex,claude,cursor", "cursor,codex,claude"]) {
+      const priorityRoot = await mkdtemp(path.join(tmpdir(), "pbq-primary-base-"));
+      try {
+        if (command === "update") {
+          const setup = spawnSync(process.execPath, [cli, "init", priorityRoot, "--agents", selection], { encoding: "utf8" });
+          assert.equal(setup.status, 0, setup.stderr);
+        }
+        const localPaths = { claude: ".claude/skills/merge-maxcore/SKILL.md", codex: ".agents/skills/merge-maxcore/SKILL.md", cursor: ".cursor/commands/merge-maxcore.md" };
+        const originals = {}, resources = {};
+        for (const [agent, relative] of Object.entries(localPaths)) {
+          originals[agent] = `---\nname: merge-maxcore\ndescription: ${agent} source\n---\n\nInstructions from ${agent}.\n`;
+          const directory = path.dirname(path.join(priorityRoot, relative));
+          await mkdir(path.join(directory, "merge-maxcore"), { recursive: true });
+          await writeFile(path.join(priorityRoot, relative), originals[agent]);
+          resources[agent] = Buffer.from([0, agent.length, 255]);
+          await writeFile(path.join(directory, "merge-maxcore/data.bin"), resources[agent]);
+        }
+        const invoke = (extra = []) => spawnSync(process.execPath, [cli, command, priorityRoot, "--agents", selection, ...extra], { encoding: "utf8" });
+        const dry = invoke(["--dry-run"]);
+        assert.equal(dry.status, 0, dry.stderr);
+        for (const [agent, relative] of Object.entries(localPaths)) assert.equal(await readFile(path.join(priorityRoot, relative), "utf8"), originals[agent]);
+        if (command === "init") assert.equal(existsSync(path.join(priorityRoot, ".plan-build-qa")), false, "init dry-run must not create harness");
+        const applied = invoke();
+        assert.equal(applied.status, 0, applied.stderr || applied.stdout);
+        const primary = selection.split(",")[0];
+        const snapshot = {};
+        for (const [agent, relative] of Object.entries(localPaths)) {
+          const content = await readFile(path.join(priorityRoot, relative), "utf8");
+          if (agent === primary) assert.equal(content, originals[primary], "first agent is the unchanged base");
+          else {
+            assert.ok(content.includes(localPaths[primary]), "secondary references first agent directly");
+            assert.ok(!content.includes(`Instructions from ${agent}.`), "divergent secondary instructions are replaced");
+          }
+          assert.deepEqual(await readFile(path.join(path.dirname(path.join(priorityRoot, relative)), "merge-maxcore/data.bin")), resources[agent], "secondary resources remain untouched");
+          snapshot[agent] = { content, mtimeMs: (await stat(path.join(priorityRoot, relative))).mtimeMs };
+        }
+        const repeated = invoke();
+        assert.equal(repeated.status, 0, repeated.stderr);
+        for (const [agent, relative] of Object.entries(localPaths)) {
+          assert.equal(await readFile(path.join(priorityRoot, relative), "utf8"), snapshot[agent].content);
+          assert.equal((await stat(path.join(priorityRoot, relative))).mtimeMs, snapshot[agent].mtimeMs, "repeat does not rewrite unchanged local files");
+        }
+      } finally {
+        await rm(priorityRoot, { recursive: true, force: true });
+      }
     }
   }
 
